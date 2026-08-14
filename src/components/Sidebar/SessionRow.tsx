@@ -1,13 +1,13 @@
 /**
  * @module components/Sidebar/SessionRow
- * Single session row — full unified click area, Lucide icons.
- *
- * Title + CWD are in ONE <li> so every pixel of the row is clickable.
- * The ⋮ button stops propagation so it doesn't trigger onSelect.
+ * Single session row. Dropdown rendered as a portal to escape
+ * overflow:hidden on the sidebar and sit above all other layers.
  */
-import { Copy, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { Copy, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
 
 import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
@@ -22,18 +22,25 @@ interface SessionRowProps {
   onSelect: () => void;
 }
 
+interface MenuPos { top: number; left: number; }
+
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
   const { pinnedIds, togglePin } = useSessionStore();
   const [menuOpen,   setMenuOpen]   = useState(false);
+  const [menuPos,    setMenuPos]    = useState<MenuPos>({ top: 0, left: 0 });
   const [renameOpen, setRenameOpen] = useState(false);
-  const menuRef  = useRef<HTMLUListElement>(null);
-  const isPinned = pinnedIds.includes(session.id);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef   = useRef<HTMLUListElement>(null);
+  const isPinned  = pinnedIds.includes(session.id);
 
-  // Close dropdown on outside click
+  // Close on outside click
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (
+        menuRef.current  && !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) {
         setMenuOpen(false);
       }
     };
@@ -41,9 +48,28 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  // Close on scroll (portal position would drift)
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = () => setMenuOpen(false);
+    window.addEventListener("scroll", handler, true);
+    return () => window.removeEventListener("scroll", handler, true);
+  }, [menuOpen]);
+
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (menuOpen) { setMenuOpen(false); return; }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuPos({
+      top:  rect.bottom + 4,
+      left: rect.right - 176,  // 176px = w-44 menu width
+    });
+    setMenuOpen(true);
+  };
+
   return (
     <>
-      {/* ONE unified clickable row — no split elements with dead zones */}
       <li
         role="button"
         tabIndex={0}
@@ -53,8 +79,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         className={cn(
           "group relative flex items-center gap-1.5",
           "mx-1.5 px-2 rounded-[var(--radius-sm)]",
-          "py-[6px]",          // top+bottom padding → row feels 38-40px tall with two text lines
-          "cursor-pointer select-none",
+          "py-[6px] cursor-pointer select-none",
           "transition-colors duration-[var(--duration-fast)]",
           isActive
             ? "bg-[var(--color-bg-active)] text-[var(--color-ink-0)]"
@@ -67,24 +92,23 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             w-[2px] h-[18px] rounded-r-full bg-[var(--color-accent)]" />
         )}
 
-        {/* Pin icon */}
         {isPinned && (
           <span className="shrink-0 text-[var(--color-accent)] opacity-60 ml-0.5">
             <Pin size={9} fill="currentColor" strokeWidth={0} />
           </span>
         )}
 
-        {/* Text block — title + cwd, takes all space */}
+        {/* Text */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-1">
             <span className="text-[12.5px] font-medium truncate leading-snug">
               {session.title}
             </span>
-            {/* Timestamp fades out on hover */}
+            {/* Timestamp hides on hover or when menu is open */}
             <span className={cn(
               "shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)] leading-none",
               "transition-opacity duration-[var(--duration-fast)]",
-              (menuOpen) ? "opacity-0" : "group-hover:opacity-0"
+              menuOpen ? "opacity-0" : "group-hover:opacity-0"
             )}>
               {timeAgo(session.modified)}
             </span>
@@ -95,66 +119,73 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
           </span>
         </div>
 
-        {/* ⋮ — absolute overlay, visible on hover ─────────────────────── */}
+        {/* ⋮ button */}
         <div className={cn(
           "absolute right-1.5 top-1/2 -translate-y-1/2",
           "transition-opacity duration-[var(--duration-fast)]",
-          // Stay visible when menu is open — otherwise fades when cursor leaves the row
           menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         )}>
           <button
+            ref={buttonRef}
             aria-label="Session options"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+            aria-expanded={menuOpen}
+            onClick={openMenu}
             className={cn(
               "flex items-center justify-center w-[20px] h-[20px]",
               "rounded-[var(--radius-xs)]",
               "text-[var(--color-ink-7)] hover:text-[var(--color-ink-1)]",
-              "hover:bg-[var(--color-bg-hi)]",
-              "transition-colors duration-[var(--duration-fast)]",
-              menuOpen && "opacity-100 bg-[var(--color-bg-hi)]"
+              "hover:bg-[var(--color-bg-hi)] transition-colors",
+              menuOpen && "bg-[var(--color-bg-hi)] text-[var(--color-ink-1)]"
             )}
           >
             <MoreVertical size={12} strokeWidth={2} />
           </button>
-
-          {/* Dropdown */}
-          {menuOpen && (
-            <ul
-              ref={menuRef}
-              role="menu"
-              className="absolute right-0 top-full mt-1 z-50 w-44
-                bg-[var(--color-bg-2)] border border-[var(--color-border)]
-                rounded-[var(--radius-md)]
-                shadow-[0_8px_32px_rgba(0,0,0,0.55)]
-                py-0.5 overflow-hidden"
-            >
-              <DropdownItem
-                icon={<SquarePen size={12} strokeWidth={1.8} />}
-                onClick={() => { setMenuOpen(false); setRenameOpen(true); }}
-              >
-                Rename
-              </DropdownItem>
-              <DropdownItem
-                icon={isPinned
-                  ? <PinOff size={12} strokeWidth={1.8} />
-                  : <Pin size={12} strokeWidth={1.8} />}
-                onClick={() => { togglePin(session.id); setMenuOpen(false); }}
-              >
-                {isPinned ? "Unpin" : "Pin to top"}
-              </DropdownItem>
-              <DropdownItem
-                icon={<Copy size={12} strokeWidth={1.8} />}
-                onClick={() => {
-                  navigator.clipboard.writeText(session.id);
-                  setMenuOpen(false);
-                }}
-              >
-                Copy session ID
-              </DropdownItem>
-            </ul>
-          )}
         </div>
       </li>
+
+      {/* Dropdown — portal so it escapes sidebar overflow:hidden */}
+      {menuOpen && createPortal(
+        <ul
+          ref={menuRef}
+          role="menu"
+          style={{
+            position: "fixed",
+            top:      menuPos.top,
+            left:     menuPos.left,
+            zIndex:   9999,
+            minWidth: 176,
+          }}
+          className="bg-[var(--color-bg-2)] border border-[var(--color-border)]
+            rounded-[var(--radius-md)]
+            shadow-[0_8px_32px_rgba(0,0,0,0.6)]
+            py-0.5 overflow-hidden"
+        >
+          <DropdownItem
+            icon={<SquarePen size={12} strokeWidth={1.8} />}
+            onClick={() => { setMenuOpen(false); setRenameOpen(true); }}
+          >
+            Rename
+          </DropdownItem>
+          <DropdownItem
+            icon={isPinned
+              ? <PinOff size={12} strokeWidth={1.8} />
+              : <Pin size={12} strokeWidth={1.8} />}
+            onClick={() => { togglePin(session.id); setMenuOpen(false); }}
+          >
+            {isPinned ? "Unpin" : "Pin to top"}
+          </DropdownItem>
+          <DropdownItem
+            icon={<Copy size={12} strokeWidth={1.8} />}
+            onClick={() => {
+              navigator.clipboard.writeText(session.id);
+              setMenuOpen(false);
+            }}
+          >
+            Copy session ID
+          </DropdownItem>
+        </ul>,
+        document.body
+      )}
 
       {renameOpen && (
         <RenameDialog session={session} onClose={() => setRenameOpen(false)} />
