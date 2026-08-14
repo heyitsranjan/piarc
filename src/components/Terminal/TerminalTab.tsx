@@ -110,7 +110,13 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
 
     const unlistenOutput = listen<string>(outputKey, (ev) => {
-      term.write(atob(ev.payload));
+      // Decode base64 → Uint8Array so xterm.js processes raw bytes,
+      // not a binary string where each char is a latin-1 code point.
+      // Passing a string causes multi-byte UTF-8 sequences (e.g. ╭ = 0xE2 0x95 0xAD)
+      // to be misinterpreted as individual characters, producing â­ garbling.
+      const binary = atob(ev.payload);
+      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      term.write(bytes);
     });
 
     const unlistenExit = listen<number>(exitKey, (ev) => {
