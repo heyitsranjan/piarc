@@ -234,9 +234,11 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
 
       {/* ── Live terminal ───────────────────────────────────────────────── */}
       {!tab.isLoading && tab.error === null && (
-        // Padding wrapper — xterm fills the inner div, giving visual breathing room
-        <div className="flex-1 w-full h-full p-3 bg-[#0f0a14]">
-          <div ref={containerRef} className="w-full h-full" />
+        // flex-col: terminal fills all space; 8px spacer below keeps the last
+        // line off the window edge without adding top/bottom padding.
+        <div className="flex-1 w-full flex flex-col bg-[#0f0a14] overflow-hidden min-h-0">
+          <div ref={containerRef} className="flex-1 w-full min-h-0" />
+          <div className="h-2 shrink-0 bg-[#0f0a14]" />
         </div>
       )}
 
