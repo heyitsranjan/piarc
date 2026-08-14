@@ -34,29 +34,29 @@ interface TerminalTabProps {
   isVisible: boolean;
 }
 
-/** xterm.js theme — aligned to omp.sh dark palette. */
+/** xterm.js theme — ANSI palette from Warp dark + HackerRank Pair. */
 const XTERM_THEME = {
-  background: "#0f0a14",
-  foreground: "#d4cfe8",
-  cursor: "#8b7fcf",
-  cursorAccent: "#0f0a14",
-  selectionBackground: "#3d3464",
-  black: "#100e18",
-  red: "#e06c75",
-  green: "#98c379",
-  yellow: "#e5c07b",
-  blue: "#61afef",
-  magenta: "#c678dd",
-  cyan: "#56b6c2",
-  white: "#abb2bf",
-  brightBlack: "#5c6370",
-  brightRed: "#e06c75",
-  brightGreen: "#98c379",
-  brightYellow: "#e5c07b",
-  brightBlue: "#61afef",
-  brightMagenta: "#c678dd",
-  brightCyan: "#56b6c2",
-  brightWhite: "#ffffff",
+  background:          "#0a0b0e",   // canvas bg
+  foreground:          "#f0f1f5",   // primary text
+  cursor:              "#3ddc84",   // accent green cursor
+  cursorAccent:        "#0a0b0e",
+  selectionBackground: "#2a2d36",
+  black:               "#1e2028",
+  red:                 "#f15b5b",
+  green:               "#3ddc84",
+  yellow:              "#f2c94c",
+  blue:                "#4ea1ff",
+  magenta:             "#c792ea",
+  cyan:                "#89ddff",
+  white:               "#c8cdd8",
+  brightBlack:         "#636878",
+  brightRed:           "#ff8272",
+  brightGreen:         "#5ae898",
+  brightYellow:        "#fefdc2",
+  brightBlue:          "#82aaff",
+  brightMagenta:       "#e599f7",
+  brightCyan:          "#89ddff",
+  brightWhite:         "#f0f1f5",
 };
 
 /** Tracks whether a PTY process has exited naturally (distinct from an error). */
@@ -236,9 +236,9 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       {!tab.isLoading && tab.error === null && (
         // flex-col: terminal fills all space; 8px spacer below keeps the last
         // line off the window edge without adding top/bottom padding.
-        <div className="flex-1 w-full flex flex-col bg-[#0f0a14] overflow-hidden min-h-0">
+        <div className="flex-1 w-full flex flex-col bg-[var(--color-bg)] overflow-hidden min-h-0">
           <div ref={containerRef} className="flex-1 w-full min-h-0" />
-          <div className="h-2 shrink-0 bg-[#0f0a14]" />
+          <div className="h-2 shrink-0 bg-[var(--color-bg)]" />
         </div>
       )}
 
@@ -278,7 +278,7 @@ function StateOverlay({ children }: { children: ReactNode }) {
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center
-      gap-3 bg-[#0f0a14]"
+      gap-3 bg-[var(--color-bg)]"
     >
       {children}
     </div>

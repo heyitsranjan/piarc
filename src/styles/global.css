@@ -1,151 +1,148 @@
 @import "tailwindcss";
 
-/* ─── Design tokens — sourced from omp.sh ───────────────────────────────────
-   All colors in OKLCH matching omp.sh's exact palette.
-   Dark is default; light overrides follow.
-   ────────────────────────────────────────────────────────────────────────── */
+/* ─── Design System — Oh My Pi ────────────────────────────────────────────────
+   Synthesised from: HackerRank Pair, Warp, Linear, Vercel Geist, Raycast.
+   Principles:
+     1. Depth via surface stepping — no box-shadows for layout.
+     2. Accent (#3ddc84 green) used max 3 places: active indicator, focus, CTA.
+     3. Border-right 1px separates sidebar from content. No other structural borders.
+     4. Font features always on. 13px base. 32px row height.
+   ─────────────────────────────────────────────────────────────────────────── */
 @theme {
-  /* Background layers */
-  --color-bg:          oklch(13.5% 0.018 295);
-  --color-bg-elev:     oklch(17.2% 0.022 295);
-  --color-bg-2:        oklch(22%   0.025 285);
-  --color-bg-hover:    oklch(22%   0.025 285 / 0.6);
+  /* ── Surfaces ──────────────────────────────────────────────────────────── */
+  --color-bg:           #0a0b0e;   /* app canvas — terminal background */
+  --color-bg-elev:      #0f0a14;   /* sidebar + titlebar chrome — OMP identity */
+  --color-bg-2:         #131418;   /* raised: cards, menus */
+  --color-bg-hover:     #1b1d23;   /* hover */
+  --color-bg-active:    #21242c;   /* selected / active */
+  --color-bg-hi:        #2a2d36;   /* high-contrast: badges */
 
-  /* Borders */
-  --color-border:      oklch(22%   0.025 285 / 0.45);
-  --color-border-2:    oklch(22%   0.025 285 / 0.18);
+  /* ── Borders ────────────────────────────────────────────────────────────── */
+  --color-border:       #1e2028;   /* hairline dividers */
+  --color-border-2:     rgba(255, 255, 255, 0.05); /* subtler, on dark */
+  --color-border-strong: #2d3141;  /* inputs, rings */
 
-  /* Text / ink scale */
-  --color-ink-0:       oklch(96%   0.006 80);
-  --color-ink-1:       oklch(82%   0.014 285);
-  --color-ink-5:       oklch(58%   0.018 285);
-  --color-ink-7:       oklch(42%   0.02  285);
-  --color-ink-9:       oklch(28%   0.02  285);
+  /* ── Text ───────────────────────────────────────────────────────────────── */
+  --color-ink-0: #f0f1f5;   /* primary */
+  --color-ink-1: #9da3b4;   /* secondary */
+  --color-ink-5: #8a8f98;   /* tertiary */
+  --color-ink-7: #636878;   /* muted */
+  --color-ink-9: #404554;   /* disabled */
 
-  /* Accent */
-  --color-accent:      oklch(62%   0.21  295);
-  --color-accent-dim:  oklch(62%   0.21  295 / 0.15);
-  --color-accent-2:    oklch(70%   0.24  340);
-  --color-success:     oklch(78%   0.16  150);
-  --color-warn:        oklch(82%   0.16   90);
-  --color-cyan:        oklch(81%   0.14  200);
-  --color-danger:      oklch(68%   0.22   20);
+  /* ── Accent — HackerRank / Warp green ──────────────────────────────────── */
+  --color-accent:        #3ddc84;
+  --color-accent-hover:  #5ae898;
+  --color-accent-dim:    rgba(61, 220, 132, 0.10);
+  --color-accent-border: rgba(61, 220, 132, 0.25);
 
-  /* Typography */
-  --font-sans:         'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-mono:         'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+  /* ── Semantic ───────────────────────────────────────────────────────────── */
+  --color-success: #3ddc84;
+  --color-warn:    #f2c94c;
+  --color-danger:  #f15b5b;
+  --color-info:    #4ea1ff;
+  --color-cyan:    #89ddff;
 
-  /* Radius */
-  --radius-xs:         3px;
-  --radius-sm:         5px;
-  --radius-md:         8px;
-  --radius-lg:         12px;
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 
-  /* Layout */
-  --sidebar-width:     260px;
-  --titlebar-height:   38px;
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --sidebar-width:   220px;
+  --titlebar-height: 38px;
 
-  /* Transitions */
-  --duration-fast:     100ms;
-  --duration-base:     150ms;
-  --duration-slow:     250ms;
-  --ease-out:          cubic-bezier(0.16, 1, 0.3, 1);
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  --duration-fast: 80ms;
+  --duration-base: 130ms;
+  --duration-slow: 220ms;
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ─── Light mode ─────────────────────────────────────────────────────────── */
+/* ─── Light ───────────────────────────────────────────────────────────────── */
 html.light {
-  --color-bg:          oklch(97%   0.008 90);
-  --color-bg-elev:     oklch(94%   0.006 80);
-  --color-bg-2:        oklch(90%   0.008 80);
-  --color-bg-hover:    oklch(88%   0.008 80 / 0.7);
-  --color-border:      oklch(80%   0.01  80 / 0.5);
-  --color-border-2:    oklch(85%   0.008 80 / 0.35);
-  --color-ink-0:       oklch(13.5% 0.018 295);
-  --color-ink-1:       oklch(25%   0.022 295);
-  --color-ink-5:       oklch(50%   0.022 290);
-  --color-ink-7:       oklch(65%   0.018 285);
-  --color-ink-9:       oklch(78%   0.012 285);
+  --color-bg:       #f5f5f7;
+  --color-bg-elev:  #ececef;
+  --color-bg-2:     #e3e3e8;
+  --color-bg-hover: #dcdce2;
+  --color-border:   rgba(0, 0, 0, 0.08);
+  --color-border-2: rgba(0, 0, 0, 0.04);
+  --color-ink-0:    #0e0f12;
+  --color-ink-1:    #3a3d48;
+  --color-ink-5:    #68697a;
+  --color-ink-7:    #888ca0;
+  --color-ink-9:    #b0b3c4;
 }
 
-/* ─── Base reset ─────────────────────────────────────────────────────────── */
+/* ─── Reset ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
+html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; }
 
 body {
-  background-color: var(--color-bg);
-  color:            var(--color-ink-0);
-  font-family:      var(--font-sans);
-  font-size:        13px;
-  line-height:      1.5;
+  background-color:        var(--color-bg);
+  color:                   var(--color-ink-0);
+  font-family:             var(--font-sans);
+  font-size:               13px;
+  line-height:             1.5;
   -webkit-font-smoothing:  antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings:   "calt", "kern", "liga";
 }
 
-/* ─── Smooth theme transition ────────────────────────────────────────────── */
+/* ─── Theme transition ────────────────────────────────────────────────────── */
 html {
-  transition:
-    background-color var(--duration-slow) var(--ease-out),
-    color            var(--duration-slow) var(--ease-out);
+  transition: background-color var(--duration-slow) var(--ease-out),
+              color            var(--duration-slow) var(--ease-out);
 }
 
-/* ─── Session switch transition ──────────────────────────────────────────── */
-/* Applied to the main content area when the active session changes */
+/* ─── Session switch fade ─────────────────────────────────────────────────── */
 .session-enter {
   animation: sessionFadeIn var(--duration-base) var(--ease-out) both;
 }
-
 @keyframes sessionFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0);   }
 }
 
-/* ─── Sidebar transition ─────────────────────────────────────────────────── */
+/* ─── Sidebar slide ───────────────────────────────────────────────────────── */
 .sidebar-slide {
   transition: width var(--duration-base) var(--ease-out);
 }
 
-/* ─── Command palette backdrop ───────────────────────────────────────────── */
-.palette-backdrop {
-  animation: backdropIn var(--duration-fast) ease both;
-}
-.palette-panel {
-  animation: paletteIn var(--duration-base) var(--ease-out) both;
-}
-
+/* ─── Palette animations ──────────────────────────────────────────────────── */
+.palette-backdrop { animation: backdropIn var(--duration-fast) ease both; }
+.palette-panel    { animation: paletteIn  var(--duration-base) var(--ease-out) both; }
 @keyframes backdropIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 @keyframes paletteIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.99); }
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
-/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background:    var(--color-ink-9);
+  background: var(--color-ink-9);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-ink-7); }
 
-/* ─── Focus ring ─────────────────────────────────────────────────────────── */
+/* ─── Focus ring ──────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline:        2px solid var(--color-accent);
+  outline:        1.5px solid var(--color-accent);
   outline-offset: 2px;
   border-radius:  var(--radius-xs);
 }
 
-/* ─── macOS drag region ──────────────────────────────────────────────────── */
-[data-tauri-drag-region] {
-  -webkit-app-region: drag;
-  user-select:        none;
-}
-button, a, input { -webkit-app-region: no-drag; }
+/* ─── macOS drag region ───────────────────────────────────────────────────── */
+[data-tauri-drag-region] { -webkit-app-region: drag; user-select: none; }
+button, a, input          { -webkit-app-region: no-drag; }

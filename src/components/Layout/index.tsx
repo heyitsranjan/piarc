@@ -1,14 +1,21 @@
 /**
  * @module components/Layout
- * Top-level shell: sidebar | terminal area.
+ * App shell — unified left chrome (sidebar) + full-height terminal.
  *
- * - Sidebar slides in/out via CSS width transition (⌘B toggle).
- * - Main pane plays `session-enter` fade when the active session changes.
- * - Command palette overlay animates in on open.
+ * Structure:
+ *   ┌── Sidebar (220px, bg-elev) ──┬── Terminal (flex-1, bg) ─────┐
+ *   │  SidebarTop (38px drag area) │                               │
+ *   │  [⊞] Oh My Pi       [+ New] │  full-height terminal output  │
+ *   │  ─────────────────────────── │                               │
+ *   │  search                      │                               │
+ *   │  SESSIONS ─────────────────  │                               │
+ *   │  • session row               │                               │
+ *   └──────────────────────────────┴───────────────────────────────┘
+ *
+ * The sidebar + titlebar share --color-bg-elev, creating one unified chrome.
+ * The terminal area uses --color-bg (darker canvas).
  */
-
 import CommandPalette from "@/components/CommandPalette";
-import TitleBar from "@/components/Layout/TitleBar";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 import { useSessionStore } from "@/store/sessions";
@@ -19,34 +26,26 @@ export default function Layout() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const cmdOpen          = useUiStore((s) => s.commandPaletteOpen);
 
-  // Re-key the main pane on session change → triggers session-enter CSS animation
-  const sessionKey = activeSession?.id ?? "empty";
-
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[var(--color-bg)]">
-      {/* Window titlebar (drag region + sidebar toggle) */}
-      <TitleBar />
+    <div className="flex h-full w-full overflow-hidden bg-[var(--color-bg)]">
+      {/* ── Left chrome: sidebar (includes its own top/titlebar area) ─────── */}
+      <aside
+        className="sidebar-slide flex-shrink-0 flex flex-col overflow-hidden
+          bg-[var(--color-bg-elev)] border-r border-[var(--color-border)]"
+        style={{ width: sidebarCollapsed ? 0 : "var(--sidebar-width)" }}
+        aria-hidden={sidebarCollapsed}
+      >
+        <Sidebar />
+      </aside>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — animated width on collapse */}
-        <aside
-          className="sidebar-slide flex-shrink-0 border-r border-[var(--color-border)] overflow-hidden"
-          style={{ width: sidebarCollapsed ? 0 : "var(--sidebar-width)" }}
-          aria-hidden={sidebarCollapsed}
-        >
-          <Sidebar />
-        </aside>
+      {/* ── Main: full-height terminal (no top bar) ──────────────────────── */}
+      <main
+        key={activeSession?.id ?? "empty"}
+        className="flex-1 flex flex-col overflow-hidden session-enter"
+      >
+        {activeSession?.id ? <TerminalArea /> : <EmptyState />}
+      </main>
 
-        {/* Main pane — session-enter animation on every session switch */}
-        <main
-          key={sessionKey}
-          className="flex-1 overflow-hidden flex flex-col session-enter"
-        >
-          {activeSession ? <TerminalArea /> : <EmptyState />}
-        </main>
-      </div>
-
-      {/* Command palette overlay */}
       {cmdOpen && <CommandPalette />}
     </div>
   );
@@ -54,10 +53,17 @@ export default function Layout() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 select-none">
-      <div className="text-[var(--color-ink-9)] text-5xl font-light">π</div>
-      <p className="text-[var(--color-ink-5)] text-sm">Select a session to resume</p>
-      <p className="text-[var(--color-ink-7)] text-xs">⌘K — command palette</p>
+    <div className="flex flex-col items-center justify-center h-full gap-3 select-none
+      bg-[var(--color-bg)]">
+      <span className="text-[32px] leading-none" style={{ color: "var(--color-ink-9)" }}>
+        π
+      </span>
+      <p className="text-[13px] text-[var(--color-ink-7)]">
+        Select a session to resume
+      </p>
+      <p className="text-[11px] text-[var(--color-ink-9)]">
+        ⌘K — command palette
+      </p>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export default function TerminalArea() {
   if (tabs.length === 0) return <TerminalEmpty />;
 
   return (
-    <div className="flex-1 relative overflow-hidden bg-[#0f0a14] px-4">
+    <div className="flex-1 relative overflow-hidden bg-[var(--color-bg)] px-4">
       {tabs.map((tab) => (
         <div key={tab.id} className="absolute inset-0">
           <TerminalTab tab={tab} isVisible={tab.id === activeTabId} />

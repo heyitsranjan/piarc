@@ -1,13 +1,13 @@
 /**
  * @module components/Sidebar/SessionRow
- * A single session entry in the sidebar list.
+ * 32px session row — Linear-inspired with left accent bar for active state.
  *
- * - Click row → open session in terminal
- * - ⋮ button (visible on hover) → dropdown: Rename | Copy Session ID
- * - Rename → opens RenameDialog modal
+ * - Click → open in terminal
+ * - ⋮ button on hover → Rename | Pin/Unpin | Copy session ID
+ * - Rename → RenameDialog modal
  */
 import type { ReactNode } from "react";
-import { useEffect,useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
@@ -24,10 +24,10 @@ interface SessionRowProps {
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
   const { pinnedIds, togglePin } = useSessionStore();
-  const [menuOpen,       setMenuOpen]  = useState(false);
-  const [renameOpen,     setRenameOpen]= useState(false);
-  const menuRef          = useRef<HTMLUListElement>(null);
-  const isPinned         = pinnedIds.includes(session.id);
+  const [menuOpen,   setMenuOpen]   = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const menuRef  = useRef<HTMLUListElement>(null);
+  const isPinned = pinnedIds.includes(session.id);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -41,16 +41,6 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(session.id);
-    setMenuOpen(false);
-  };
-
-  const handlePin = () => {
-    togglePin(session.id);
-    setMenuOpen(false);
-  };
-
   return (
     <>
       <li
@@ -60,149 +50,134 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === "Enter") onSelect(); }}
         className={cn(
-          "relative group flex items-start justify-between gap-1",
-          "mx-1 px-3 py-2 rounded-[var(--radius-sm)]",
+          // 32px row, full width, relative for accent bar
+          "group relative flex items-center gap-1.5",
+          "h-8 px-2 mx-1 rounded-[var(--radius-sm)]",
           "cursor-pointer select-none",
           "transition-colors duration-[var(--duration-fast)]",
           isActive
-            ? "bg-[var(--color-accent-dim)] text-[var(--color-ink-0)]"
-            : "hover:bg-[var(--color-bg-hover)] text-[var(--color-ink-1)]"
+            ? "bg-[var(--color-bg-active)] text-[var(--color-ink-0)]"
+            : "text-[var(--color-ink-1)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-0)]"
         )}
       >
-        {/* ── Main content ─────────────────────────────────────────── */}
-        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-          {/* Title + time */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-1.5 flex-1 min-w-0">
-              {/* Pin badge */}
-              {isPinned && (
-                <span
-                  title="Pinned"
-                  className="mt-0.5 shrink-0 text-[var(--color-accent)]"
-                >
-                  <PinIcon filled />
-                </span>
-              )}
-              <span className="text-[12.5px] font-medium leading-snug line-clamp-2">
-                {session.title}
-              </span>
-            </div>
-            <span className="text-[10px] shrink-0 mt-0.5 tabular-nums
-              text-[var(--color-ink-7)]">
-              {timeAgo(session.modified)}
-            </span>
-          </div>
+        {/* Left accent bar — only when active */}
+        {isActive && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2
+            w-0.5 h-4 bg-[var(--color-accent)] rounded-r-full" />
+        )}
 
-          {/* CWD */}
-          <span className="text-[10px] text-[var(--color-ink-7)] truncate font-mono">
-            {cwdShort(session.cwd)}
+        {/* Pin icon */}
+        {isPinned && (
+          <span className="shrink-0 text-[var(--color-accent)] opacity-70" title="Pinned">
+            <PinIcon />
           </span>
-        </div>
+        )}
 
-        {/* ── Three-dot menu button ─────────────────────────────────── */}
-        <div className="relative shrink-0 mt-0.5">
+        {/* Title — takes remaining space */}
+        <span className="flex-1 text-[12.5px] font-medium truncate leading-none">
+          {session.title}
+        </span>
+
+        {/* Timestamp — hidden on hover to show ⋮ */}
+        <span className={cn(
+          "shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)]",
+          "group-hover:hidden"
+        )}>
+          {timeAgo(session.modified)}
+        </span>
+
+        {/* ⋮ — shown on hover */}
+        <div className="relative shrink-0 hidden group-hover:flex">
           <button
             aria-label="Session options"
-            title="Options"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen((v) => !v);
-            }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
             className={cn(
               "flex items-center justify-center w-5 h-5",
               "rounded-[var(--radius-xs)] transition-colors",
               "text-[var(--color-ink-7)] hover:text-[var(--color-ink-1)]",
-              "hover:bg-[var(--color-bg-2)]",
-              // Only visible on row hover (or when menu is open)
-              menuOpen
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100"
+              "hover:bg-[var(--color-bg-hi)]",
+              menuOpen && "opacity-100 bg-[var(--color-bg-hi)]"
             )}
           >
             <DotsIcon />
           </button>
 
-          {/* Dropdown */}
           {menuOpen && (
             <ul
               ref={menuRef}
               role="menu"
-              className={cn(
-                "absolute right-0 top-full mt-1 z-50 min-w-40",
-                "bg-[var(--color-bg-elev)] border border-[var(--color-border)]",
-                "rounded-[var(--radius-md)] shadow-xl py-1",
-                "text-xs text-[var(--color-ink-1)]"
-              )}
+              className="absolute right-0 top-full mt-1 z-50 w-44
+                bg-[var(--color-bg-2)] border border-[var(--color-border)]
+                rounded-[var(--radius-md)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] py-0.5"
             >
-              <MenuItem
-                onClick={() => { setMenuOpen(false); setRenameOpen(true); }}
-              >
+              <DropdownItem onClick={() => { setMenuOpen(false); setRenameOpen(true); }}>
                 Rename
-              </MenuItem>
-              <MenuItem onClick={handlePin}>
-                <span className="flex items-center gap-2">
-                  <PinIcon filled={isPinned} />
-                  {isPinned ? "Unpin session" : "Pin session"}
-                </span>
-              </MenuItem>
-              <MenuItem onClick={handleCopyId}>
+              </DropdownItem>
+              <DropdownItem onClick={() => { togglePin(session.id); setMenuOpen(false); }}>
+                {isPinned ? "Unpin" : "Pin to top"}
+              </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  navigator.clipboard.writeText(session.id);
+                  setMenuOpen(false);
+                }}
+              >
                 Copy session ID
-              </MenuItem>
+              </DropdownItem>
             </ul>
           )}
         </div>
       </li>
 
-      {/* Rename dialog — rendered as portal-like sibling */}
+      {/* CWD subtitle row — only when NOT active, subtle */}
+      {!isActive && (
+        <li
+          className="px-3 pb-0.5 -mt-0.5 mx-1"
+          aria-hidden
+        >
+          <span className="text-[10px] text-[var(--color-ink-9)] font-mono truncate block">
+            {cwdShort(session.cwd)}
+          </span>
+        </li>
+      )}
+
       {renameOpen && (
-        <RenameDialog
-          session={session}
-          onClose={() => setRenameOpen(false)}
-        />
+        <RenameDialog session={session} onClose={() => setRenameOpen(false)} />
       )}
     </>
   );
 }
 
-// ─── Icons + primitives ───────────────────────────────────────────────────
+// ─── Icons ────────────────────────────────────────────────────────────────
 
 function DotsIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-      <circle cx="8" cy="3"  r="1.3" />
-      <circle cx="8" cy="8"  r="1.3" />
-      <circle cx="8" cy="13" r="1.3" />
-    </svg>
-  );
-}
-/** Thumbtack pin icon. `filled` = accent-coloured solid, otherwise outlined. */
-function PinIcon({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 16 16"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor" strokeWidth="1.6"
-      strokeLinecap="round" strokeLinejoin="round">
-      {/* Shaft */}
-      <line x1="8" y1="10" x2="8" y2="15" />
-      {/* Pin head */}
-      <path d="M5 10h6V6l2-4H3l2 4v4Z" />
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+      <circle cx="8" cy="3"  r="1.2" />
+      <circle cx="8" cy="8"  r="1.2" />
+      <circle cx="8" cy="13" r="1.2" />
     </svg>
   );
 }
 
-function MenuItem({
-  onClick,
-  children,
-}: {
-  onClick:  () => void;
-  children: ReactNode;
-}) {
+function PinIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 16 16"
+      fill="currentColor" stroke="none">
+      <path d="M10 1L15 6L11 10L10.5 14L8.5 12L5 15.5L0.5 11L4 7.5L2 5.5L6 5L10 1Z" />
+    </svg>
+  );
+}
+
+function DropdownItem({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <li
       role="menuitem"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="px-3 py-1.5 cursor-pointer transition-colors
-        hover:bg-[var(--color-bg-hover)]"
+      className="flex items-center h-7 px-3 text-[12px] text-[var(--color-ink-1)]
+        cursor-pointer rounded-[var(--radius-xs)] mx-0.5
+        hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-0)]
+        transition-colors duration-[var(--duration-fast)]"
     >
       {children}
     </li>
