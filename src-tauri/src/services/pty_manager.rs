@@ -81,8 +81,12 @@ impl PtyManager {
         let pair = pty_system.openpty(size).context("openpty")?;
 
         let safe_cwd = cwd.replace('\'', "'\\''");
-        let cmd_str =
-            format!("cd '{safe_cwd}' 2>/dev/null; omp --resume {session_id}; exec {shell}");
+        // Empty session_id → start a fresh `omp` session (no --resume).
+        let cmd_str = if session_id.is_empty() {
+            format!("cd '{safe_cwd}' 2>/dev/null; omp; exec {shell}")
+        } else {
+            format!("cd '{safe_cwd}' 2>/dev/null; omp --resume {session_id}; exec {shell}")
+        };
         debug!("PTY command: {cmd_str}");
 
         let mut cmd = CommandBuilder::new(shell);

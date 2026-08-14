@@ -142,3 +142,41 @@ pub async fn prewarm_pty(
     })
     .map_err(|e| e.to_string())
 }
+
+/// Spawn a PTY running `omp` (no --resume) to start a brand-new session.
+/// omp creates a JSONL file on disk; the FS watcher emits `sessions_updated`
+/// so the sidebar refreshes automatically.
+#[tauri::command]
+pub async fn new_session_pty(
+    tab_id: String,
+    cwd: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    info!("new_session_pty tab={tab_id} cwd={cwd}");
+
+    let shell = login_shell();
+    let pm    = state.pty_manager.clone();
+
+    pm.spawn(
+        tab_id.clone(),
+        "",       // empty session_id → pty_manager runs `omp` without --resume
+        &cwd,
+        cols,
+        rows,
+        &shell,
+        {
+            let app = app.clone();
+            move |tab, chunk| {
+                if chunk.is_empty() {
+                    emit_exit(&app, &tab, 0);
+                } else {
+                    emit_output(&app, &tab, chunk);
+                }
+            }
+        },
+    )
+    .map_err(|e| { log::error!("new_session_pty failed: {e}"); e.to_string() })
+}

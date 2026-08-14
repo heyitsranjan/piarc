@@ -84,3 +84,25 @@ export const killPty = (tabId: string): Promise<void> => invoke("kill_pty", { ta
  */
 export const prewarmPty = (sessionId: string, cwd: string): Promise<void> =>
   invoke("prewarm_pty", { sessionId, cwd });
+
+/** Parameters for spawning a fresh omp session (no --resume). */
+export interface NewSessionPtyParams {
+  /** Unique tab ID — PTY cache key in Rust AppState. */
+  tabId: string;
+  /** Working directory; omp creates the session file here. */
+  cwd: string;
+  /** Initial terminal column count. */
+  cols: number;
+  /** Initial terminal row count. */
+  rows: number;
+  /** Index signature required by Tauri's InvokeArgs constraint. */
+  [key: string]: unknown;
+}
+
+/**
+ * Spawn a PTY running `omp` directly (no session ID, no --resume).
+ * omp starts a fresh session and creates a new JSONL file on disk.
+ * The FS watcher picks it up and the sidebar updates automatically.
+ */
+export const newSessionPty = (params: NewSessionPtyParams): Promise<void> =>
+  invoke("new_session_pty", params);

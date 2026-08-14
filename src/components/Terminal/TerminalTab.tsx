@@ -81,7 +81,7 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     const term = new Terminal({
       theme: XTERM_THEME,
       fontFamily: "'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace",
-      fontSize: 13,
+      fontSize:    11.5,
       lineHeight: 1.4,
       cursorStyle: "bar",
       cursorBlink: true,
@@ -234,7 +234,10 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
 
       {/* ── Live terminal ───────────────────────────────────────────────── */}
       {!tab.isLoading && tab.error === null && (
-        <div ref={containerRef} className="flex-1 w-full h-full" />
+        // Padding wrapper — xterm fills the inner div, giving visual breathing room
+        <div className="flex-1 w-full h-full p-3 bg-[#0f0a14]">
+          <div ref={containerRef} className="w-full h-full" />
+        </div>
       )}
 
       {/* ── Exited banner (overlaid on terminal, non-blocking) ─────────── */}
