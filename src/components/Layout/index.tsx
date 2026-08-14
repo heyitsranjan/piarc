@@ -11,10 +11,18 @@ import TerminalArea from "@/components/Terminal";
 import { useSessionStore } from "@/store/sessions";
 import { useUiStore } from "@/store/ui";
 
+/** Convert a pixel width to a panel percentage based on current window width. */
+function pxToPct(px: number): number {
+  return parseFloat(((px / window.innerWidth) * 100).toFixed(2));
+}
+
 export default function Layout() {
   const activeSession    = useSessionStore((s) => s.activeSession);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const cmdOpen          = useUiStore((s) => s.commandPaletteOpen);
+
+  // 300px default, clamp to reasonable min/max %
+  const defaultSidebarPct = pxToPct(300);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[var(--color-bg)]">
@@ -23,9 +31,9 @@ export default function Layout() {
           <>
             <Panel
               id="sidebar"
-              defaultSize={26}
-              minSize={18}
-              maxSize={42}
+              defaultSize={defaultSidebarPct}
+              minSize={pxToPct(200)}
+              maxSize={pxToPct(500)}
               className="bg-[var(--color-bg-elev)]"
             >
               <Sidebar />
