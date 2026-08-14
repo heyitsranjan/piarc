@@ -25,7 +25,7 @@ import SessionRow from "./SessionRow";
 import SidebarHeader from "./SidebarHeader";
 
 export default function Sidebar() {
-  const { state, filtered, activeSession, loadSessions } = useSessions();
+  const { state, filtered, activeSession, loadSessions, pinnedIds } = useSessions();
   const { openSession } = useTerminal();
   const openCmdPalette = useUiStore((s) => s.openCommandPalette);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
@@ -58,14 +58,26 @@ export default function Sidebar() {
         {state.type === "empty" && <EmptyList />}
         {state.type === "data" && (
           <ul role="list" className="py-1">
-            {filtered.map((session) => (
-              <SessionRow
-                key={session.id}
-                session={session}
-                isActive={activeSession?.id === session.id}
-                onSelect={() => handleSelect(session)}
-              />
-            ))}
+            {filtered.map((session, idx) => {
+              const isPinned   = pinnedIds.includes(session.id);
+              const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
+              // Separator between last pinned and first unpinned row
+              const showDivider = !isPinned && prevPinned;
+              return (
+                <>
+                  {showDivider && (
+                    <li key={`divider-${session.id}`} aria-hidden
+                      className="mx-3 my-1 border-t border-[var(--color-border-2)]" />
+                  )}
+                  <SessionRow
+                    key={session.id}
+                    session={session}
+                    isActive={activeSession?.id === session.id}
+                    onSelect={() => handleSelect(session)}
+                  />
+                </>
+              );
+            })}
             {filtered.length === 0 && <NoSearchResults />}
           </ul>
         )}

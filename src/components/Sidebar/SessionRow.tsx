@@ -23,7 +23,7 @@ interface SessionRowProps {
 }
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
-  const { pinnedIds }    = useSessionStore();
+  const { pinnedIds, togglePin } = useSessionStore();
   const [menuOpen,       setMenuOpen]  = useState(false);
   const [renameOpen,     setRenameOpen]= useState(false);
   const menuRef          = useRef<HTMLUListElement>(null);
@@ -43,6 +43,11 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(session.id);
+    setMenuOpen(false);
+  };
+
+  const handlePin = () => {
+    togglePin(session.id);
     setMenuOpen(false);
   };
 
@@ -68,12 +73,20 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           {/* Title + time */}
           <div className="flex items-start justify-between gap-2">
-            <span className="text-[12.5px] font-medium leading-snug line-clamp-2 flex-1">
+            <div className="flex items-start gap-1.5 flex-1 min-w-0">
+              {/* Pin badge */}
               {isPinned && (
-                <span className="text-[var(--color-accent)] mr-1" aria-hidden>·</span>
+                <span
+                  title="Pinned"
+                  className="mt-0.5 shrink-0 text-[var(--color-accent)]"
+                >
+                  <PinIcon filled />
+                </span>
               )}
-              {session.title}
-            </span>
+              <span className="text-[12.5px] font-medium leading-snug line-clamp-2">
+                {session.title}
+              </span>
+            </div>
             <span className="text-[10px] shrink-0 mt-0.5 tabular-nums
               text-[var(--color-ink-7)]">
               {timeAgo(session.modified)}
@@ -126,6 +139,12 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
               >
                 Rename
               </MenuItem>
+              <MenuItem onClick={handlePin}>
+                <span className="flex items-center gap-2">
+                  <PinIcon filled={isPinned} />
+                  {isPinned ? "Unpin session" : "Pin session"}
+                </span>
+              </MenuItem>
               <MenuItem onClick={handleCopyId}>
                 Copy session ID
               </MenuItem>
@@ -153,6 +172,20 @@ function DotsIcon() {
       <circle cx="8" cy="3"  r="1.3" />
       <circle cx="8" cy="8"  r="1.3" />
       <circle cx="8" cy="13" r="1.3" />
+    </svg>
+  );
+}
+/** Thumbtack pin icon. `filled` = accent-coloured solid, otherwise outlined. */
+function PinIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round">
+      {/* Shaft */}
+      <line x1="8" y1="10" x2="8" y2="15" />
+      {/* Pin head */}
+      <path d="M5 10h6V6l2-4H3l2 4v4Z" />
     </svg>
   );
 }
