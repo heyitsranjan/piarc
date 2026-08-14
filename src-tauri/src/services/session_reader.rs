@@ -7,8 +7,8 @@
 //! No Tauri dependencies — pure business logic, independently testable.
 
 use std::{
-    fs,
-    io::{BufRead, BufReader, Read},
+    fs::{self, OpenOptions},
+    io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -69,6 +69,72 @@ pub fn list_all_sessions() -> Result<Vec<OmpSession>> {
 /// Permanently delete a session JSONL file from disk.
 pub fn delete_session(path: &str) -> Result<()> {
     fs::remove_file(path).with_context(|| format!("delete session: {path}"))
+}
+
+/// Rename a session by rewriting its 256-byte title slot and appending
+/// a `title_change` audit entry — identical to what omp does internally.
+///
+/// The title slot is the very first line of every session JSONL file,
+/// padded with spaces to exactly 256 bytes so listings can read it
+/// without scanning the rest of the file.
+///
+/// Setting `source = "user"` prevents omp from auto-renaming the session.
+pub fn rename_session(path: &str, new_title: &str) -> Result<()> {
+    use chrono::Utc;
+
+    let now = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+
+    // ── Build new 256-byte title slot ────────────────────────────────────
+    // Format (total must be exactly 256 bytes including the trailing \n):
+    //   {"type":"title","v":1,"title":<JSON>,"source":"user","updatedAt":"<ISO>","pad":"<SPACES>"}\n
+    let title_json = serde_json::to_string(new_title)?;
+    let prefix = format!(
+        r#"{{"type":"title","v":1,"title":{title_json},"source":"user","updatedAt":"{now}","pad":""#
+    );
+    let suffix = "\"}\n";
+    let total: usize = 256;
+    let fixed_len = prefix.len() + suffix.len();
+
+    anyhow::ensure!(
+        fixed_len <= total,
+        "title too long ({} bytes encoded); maximum is ~{} characters",
+        title_json.len(),
+        total.saturating_sub(fixed_len) + title_json.len() - 2
+    );
+
+    let pad_len = total - fixed_len;
+    let title_slot = format!("{}{}{}", prefix, " ".repeat(pad_len), suffix);
+    debug_assert_eq!(title_slot.len(), 256, "title slot must be exactly 256 bytes");
+
+    // ── Overwrite first 256 bytes ────────────────────────────────────────
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .with_context(|| format!("open session for rename: {path}"))?;
+
+    file.seek(SeekFrom::Start(0))?;
+    file.write_all(title_slot.as_bytes())?;
+
+    // ── Append title_change audit entry ──────────────────────────────────
+    let entry_id = &uuid::Uuid::new_v4().to_string()[..8];
+    let entry = serde_json::json!({
+        "type":      "title_change",
+        "id":        entry_id,
+        "parentId":  serde_json::Value::Null,
+        "timestamp": now,
+        "title":     new_title,
+        "source":    "user",
+        "trigger":   "rename"
+    });
+    let entry_line = format!("{}\n", serde_json::to_string(&entry)?);
+
+    file.seek(SeekFrom::End(0))?;
+    file.write_all(entry_line.as_bytes())?;
+    file.flush()?;
+
+    tracing::info!("renamed session {path:?} → {new_title:?}");
+    Ok(())
 }
 
 // ─── Parsing ──────────────────────────────────────────────────────────────

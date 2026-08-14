@@ -27,6 +27,17 @@ export const listSessions = (): Promise<OmpSession[]> => invoke("list_sessions")
 export const deleteSession = (path: string): Promise<void> =>
   invoke("delete_session", { path });
 
+/**
+ * Rename a session by rewriting its title slot in the JSONL file.
+ * Also appends a `title_change` audit entry (source="user") so omp
+ * won't auto-rename the session later.
+ *
+ * @param path  - Absolute path to the `.jsonl` file.
+ * @param title - New display title (max ~150 chars after JSON encoding).
+ */
+export const renameSession = (path: string, title: string): Promise<void> =>
+  invoke("rename_session", { path, title });
+
 // ─── Terminal / PTY ────────────────────────────────────────────────────────
 
 /** Parameters required to spawn a new PTY process for a terminal tab. */

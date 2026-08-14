@@ -26,3 +26,15 @@ pub fn list_sessions(_state: State<'_, AppState>) -> Result<Vec<OmpSession>, Str
 pub fn delete_session(path: String, _state: State<'_, AppState>) -> Result<(), String> {
     session_reader::delete_session(&path).map_err(|e| e.to_string())
 }
+
+/// Rename a session by updating its 256-byte title slot and appending
+/// a `title_change` audit entry (same format omp uses internally).
+/// Setting source="user" prevents omp from auto-renaming it later.
+#[tauri::command]
+pub fn rename_session(
+    path:  String,
+    title: String,
+    _state: State<'_, AppState>,
+) -> Result<(), String> {
+    session_reader::rename_session(&path, &title).map_err(|e| e.to_string())
+}

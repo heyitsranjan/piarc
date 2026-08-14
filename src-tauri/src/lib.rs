@@ -102,6 +102,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             sessions::list_sessions,
             sessions::delete_session,
+            sessions::rename_session,
             terminal::create_pty,
             terminal::write_pty,
             terminal::resize_pty,

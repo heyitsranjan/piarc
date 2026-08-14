@@ -11,7 +11,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { deleteSession, listSessions } from "@/lib/ipc";
+import { deleteSession, listSessions, renameSession } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
 
 interface SessionsState {
@@ -42,6 +42,11 @@ interface SessionsState {
   togglePin: (id: string) => void;
   /** Delete session file from disk and remove it from the store. */
   removeSession: (path: string) => Promise<void>;
+  /**
+   * Rename a session — optimistically updates the store, then writes
+   * the new title to the JSONL title slot via the Rust backend.
+   */
+  renameSession: (path: string, title: string) => Promise<void>;
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -90,6 +95,21 @@ export const useSessionStore = create<SessionsState>()(
           sessions: s.sessions.filter((sess) => sess.path !== path),
           activeSession: s.activeSession?.path === path ? null : s.activeSession,
         }));
+      },
+
+      renameSession: async (path, title) => {
+        // Optimistic update — UI reflects change immediately
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.path === path ? { ...sess, title } : sess
+          ),
+          activeSession:
+            s.activeSession?.path === path
+              ? { ...s.activeSession, title }
+              : s.activeSession,
+        }));
+        // Persist to disk — rewrites JSONL title slot
+        await renameSession(path, title);
       },
 
       filtered: () => {
