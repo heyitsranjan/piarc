@@ -1,11 +1,11 @@
 /**
  * @module components/Sidebar/SessionRow
- * 32px session row — Linear-inspired with left accent bar for active state.
+ * Single session row — full unified click area, Lucide icons.
  *
- * - Click → open in terminal
- * - ⋮ button on hover → Rename | Pin/Unpin | Copy session ID
- * - Rename → RenameDialog modal
+ * Title + CWD are in ONE <li> so every pixel of the row is clickable.
+ * The ⋮ button stops propagation so it doesn't trigger onSelect.
  */
+import { Copy, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -43,6 +43,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
 
   return (
     <>
+      {/* ONE unified clickable row — no split elements with dead zones */}
       <li
         role="button"
         tabIndex={0}
@@ -50,9 +51,9 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         onClick={onSelect}
         onKeyDown={(e) => { if (e.key === "Enter") onSelect(); }}
         className={cn(
-          // 32px row, full width, relative for accent bar
           "group relative flex items-center gap-1.5",
-          "h-8 px-2 mx-1 rounded-[var(--radius-sm)]",
+          "mx-1.5 px-2 rounded-[var(--radius-sm)]",
+          "py-[6px]",          // top+bottom padding → row feels 38-40px tall with two text lines
           "cursor-pointer select-none",
           "transition-colors duration-[var(--duration-fast)]",
           isActive
@@ -60,63 +61,86 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             : "text-[var(--color-ink-1)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-0)]"
         )}
       >
-        {/* Left accent bar — only when active */}
+        {/* Left accent bar */}
         {isActive && (
           <span className="absolute left-0 top-1/2 -translate-y-1/2
-            w-0.5 h-4 bg-[var(--color-accent)] rounded-r-full" />
+            w-[2px] h-[18px] rounded-r-full bg-[var(--color-accent)]" />
         )}
 
         {/* Pin icon */}
         {isPinned && (
-          <span className="shrink-0 text-[var(--color-accent)] opacity-70" title="Pinned">
-            <PinIcon />
+          <span className="shrink-0 text-[var(--color-accent)] opacity-60 ml-0.5">
+            <Pin size={9} fill="currentColor" strokeWidth={0} />
           </span>
         )}
 
-        {/* Title — takes remaining space */}
-        <span className="flex-1 text-[12.5px] font-medium truncate leading-none">
-          {session.title}
-        </span>
+        {/* Text block — title + cwd, takes all space */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-1">
+            <span className="text-[12.5px] font-medium truncate leading-snug">
+              {session.title}
+            </span>
+            {/* Timestamp fades out on hover */}
+            <span className={cn(
+              "shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)] leading-none",
+              "transition-opacity duration-[var(--duration-fast)]",
+              "group-hover:opacity-0"
+            )}>
+              {timeAgo(session.modified)}
+            </span>
+          </div>
+          <span className="block text-[10.5px] text-[var(--color-ink-9)]
+            font-mono truncate mt-[2px] leading-none">
+            {cwdShort(session.cwd)}
+          </span>
+        </div>
 
-        {/* Timestamp — hidden on hover to show ⋮ */}
-        <span className={cn(
-          "shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)]",
-          "group-hover:hidden"
-        )}>
-          {timeAgo(session.modified)}
-        </span>
-
-        {/* ⋮ — shown on hover */}
-        <div className="relative shrink-0 hidden group-hover:flex">
+        {/* ⋮ — absolute overlay, visible on hover ─────────────────────── */}
+        <div className="absolute right-1.5 top-1/2 -translate-y-1/2
+          opacity-0 group-hover:opacity-100
+          transition-opacity duration-[var(--duration-fast)]">
           <button
             aria-label="Session options"
             onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
             className={cn(
-              "flex items-center justify-center w-5 h-5",
-              "rounded-[var(--radius-xs)] transition-colors",
+              "flex items-center justify-center w-[20px] h-[20px]",
+              "rounded-[var(--radius-xs)]",
               "text-[var(--color-ink-7)] hover:text-[var(--color-ink-1)]",
               "hover:bg-[var(--color-bg-hi)]",
+              "transition-colors duration-[var(--duration-fast)]",
               menuOpen && "opacity-100 bg-[var(--color-bg-hi)]"
             )}
           >
-            <DotsIcon />
+            <MoreVertical size={12} strokeWidth={2} />
           </button>
 
+          {/* Dropdown */}
           {menuOpen && (
             <ul
               ref={menuRef}
               role="menu"
               className="absolute right-0 top-full mt-1 z-50 w-44
                 bg-[var(--color-bg-2)] border border-[var(--color-border)]
-                rounded-[var(--radius-md)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] py-0.5"
+                rounded-[var(--radius-md)]
+                shadow-[0_8px_32px_rgba(0,0,0,0.55)]
+                py-0.5 overflow-hidden"
             >
-              <DropdownItem onClick={() => { setMenuOpen(false); setRenameOpen(true); }}>
+              <DropdownItem
+                icon={<SquarePen size={12} strokeWidth={1.8} />}
+                onClick={() => { setMenuOpen(false); setRenameOpen(true); }}
+              >
                 Rename
               </DropdownItem>
-              <DropdownItem onClick={() => { togglePin(session.id); setMenuOpen(false); }}>
+              <DropdownItem
+                icon={isPinned
+                  ? <PinOff size={12} strokeWidth={1.8} />
+                  : <Pin size={12} strokeWidth={1.8} />}
+                onClick={() => { togglePin(session.id); setMenuOpen(false); }}
+              >
                 {isPinned ? "Unpin" : "Pin to top"}
               </DropdownItem>
               <DropdownItem
+                icon={<Copy size={12} strokeWidth={1.8} />}
                 onClick={() => {
                   navigator.clipboard.writeText(session.id);
                   setMenuOpen(false);
@@ -129,18 +153,6 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         </div>
       </li>
 
-      {/* CWD subtitle row — only when NOT active, subtle */}
-      {!isActive && (
-        <li
-          className="px-3 pb-0.5 -mt-0.5 mx-1"
-          aria-hidden
-        >
-          <span className="text-[10px] text-[var(--color-ink-9)] font-mono truncate block">
-            {cwdShort(session.cwd)}
-          </span>
-        </li>
-      )}
-
       {renameOpen && (
         <RenameDialog session={session} onClose={() => setRenameOpen(false)} />
       )}
@@ -148,37 +160,22 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
   );
 }
 
-// ─── Icons ────────────────────────────────────────────────────────────────
-
-function DotsIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-      <circle cx="8" cy="3"  r="1.2" />
-      <circle cx="8" cy="8"  r="1.2" />
-      <circle cx="8" cy="13" r="1.2" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="9" height="9" viewBox="0 0 16 16"
-      fill="currentColor" stroke="none">
-      <path d="M10 1L15 6L11 10L10.5 14L8.5 12L5 15.5L0.5 11L4 7.5L2 5.5L6 5L10 1Z" />
-    </svg>
-  );
-}
-
-function DropdownItem({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+function DropdownItem({
+  icon, onClick, children,
+}: {
+  icon: ReactNode; onClick: () => void; children: ReactNode;
+}) {
   return (
     <li
       role="menuitem"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="flex items-center h-7 px-3 text-[12px] text-[var(--color-ink-1)]
-        cursor-pointer rounded-[var(--radius-xs)] mx-0.5
-        hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-0)]
+      className="flex items-center gap-2.5 h-7 px-3 mx-0.5
+        text-[12px] text-[var(--color-ink-1)] rounded-[var(--radius-xs)]
+        cursor-pointer hover:bg-[var(--color-bg-hover)]
+        hover:text-[var(--color-ink-0)]
         transition-colors duration-[var(--duration-fast)]"
     >
+      <span className="text-[var(--color-ink-7)]">{icon}</span>
       {children}
     </li>
   );

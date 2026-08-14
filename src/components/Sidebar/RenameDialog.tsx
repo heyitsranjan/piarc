@@ -2,6 +2,7 @@
  * @module components/Sidebar/RenameDialog
  * Modal dialog for renaming an omp session.
  */
+import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { OmpSession } from "@/lib/session";
@@ -45,17 +46,22 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
         aria-modal
         className="w-full max-w-sm mx-4 palette-panel
           bg-[var(--color-bg-2)] border border-[var(--color-border)]
-          rounded-[var(--radius-lg)] shadow-[0_24px_64px_rgba(0,0,0,0.6)]
+          rounded-[var(--radius-lg)]
+          shadow-[0_24px_64px_rgba(0,0,0,0.65)]
           overflow-hidden"
       >
         {/* Header */}
-        <div className="px-4 pt-4 pb-3 border-b border-[var(--color-border)]">
-          <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">
-            Rename session
-          </h2>
-          <p className="text-[10.5px] text-[var(--color-ink-9)] mt-0.5 truncate font-mono">
-            {session.path.split("/").slice(-2).join("/")}
-          </p>
+        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3
+          border-b border-[var(--color-border)]">
+          <Pencil size={14} strokeWidth={1.8} className="text-[var(--color-ink-7)]" />
+          <div>
+            <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">
+              Rename session
+            </h2>
+            <p className="text-[10.5px] text-[var(--color-ink-9)] mt-0.5 truncate font-mono">
+              {session.path.split("/").slice(-2).join("/")}
+            </p>
+          </div>
         </div>
 
         {/* Input */}
@@ -85,7 +91,7 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
         <div className="flex items-center justify-end gap-2 px-4 pb-4">
           <button
             onClick={onClose}
-            className="h-8 px-3 text-[12px] rounded-[var(--radius-sm)]
+            className="h-8 px-3.5 text-[12px] rounded-[var(--radius-sm)]
               text-[var(--color-ink-5)] border border-[var(--color-border)]
               hover:text-[var(--color-ink-1)] hover:border-[var(--color-border-strong)]
               transition-colors duration-[var(--duration-fast)]"
@@ -95,10 +101,10 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
           <button
             onClick={handleSave}
             disabled={saving || !value.trim()}
-            className="h-8 px-3 text-[12px] font-medium rounded-[var(--radius-sm)]
+            className="h-8 px-3.5 text-[12px] font-medium rounded-[var(--radius-sm)]
               bg-[var(--color-accent)] text-[#0a0b0e]
-              hover:bg-[var(--color-accent-hover)] transition-colors
-              duration-[var(--duration-fast)]
+              hover:bg-[var(--color-accent-hover)]
+              transition-colors duration-[var(--duration-fast)]
               disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? "Saving…" : "Rename"}

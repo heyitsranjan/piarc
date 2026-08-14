@@ -28,8 +28,10 @@
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
+    "lucide-react": "1.31.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-resizable-panels": "4.12.2",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
