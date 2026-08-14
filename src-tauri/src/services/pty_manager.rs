@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use parking_lot::Mutex;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Hard cap on live PTY processes. LRU eviction applies above this limit.
 const PTY_CACHE_SIZE: usize = 8;
