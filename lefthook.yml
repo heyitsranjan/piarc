@@ -1,0 +1,39 @@
+# Lefthook — Git hook manager.
+# Install hooks: bunx lefthook install
+# Docs: https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    # Format TypeScript / CSS / JSON with Prettier
+    prettier:
+      glob: "src/**/*.{ts,tsx,css,json}"
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+
+    # ESLint — auto-fix what it can, fail on remaining errors
+    eslint:
+      glob: "src/**/*.{ts,tsx}"
+      run: bunx eslint --fix {staged_files}
+      stage_fixed: true
+
+    # Rust format (non-blocking on CI — format is checked in CI instead)
+    rustfmt:
+      glob: "src-tauri/src/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml
+
+commit-msg:
+  commands:
+    # Enforce Conventional Commits: feat(scope): subject
+    conventional:
+      run: |
+        msg=$(cat {1})
+        pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,72}$"
+        if ! echo "$msg" | grep -qE "$pattern"; then
+          echo ""
+          echo "  ERROR: Commit message must follow Conventional Commits:"
+          echo "  feat(scope): short description"
+          echo "  fix(terminal): handle PTY spawn failure"
+          echo ""
+          exit 1
+        fi

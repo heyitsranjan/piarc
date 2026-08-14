@@ -1,0 +1,45 @@
+[package]
+name        = "oh-my-pi"
+version     = "0.1.0"
+description = "Oh My Pi — omp session browser and embedded terminal"
+authors     = ["Smruti Ranjan Rana <heyitsranjan>"]
+edition     = "2021"
+
+[lib]
+name       = "oh_my_pi_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# ── Tauri core + plugins ──────────────────────────────────────────────────
+tauri               = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell  = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-log    = "2"
+
+# ── Serialisation ─────────────────────────────────────────────────────────
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# ── Async runtime ─────────────────────────────────────────────────────────
+tokio = { version = "1", features = ["full"] }
+
+# ── File-system watching ──────────────────────────────────────────────────
+notify = "6"
+
+# ── Cross-platform PTY (WezTerm project) ─────────────────────────────────
+portable-pty = "0.8"
+
+# ── Structured logging ────────────────────────────────────────────────────
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+log                = "0.4"          # log facade used by tauri-plugin-log
+
+# ── Utilities ─────────────────────────────────────────────────────────────
+dirs        = "5"
+anyhow      = "1"
+base64      = "0.22"
+parking_lot = "0.12"
+uuid        = { version = "1", features = ["v4"] }

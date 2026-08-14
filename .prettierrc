@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "semi":         true,
+  "singleQuote":  false,
+  "trailingComma": "es5",
+  "printWidth":   90,
+  "tabWidth":     2,
+  "useTabs":      false,
+  "bracketSpacing": true,
+  "arrowParens":  "always",
+
+  "plugins": ["@trivago/prettier-plugin-sort-imports"],
+
+  "importOrder": [
+    "^react$",
+    "^react-dom",
+    "^@tauri-apps/(.*)$",
+    "^@xterm/(.*)$",
+    "<THIRD_PARTY_MODULES>",
+    "^@/components/(.*)$",
+    "^@/hooks/(.*)$",
+    "^@/store/(.*)$",
+    "^@/lib/(.*)$",
+    "^@/styles/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSeparation":          true,
+  "importOrderSortSpecifiers":      true,
+  "importOrderGroupNamespaceSpecifiers": true
+}
