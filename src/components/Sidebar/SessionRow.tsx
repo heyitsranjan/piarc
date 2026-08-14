@@ -7,12 +7,13 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Copy, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
+import { Copy, Loader2, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
 
 import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/sessions";
+import { useTerminalStore } from "@/store/terminal";
 
 import RenameDialog from "./RenameDialog";
 
@@ -26,6 +27,13 @@ interface MenuPos { top: number; left: number; }
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
   const { pinnedIds, togglePin } = useSessionStore();
+  const tabs    = useTerminalStore((s) => s.tabs);
+  const tab     = tabs.find((t) => t.sessionId === session.id);
+  /** PTY is being spawned — show spinner */
+  const isSpawning = tab?.isLoading === true;
+  /** PTY is live with no error — show pulse dot */
+  const isRunning  = !!tab && !tab.isLoading && tab.error === null;
+
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [menuPos,    setMenuPos]    = useState<MenuPos>({ top: 0, left: 0 });
   const [renameOpen, setRenameOpen] = useState(false);
@@ -92,10 +100,25 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             w-[2px] h-[18px] rounded-r-full bg-[var(--color-accent)]" />
         )}
 
+        {/* Pin badge */}
         {isPinned && (
           <span className="shrink-0 text-[var(--color-accent)] opacity-60 ml-0.5">
             <Pin size={9} fill="currentColor" strokeWidth={0} />
           </span>
+        )}
+
+        {/* Run-state indicator — spawning spinner OR live pulse dot */}
+        {isSpawning && (
+          <span className="shrink-0 text-[var(--color-ink-7)]" title="Starting…">
+            <Loader2 size={10} strokeWidth={2} className="animate-spin" />
+          </span>
+        )}
+        {isRunning && !isSpawning && (
+          <span
+            title="Terminal running"
+            className="shrink-0 w-[7px] h-[7px] rounded-full
+              bg-[var(--color-accent)] animate-pulse"
+          />
         )}
 
         {/* Text */}
