@@ -7,9 +7,8 @@
  * 2. Spawn PTY running `omp` in the user's home directory.
  * 3. omp creates a JSONL file; the FS watcher fires and updates the sidebar.
  */
-import { useState, useCallback } from "react";
-
 import { homeDir } from "@tauri-apps/api/path";
+import { useCallback,useState } from "react";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "@/components/Terminal/constants";
 import { newSessionPty } from "@/lib/ipc";

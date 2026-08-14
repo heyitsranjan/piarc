@@ -8,8 +8,8 @@
  */
 import { useTerminalStore } from "@/store/terminal";
 
-import TerminalTab from "./TerminalTab";
 import TerminalEmpty from "./TerminalEmpty";
+import TerminalTab from "./TerminalTab";
 
 export default function TerminalArea() {
   const { tabs, activeTabId } = useTerminalStore();
