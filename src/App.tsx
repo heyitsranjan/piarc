@@ -7,16 +7,15 @@
  *    is instant (PTY process already running, just needs to be wired to xterm).
  * 4. Render `<Layout>`.
  */
+import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 
-import { listen } from "@tauri-apps/api/event";
-
 import Layout from "@/components/Layout";
+import { useTheme } from "@/hooks/useTheme";
 import { EVENT_SESSIONS_UPDATED, PREWARM_COUNT } from "@/lib/constants";
 import { prewarmPty } from "@/lib/ipc";
 import { log } from "@/lib/logger";
 import { useSessionStore } from "@/store/sessions";
-import { useTheme } from "@/hooks/useTheme";
 
 export default function App() {
   const loadSessions = useSessionStore((s) => s.loadSessions);

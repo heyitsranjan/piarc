@@ -2,79 +2,75 @@
 
 /* ─── Design tokens — sourced from omp.sh ───────────────────────────────────
    All colors in OKLCH matching omp.sh's exact palette.
-   Dark theme is default; light overrides below.
+   Dark is default; light overrides follow.
    ────────────────────────────────────────────────────────────────────────── */
 @theme {
   /* Background layers */
-  --color-bg: oklch(13.5% 0.018 295); /* #0f0a14 — app bg */
-  --color-bg-elev: oklch(17.2% 0.022 295); /* elevated panels */
-  --color-bg-2: oklch(22% 0.025 285); /* sidebar items */
-  --color-bg-hover: oklch(22% 0.025 285 / 0.6);
+  --color-bg:          oklch(13.5% 0.018 295);
+  --color-bg-elev:     oklch(17.2% 0.022 295);
+  --color-bg-2:        oklch(22%   0.025 285);
+  --color-bg-hover:    oklch(22%   0.025 285 / 0.6);
 
   /* Borders */
-  --color-border: oklch(22% 0.025 285 / 0.45);
-  --color-border-2: oklch(22% 0.025 285 / 0.18);
+  --color-border:      oklch(22%   0.025 285 / 0.45);
+  --color-border-2:    oklch(22%   0.025 285 / 0.18);
 
   /* Text / ink scale */
-  --color-ink-0: oklch(96% 0.006 80); /* primary — near white */
-  --color-ink-1: oklch(82% 0.014 285); /* secondary */
-  --color-ink-5: oklch(58% 0.018 285); /* muted */
-  --color-ink-7: oklch(42% 0.02 285); /* very muted */
-  --color-ink-9: oklch(28% 0.02 285); /* near invisible */
+  --color-ink-0:       oklch(96%   0.006 80);
+  --color-ink-1:       oklch(82%   0.014 285);
+  --color-ink-5:       oklch(58%   0.018 285);
+  --color-ink-7:       oklch(42%   0.02  285);
+  --color-ink-9:       oklch(28%   0.02  285);
 
   /* Accent */
-  --color-accent: oklch(62% 0.21 295); /* iris purple */
-  --color-accent-dim: oklch(62% 0.21 295 / 0.15);
-  --color-accent-2: oklch(70% 0.24 340); /* magenta */
-  --color-success: oklch(78% 0.16 150); /* green */
-  --color-warn: oklch(82% 0.16 90); /* amber */
-  --color-cyan: oklch(81% 0.14 200); /* cyan */
-  --color-danger: oklch(68% 0.22 20); /* red */
+  --color-accent:      oklch(62%   0.21  295);
+  --color-accent-dim:  oklch(62%   0.21  295 / 0.15);
+  --color-accent-2:    oklch(70%   0.24  340);
+  --color-success:     oklch(78%   0.16  150);
+  --color-warn:        oklch(82%   0.16   90);
+  --color-cyan:        oklch(81%   0.14  200);
+  --color-danger:      oklch(68%   0.22   20);
 
   /* Typography */
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  --font-sans:         'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:         'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
 
   /* Radius */
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-xs:         3px;
+  --radius-sm:         5px;
+  --radius-md:         8px;
+  --radius-lg:         12px;
 
-  /* Sidebar */
-  --sidebar-width: 260px;
+  /* Layout */
+  --sidebar-width:     260px;
+  --titlebar-height:   38px;
 
-  /* Titlebar */
-  --titlebar-height: 38px;
+  /* Transitions */
+  --duration-fast:     100ms;
+  --duration-base:     150ms;
+  --duration-slow:     250ms;
+  --ease-out:          cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Light mode ─────────────────────────────────────────────────────────── */
-@media (prefers-color-scheme: light) {
-  @theme {
-    --color-bg: oklch(97% 0.008 90);
-    --color-bg-elev: oklch(94% 0.006 80);
-    --color-bg-2: oklch(90% 0.008 80);
-    --color-bg-hover: oklch(88% 0.008 80 / 0.7);
-    --color-border: oklch(80% 0.01 80 / 0.5);
-    --color-border-2: oklch(85% 0.008 80 / 0.35);
-    --color-ink-0: oklch(13.5% 0.018 295);
-    --color-ink-1: oklch(25% 0.022 295);
-    --color-ink-5: oklch(50% 0.022 290);
-    --color-ink-7: oklch(65% 0.018 285);
-    --color-ink-9: oklch(78% 0.012 285);
-  }
+html.light {
+  --color-bg:          oklch(97%   0.008 90);
+  --color-bg-elev:     oklch(94%   0.006 80);
+  --color-bg-2:        oklch(90%   0.008 80);
+  --color-bg-hover:    oklch(88%   0.008 80 / 0.7);
+  --color-border:      oklch(80%   0.01  80 / 0.5);
+  --color-border-2:    oklch(85%   0.008 80 / 0.35);
+  --color-ink-0:       oklch(13.5% 0.018 295);
+  --color-ink-1:       oklch(25%   0.022 295);
+  --color-ink-5:       oklch(50%   0.022 290);
+  --color-ink-7:       oklch(65%   0.018 285);
+  --color-ink-9:       oklch(78%   0.012 285);
 }
 
 /* ─── Base reset ─────────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -83,44 +79,73 @@ body,
 
 body {
   background-color: var(--color-bg);
-  color: var(--color-ink-0);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  color:            var(--color-ink-0);
+  font-family:      var(--font-sans);
+  font-size:        13px;
+  line-height:      1.5;
+  -webkit-font-smoothing:  antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Smooth theme transition ────────────────────────────────────────────── */
+html {
+  transition:
+    background-color var(--duration-slow) var(--ease-out),
+    color            var(--duration-slow) var(--ease-out);
+}
+
+/* ─── Session switch transition ──────────────────────────────────────────── */
+/* Applied to the main content area when the active session changes */
+.session-enter {
+  animation: sessionFadeIn var(--duration-base) var(--ease-out) both;
+}
+
+@keyframes sessionFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* ─── Sidebar transition ─────────────────────────────────────────────────── */
+.sidebar-slide {
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+/* ─── Command palette backdrop ───────────────────────────────────────────── */
+.palette-backdrop {
+  animation: backdropIn var(--duration-fast) ease both;
+}
+.palette-panel {
+  animation: paletteIn var(--duration-base) var(--ease-out) both;
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes paletteIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-ink-9);
+  background:    var(--color-ink-9);
   border-radius: 99px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-7);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-7); }
 
 /* ─── Focus ring ─────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline:        2px solid var(--color-accent);
   outline-offset: 2px;
-  border-radius: var(--radius-xs);
+  border-radius:  var(--radius-xs);
 }
 
-/* ─── macOS traffic-light offset ────────────────────────────────────────── */
+/* ─── macOS drag region ──────────────────────────────────────────────────── */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
-  user-select: none;
+  user-select:        none;
 }
-button,
-a,
-input {
-  -webkit-app-region: no-drag;
-}
+button, a, input { -webkit-app-region: no-drag; }
