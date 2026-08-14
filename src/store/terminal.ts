@@ -36,6 +36,12 @@ export interface Tab {
    * null means no error (either loading or live).
    */
   error: string | null;
+  /**
+   * True while PTY bytes are actively flowing (omp is thinking/running).
+   * Set by TerminalTab on each output chunk; cleared after 500ms of silence.
+   * Used by SessionRow to show spinner vs idle green dot.
+   */
+  isOutputting: boolean;
 }
 
 interface TerminalState {
@@ -71,6 +77,8 @@ interface TerminalState {
 
   /** Retry: reset a failed tab back to loading so the caller can re-spawn. */
   retryTab: (tabId: string) => void;
+  /** Set output-activity flag; called from TerminalTab on each PTY chunk. */
+  setTabOutputting: (tabId: string, outputting: boolean) => void;
 }
 
 export const useTerminalStore = create<TerminalState>()((set, get) => ({
@@ -80,7 +88,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   openTab: (session) => {
     if (get().tabs.length >= MAX_TABS) return null;
     const id = `tab-${shortId()}`;
-    const tab: Tab = { id, isLoading: true, error: null, ...session };
+    const tab: Tab = { id, isLoading: true, error: null, isOutputting: false, ...session };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
     return id;
   },
@@ -125,5 +133,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       tabs: s.tabs.map((t) =>
         t.id === tabId ? { ...t, isLoading: true, error: null } : t
       ),
+    })),
+
+  setTabOutputting: (tabId, isOutputting) =>
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isOutputting } : t)),
     })),
 }));

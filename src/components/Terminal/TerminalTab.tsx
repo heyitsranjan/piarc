@@ -26,6 +26,7 @@ import { useTerminal } from "@/hooks/useTerminal";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { resizePty, writePty } from "@/lib/ipc";
 import type { Tab } from "@/store/terminal";
+import { useTerminalStore } from "@/store/terminal";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 
@@ -65,11 +66,13 @@ interface ExitInfo {
 }
 
 export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
+  const containerRef   = useRef<HTMLDivElement>(null);
+  const termRef        = useRef<Terminal | null>(null);
+  const fitRef         = useRef<FitAddon | null>(null);
+  const outputTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();
+  const setTabOutputting = useTerminalStore((s) => s.setTabOutputting);
 
   // ── Mount xterm.js when tab is live (not loading, not error) ─────────────
   useEffect(() => {
@@ -110,13 +113,15 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
 
     const unlistenOutput = listen<string>(outputKey, (ev) => {
-      // Decode base64 → Uint8Array so xterm.js processes raw bytes,
-      // not a binary string where each char is a latin-1 code point.
-      // Passing a string causes multi-byte UTF-8 sequences (e.g. ╭ = 0xE2 0x95 0xAD)
-      // to be misinterpreted as individual characters, producing â­ garbling.
       const binary = atob(ev.payload);
-      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      const bytes  = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
+
+      // Mark session as actively outputting → sidebar shows spinner
+      setTabOutputting(tab.id, true);
+      // Revert to idle green dot after 500ms of silence
+      clearTimeout(outputTimer.current ?? undefined);
+      outputTimer.current = setTimeout(() => setTabOutputting(tab.id, false), 500);
     });
 
     const unlistenExit = listen<number>(exitKey, (ev) => {
@@ -144,8 +149,10 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       onDataDispose.dispose();
       ro.disconnect();
       term.dispose();
+      clearTimeout(outputTimer.current ?? undefined);
+      setTabOutputting(tab.id, false);
       termRef.current = null;
-      fitRef.current = null;
+      fitRef.current  = null;
     };
   }, [tab.id, tab.isLoading, tab.error]);
 

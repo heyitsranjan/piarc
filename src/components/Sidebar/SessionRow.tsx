@@ -27,12 +27,14 @@ interface MenuPos { top: number; left: number; }
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
   const { pinnedIds, togglePin } = useSessionStore();
-  const tabs    = useTerminalStore((s) => s.tabs);
-  const tab     = tabs.find((t) => t.sessionId === session.id);
-  /** PTY is being spawned — show spinner */
-  const isSpawning = tab?.isLoading === true;
-  /** PTY is live with no error — show pulse dot */
-  const isRunning  = !!tab && !tab.isLoading && tab.error === null;
+  const tabs = useTerminalStore((s) => s.tabs);
+  const tab  = tabs.find((t) => t.sessionId === session.id);
+  /** PTY spawning → spinner */
+  const isSpawning   = tab?.isLoading === true;
+  /** omp actively producing output → spinner */
+  const isOutputting = tab?.isOutputting === true;
+  /** terminal open, process idle (waiting for input) → green dot */
+  const isIdle = !!tab && !tab.isLoading && !tab.isOutputting && tab.error === null;
 
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [menuPos,    setMenuPos]    = useState<MenuPos>({ top: 0, left: 0 });
@@ -107,17 +109,19 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
           </span>
         )}
 
-        {/* Run-state indicator — spawning spinner OR live pulse dot */}
-        {isSpawning && (
-          <span className="shrink-0 text-[var(--color-ink-7)]" title="Starting…">
-            <Loader2 size={10} strokeWidth={2} className="animate-spin" />
+        {/* Run-state indicator */}
+        {(isSpawning || isOutputting) && (
+          <span
+            className="shrink-0 text-[var(--color-accent)]"
+            title={isSpawning ? "Starting terminal…" : "Agent running…"}
+          >
+            <Loader2 size={10} strokeWidth={2.5} className="animate-spin" />
           </span>
         )}
-        {isRunning && !isSpawning && (
+        {isIdle && (
           <span
-            title="Terminal running"
-            className="shrink-0 w-[7px] h-[7px] rounded-full
-              bg-[var(--color-accent)] animate-pulse"
+            title="Terminal open"
+            className="shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-accent)] opacity-70"
           />
         )}
 
