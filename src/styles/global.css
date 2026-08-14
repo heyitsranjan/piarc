@@ -126,19 +126,31 @@ html {
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
-/* ─── Resize handle (react-resizable-panels v4: data-separator) ──────────── */
-[data-separator] {
-  width: 1px;
-  background: var(--color-border);
+/* ─── Resize separator (react-resizable-panels v4) ──────────────────────── */
+/* 4px wide grab area — easy to hit with mouse.                              */
+/* Visual 1px line sits in the centre via ::before pseudo-element.           */
+.separator-handle[data-separator] {
+  position: relative;
+  width: 4px;
+  background: transparent;   /* hit area transparent */
   cursor: col-resize;
   flex-shrink: 0;
-  transition: background var(--duration-fast) ease,
-              width     var(--duration-fast) ease;
+  z-index: 1;
 }
-[data-separator]:hover,
-[data-separator][data-state="drag"] {
+.separator-handle[data-separator]::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%; transform: translateX(-50%);
+  width: 1px;
+  background: var(--color-border);
+  transition: background var(--duration-fast) ease,
+              box-shadow  var(--duration-fast) ease;
+}
+.separator-handle[data-separator]:hover::before,
+.separator-handle[data-separator][data-state="drag"]::before {
   background: var(--color-accent);
-  box-shadow: 0 0 6px rgba(61, 220, 132, 0.35);
+  box-shadow: 0 0 8px rgba(61, 220, 132, 0.4);
 }
 
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */

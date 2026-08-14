@@ -23,15 +23,18 @@ export default function Layout() {
           <>
             <Panel
               id="sidebar"
-              defaultSize={20}
-              minSize={14}
-              maxSize={38}
+              defaultSize={26}
+              minSize={18}
+              maxSize={42}
               className="bg-[var(--color-bg-elev)]"
             >
               <Sidebar />
             </Panel>
-            {/* 1px separator — glows accent on hover/drag via global.css */}
-            <Separator aria-label="Resize sidebar" />
+            {/*
+              4px wide grab area — easy to target with the mouse.
+              Visual 1px line rendered via ::before in global.css.
+            */}
+            <Separator aria-label="Resize sidebar" className="separator-handle" />
           </>
         )}
 
