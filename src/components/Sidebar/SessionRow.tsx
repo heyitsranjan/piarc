@@ -84,7 +84,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             <span className={cn(
               "shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)] leading-none",
               "transition-opacity duration-[var(--duration-fast)]",
-              "group-hover:opacity-0"
+              (menuOpen) ? "opacity-0" : "group-hover:opacity-0"
             )}>
               {timeAgo(session.modified)}
             </span>
@@ -96,9 +96,12 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         </div>
 
         {/* ⋮ — absolute overlay, visible on hover ─────────────────────── */}
-        <div className="absolute right-1.5 top-1/2 -translate-y-1/2
-          opacity-0 group-hover:opacity-100
-          transition-opacity duration-[var(--duration-fast)]">
+        <div className={cn(
+          "absolute right-1.5 top-1/2 -translate-y-1/2",
+          "transition-opacity duration-[var(--duration-fast)]",
+          // Stay visible when menu is open — otherwise fades when cursor leaves the row
+          menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}>
           <button
             aria-label="Session options"
             onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
