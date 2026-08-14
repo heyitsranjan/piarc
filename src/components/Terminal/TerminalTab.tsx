@@ -236,7 +236,7 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       {!tab.isLoading && tab.error === null && (
         // flex-col: terminal fills all space; 8px spacer below keeps the last
         // line off the window edge without adding top/bottom padding.
-        <div className="flex-1 w-full flex flex-col bg-[#0f0a14] overflow-hidden min-h-0">
+        <div className="flex-1 w-full flex flex-col bg-[#0f0a14] overflow-hidden min-h-0 px-4">
           <div ref={containerRef} className="flex-1 w-full min-h-0" />
           <div className="h-2 shrink-0 bg-[#0f0a14]" />
         </div>
