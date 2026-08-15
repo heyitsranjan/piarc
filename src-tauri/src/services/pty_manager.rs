@@ -5,8 +5,8 @@
 //! The cache has a configurable hard cap; the least-recently-used entry is
 //! evicted when the cap is reached.
 
-use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::{collections::HashMap, path::Path};
 
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
@@ -29,13 +29,22 @@ pub struct PtySession {
 
 #[derive(Clone, Copy, Debug)]
 pub enum PtyProgram<'a> {
-    NewSession,
-    Resume(&'a str),
+    NewSession(&'a Path),
+    Resume {
+        session_id: &'a str,
+        extension: &'a Path,
+    },
     Shell,
 }
 
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
+}
+fn omp_command(extension: &Path) -> Result<String> {
+    let extension = extension
+        .to_str()
+        .context("OMPX status extension path is not valid UTF-8")?;
+    Ok(format!("omp --extension {}", shell_quote(extension)))
 }
 
 fn valid_session_id(session_id: &str) -> bool {
@@ -48,13 +57,22 @@ fn valid_session_id(session_id: &str) -> bool {
 fn shell_command(program: PtyProgram<'_>, shell: &str) -> Result<String> {
     let shell = shell_quote(shell);
     Ok(match program {
-        PtyProgram::NewSession => format!("omp; exec {shell} -l"),
-        PtyProgram::Resume(session_id) => {
+        PtyProgram::NewSession(extension) => {
+            format!("{}; exec {shell} -l", omp_command(extension)?)
+        }
+        PtyProgram::Resume {
+            session_id,
+            extension,
+        } => {
             anyhow::ensure!(
                 valid_session_id(session_id),
                 "invalid OMP session identifier"
             );
-            format!("omp --resume {}; exec {shell} -l", shell_quote(session_id))
+            format!(
+                "{} --resume {}; exec {shell} -l",
+                omp_command(extension)?,
+                shell_quote(session_id)
+            )
         }
         PtyProgram::Shell => format!("exec {shell} -l"),
     })
@@ -252,6 +270,8 @@ impl Drop for PtyManager {
 }
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::{shell_command, valid_session_id, PtyProgram};
 
     #[test]
@@ -263,8 +283,33 @@ mod tests {
 
     #[test]
     fn resume_rejects_shell_syntax_in_session_id() {
+        let extension = Path::new("/Applications/OMPX.app/Contents/Resources/ompx-status.js");
         assert!(valid_session_id("019ffe5e-3e7e-7000-a243-ccce1998a378"));
-        assert!(shell_command(PtyProgram::Resume("abc; touch /tmp/pwned"), "/bin/zsh").is_err());
-        assert!(shell_command(PtyProgram::Resume("$(whoami)"), "/bin/zsh").is_err());
+        assert!(shell_command(
+            PtyProgram::Resume {
+                session_id: "abc; touch /tmp/pwned",
+                extension,
+            },
+            "/bin/zsh"
+        )
+        .is_err());
+        assert!(shell_command(
+            PtyProgram::Resume {
+                session_id: "$(whoami)",
+                extension,
+            },
+            "/bin/zsh"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn omp_program_loads_status_extension() {
+        let extension = Path::new("/tmp/ompx status.js");
+        let command = shell_command(PtyProgram::NewSession(extension), "/bin/zsh").unwrap();
+        assert_eq!(
+            command,
+            "omp --extension '/tmp/ompx status.js'; exec '/bin/zsh' -l"
+        );
     }
 }

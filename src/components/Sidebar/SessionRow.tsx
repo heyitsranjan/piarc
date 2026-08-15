@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { message } from "@tauri-apps/plugin-dialog";
 
 import {
+  CircleAlert,
   Copy,
   Loader2,
   MoreVertical,
@@ -23,6 +24,7 @@ import {
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 
+import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -46,13 +48,19 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
   const tabs = useTerminalStore((s) => s.tabs);
   const closeTab = useTerminalStore((state) => state.closeTab);
   const tab = tabs.find((t) => t.sessionId === session.id);
-  /** PTY spawning → spinner */
   const isSpawning = tab?.isLoading === true;
-  /** omp actively producing output → spinner */
-  const isOutputting = tab?.isOutputting === true;
-  /** terminal open, process idle (waiting for input) → green dot */
-  const isIdle = !!tab && !tab.isLoading && !tab.isOutputting && tab.error === null;
+  const isWorking = !!tab && (isSpawning || isAgentWorking(tab.activity));
+  const needsAttention =
+    tab?.activity.state === "waiting_approval" || tab?.activity.state === "error";
+  const isIdle =
+    !!tab &&
+    !isWorking &&
+    !needsAttention &&
+    tab.error === null &&
+    (tab.activity.state === "waiting_input" || tab.activity.state === "done");
+  const activityLabel = tab ? agentActivityLabel(tab.activity) : "";
 
+  const showActivity = isWorking || needsAttention;
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
   const [renameOpen, setRenameOpen] = useState(false);
@@ -142,21 +150,33 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
 
         {/* Fixed status slot keeps every row title aligned. */}
         <span className="flex size-4 shrink-0 items-center justify-center">
-          {(isSpawning || isOutputting) && (
+          {isWorking && (
             <Loader2
               size={14}
               strokeWidth={2}
               className="animate-spin text-[var(--color-accent)]"
-              aria-label={isSpawning ? "Starting terminal" : "Agent running"}
+              aria-label={isSpawning ? "Starting terminal" : activityLabel}
+            />
+          )}
+          {needsAttention && (
+            <CircleAlert
+              size={13}
+              className={
+                tab?.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : "text-[var(--color-warn)]"
+              }
+              aria-label={activityLabel}
             />
           )}
           {isIdle && (
             <span
-              title="Terminal open"
+              title={activityLabel}
+              aria-label={activityLabel}
               className="size-2 rounded-full bg-[var(--color-accent)] opacity-80"
             />
           )}
-          {!isSpawning && !isOutputting && !isIdle && isPinned && (
+          {!isWorking && !needsAttention && !isIdle && isPinned && (
             <Pin
               size={12}
               fill="currentColor"
@@ -175,11 +195,19 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             {session.title}
           </span>
           <span
-            className="block truncate font-mono text-[11px] leading-4
-              text-[var(--color-ink-7)]"
-            title={session.cwd}
+            className={cn(
+              "block truncate font-mono text-[11px] leading-4",
+              showActivity
+                ? tab?.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : tab?.activity.state === "waiting_approval"
+                    ? "text-[var(--color-warn)]"
+                    : "text-[var(--color-accent)]"
+                : "text-[var(--color-ink-7)]"
+            )}
+            title={showActivity ? activityLabel : session.cwd}
           >
-            {cwdShort(session.cwd)}
+            {showActivity ? activityLabel : cwdShort(session.cwd)}
           </span>
         </div>
 

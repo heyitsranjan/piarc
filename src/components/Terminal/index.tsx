@@ -10,6 +10,7 @@ import { useEffect, useRef } from "react";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { isAgentWorking } from "@/lib/agent-activity";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { writePty } from "@/lib/ipc";
 
@@ -44,7 +45,10 @@ export default function TerminalArea() {
       event.preventDefault();
 
       const now = window.performance.now();
-      if (activeTab.isOutputting && now - lastEscapeAt.current <= DOUBLE_ESCAPE_MS) {
+      if (
+        isAgentWorking(activeTab.activity) &&
+        now - lastEscapeAt.current <= DOUBLE_ESCAPE_MS
+      ) {
         event.stopPropagation();
         lastEscapeAt.current = 0;
         writePty(activeTab.id, "\x1b").catch(() => {});

@@ -5,6 +5,7 @@ import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-re
 
 import { type Tab, useTerminalStore } from "@/store/terminal";
 
+import { isAgentWorking } from "@/lib/agent-activity";
 import {
   type OmpCommand,
   type OmpPathSuggestion,
@@ -522,7 +523,7 @@ export default function RichInput({ tab, bottomControls }: RichInputProps) {
               bg-transparent px-1.5 py-1 font-mono text-[12px] leading-5 text-[var(--color-ink-1)]
               placeholder:text-[var(--color-ink-9)] disabled:cursor-not-allowed disabled:opacity-50"
             />
-            {tab.isOutputting && (
+            {isAgentWorking(tab.activity) && (
               <button
                 type="button"
                 onClick={() => void interrupt()}

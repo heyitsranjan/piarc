@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
+  CircleAlert,
   Loader2,
   MoreVertical,
   Pin,
@@ -15,6 +16,7 @@ import {
 
 import type { Tab } from "@/store/terminal";
 
+import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -80,9 +82,17 @@ export default function TerminalRow({
     onDelete();
   };
 
-  const isBusy = tab.isLoading || tab.isOutputting;
-  const isIdle = !isBusy && tab.error === null;
+  const isWorking = tab.isLoading || isAgentWorking(tab.activity);
+  const needsAttention =
+    tab.activity.state === "waiting_approval" || tab.activity.state === "error";
+  const isIdle =
+    !isWorking &&
+    !needsAttention &&
+    tab.error === null &&
+    (tab.activity.state === "waiting_input" || tab.activity.state === "done");
+  const activityLabel = agentActivityLabel(tab.activity);
 
+  const showActivity = isWorking || needsAttention;
   return (
     <>
       <li
@@ -104,16 +114,27 @@ export default function TerminalRow({
         )}
 
         <span className="flex size-4 shrink-0 items-center justify-center">
-          {isBusy ? (
+          {isWorking ? (
             <Loader2
               size={14}
               strokeWidth={2}
               className="animate-spin text-[var(--color-accent)]"
-              aria-label={tab.isLoading ? "Starting terminal" : "Terminal active"}
+              aria-label={tab.isLoading ? "Starting terminal" : activityLabel}
+            />
+          ) : needsAttention ? (
+            <CircleAlert
+              size={13}
+              className={
+                tab.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : "text-[var(--color-warn)]"
+              }
+              aria-label={activityLabel}
             />
           ) : isIdle ? (
             <span
-              title="Terminal open"
+              title={activityLabel}
+              aria-label={activityLabel}
               className="size-2 rounded-full bg-[var(--color-accent)] opacity-80"
             />
           ) : tab.isPinned ? (
@@ -137,10 +158,19 @@ export default function TerminalRow({
             {tab.title}
           </span>
           <span
-            className="block truncate font-mono text-[11px] leading-4 text-[var(--color-ink-7)]"
-            title={tab.cwd}
+            className={cn(
+              "block truncate font-mono text-[11px] leading-4",
+              showActivity
+                ? tab.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : tab.activity.state === "waiting_approval"
+                    ? "text-[var(--color-warn)]"
+                    : "text-[var(--color-accent)]"
+                : "text-[var(--color-ink-7)]"
+            )}
+            title={showActivity ? activityLabel : tab.cwd}
           >
-            {cwdShort(tab.cwd)}
+            {showActivity ? activityLabel : cwdShort(tab.cwd)}
           </span>
         </div>
 

@@ -2,7 +2,7 @@
  * @module components/Sidebar
  * Left panel — session browser with all async states.
  */
-import { Fragment, type ReactNode, useEffect } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import {
   TERMINAL_DEFAULT_COLS,
@@ -18,7 +18,6 @@ import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import type { OmpSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
 
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
@@ -28,8 +27,15 @@ import TerminalRow from "./TerminalRow";
 export default function Sidebar() {
   const ompStatus = useOmpStore((state) => state.status);
   const refreshOmp = useOmpStore((state) => state.refresh);
-  const { state, filtered, activeSession, loadSessions, pinnedIds, searchQuery } =
-    useSessions();
+  const {
+    state,
+    sessions,
+    filtered,
+    activeSession,
+    loadSessions,
+    pinnedIds,
+    searchQuery,
+  } = useSessions();
   const { openSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
@@ -50,12 +56,6 @@ export default function Sidebar() {
     )
     .sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
 
-  useEffect(() => {
-    if (allTerminals.length === 0 && sidebarMode === "terminals") {
-      setSidebarMode("sessions");
-    }
-  }, [allTerminals.length, sidebarMode, setSidebarMode]);
-
   const handleSelect = async (session: OmpSession) => {
     const opening = openSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
     if (window.innerWidth < 800) toggleSidebar();
@@ -64,7 +64,12 @@ export default function Sidebar() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <SidebarHeader />
+      <SidebarHeader
+        mode={sidebarMode}
+        sessionCount={sessions.length}
+        terminalCount={allTerminals.length}
+        onModeChange={setSidebarMode}
+      />
       <SearchBar />
       {ompStatus && !ompStatus.installed && (
         <div className="mx-2 mb-2 rounded-[var(--radius-md)] border border-[var(--color-danger)]/20 bg-[var(--color-danger)]/8 p-2.5">
@@ -99,13 +104,17 @@ export default function Sidebar() {
                 {filtered.map((session, idx) => {
                   const isPinned = pinnedIds.includes(session.id);
                   const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
+                  const startsSection = idx === 0 || (!isPinned && prevPinned);
                   return (
                     <Fragment key={session.id}>
-                      {!isPinned && prevPinned && (
+                      {startsSection && (
                         <li
                           aria-hidden
-                          className="mx-3 my-1.5 border-t border-[var(--color-border)]"
-                        />
+                          className="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase
+                            tracking-[0.08em] text-[var(--color-ink-9)]"
+                        >
+                          {isPinned ? "Pinned" : "Recent"}
+                        </li>
                       )}
                       <SessionRow
                         session={session}
@@ -151,33 +160,6 @@ export default function Sidebar() {
           </ul>
         )}
       </div>
-      {allTerminals.length > 0 && (
-        <div className="shrink-0 border-t border-[var(--color-border)] p-2">
-          <div
-            role="group"
-            aria-label="Sidebar content"
-            className="grid grid-cols-2 rounded-[var(--radius-sm)] bg-[var(--color-input)] p-0.5"
-          >
-            {(["sessions", "terminals"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                title={mode === "sessions" ? "Sessions (⌘⇧1)" : "Terminals (⌘⇧2)"}
-                aria-pressed={sidebarMode === mode}
-                onClick={() => setSidebarMode(mode)}
-                className={cn(
-                  "h-7 rounded-[3px] text-[11px] capitalize text-[var(--color-ink-7)]",
-                  "transition-colors hover:text-[var(--color-ink-1)]",
-                  sidebarMode === mode &&
-                    "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)] shadow-sm"
-                )}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

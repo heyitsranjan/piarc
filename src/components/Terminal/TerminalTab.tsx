@@ -28,6 +28,7 @@ import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { AGENT_ACTIVITY_OSC, parseAgentActivity } from "@/lib/agent-activity";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
@@ -99,14 +100,13 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const outputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
   const richInputEnabled =
     FEATURE_RICH_INPUT && richInputPreference && tab.kind === "omp";
   const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();
-  const setTabOutputting = useTerminalStore((s) => s.setTabOutputting);
+  const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -149,6 +149,14 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     termRef.current = term;
     fitRef.current = fit;
 
+    const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
+      if (tab.kind !== "omp") return false;
+      const activity = parseAgentActivity(data);
+      if (!activity) return false;
+      setTabActivity(tab.id, activity);
+      return true;
+    });
+
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
@@ -157,17 +165,15 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const binary = atob(ev.payload);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
-
-      // Mark session as actively outputting → sidebar shows spinner
-      setTabOutputting(tab.id, true);
-      // Revert to idle green dot after 500ms of silence
-      clearTimeout(outputTimer.current ?? undefined);
-      outputTimer.current = setTimeout(() => setTabOutputting(tab.id, false), 500);
     });
 
     const unlistenExit = listen<number>(exitKey, (ev) => {
       setExited({ code: ev.payload });
       term.write(`\r\n\x1b[2m[process exited with code ${ev.payload}]\x1b[0m\r\n`);
+      setTabActivity(tab.id, {
+        state: ev.payload === 0 ? "done" : "error",
+        detail: `Process exited with code ${ev.payload}`,
+      });
     });
 
     // Direct mode forwards all input. Rich mode limits xterm to OMP menu controls.
@@ -192,14 +198,20 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       unlistenOutput.then((fn) => fn());
       unlistenExit.then((fn) => fn());
       onDataDispose.dispose();
+      statusDispose.dispose();
       ro.disconnect();
       term.dispose();
-      clearTimeout(outputTimer.current ?? undefined);
-      setTabOutputting(tab.id, false);
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [disableTerminalInteraction, setTabOutputting, tab.id, tab.isLoading, tab.error]);
+  }, [
+    disableTerminalInteraction,
+    setTabActivity,
+    tab.id,
+    tab.isLoading,
+    tab.error,
+    tab.kind,
+  ]);
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables
   // xterm only while an OMP command owns an interactive terminal menu.
