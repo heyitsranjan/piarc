@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -13,6 +13,8 @@ use crate::models::{OmpCommand, OmpPathSuggestion};
 
 const MAX_RESULTS: usize = 100;
 const MAX_WALK_ENTRIES: usize = 50_000;
+const MAX_WORKSPACE_ENTRIES: usize = 50_000;
+const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 
 /// Ask the installed OMP binary for its effective built-in, plugin, skill, and file commands.
 pub fn list_commands(cwd: &Path) -> Result<Vec<OmpCommand>> {
@@ -89,6 +91,61 @@ pub fn list_paths(cwd: &Path, query: &str) -> Result<Vec<OmpPathSuggestion>> {
         .into_iter()
         .map(|(_, path, is_directory)| OmpPathSuggestion { path, is_directory })
         .collect())
+}
+
+/// Return the project file tree, preferring Git's ignore-aware index.
+pub fn list_workspace_entries(cwd: &Path) -> Result<Vec<OmpPathSuggestion>> {
+    ensure_directory(cwd)?;
+    let entries = git_entries(cwd).unwrap_or_else(|| walk_entries(cwd));
+    Ok(entries
+        .into_iter()
+        .take(MAX_WORKSPACE_ENTRIES)
+        .map(|(path, is_directory)| OmpPathSuggestion { path, is_directory })
+        .collect())
+}
+
+/// Read one UTF-8 project file without allowing paths to escape the workspace.
+pub fn read_workspace_file(cwd: &Path, relative: &str) -> Result<String> {
+    ensure_directory(cwd)?;
+    validate_relative_path(relative)?;
+
+    let root = cwd
+        .canonicalize()
+        .with_context(|| format!("Failed to resolve {}", cwd.display()))?;
+    let file = root
+        .join(relative)
+        .canonicalize()
+        .with_context(|| format!("Failed to resolve {relative}"))?;
+    if !file.starts_with(&root) || !file.is_file() {
+        bail!("File is outside the workspace or no longer exists");
+    }
+
+    let size = file
+        .metadata()
+        .with_context(|| format!("Failed to inspect {relative}"))?
+        .len();
+    if size > MAX_FILE_BYTES {
+        bail!("File exceeds the 2 MiB display limit");
+    }
+
+    let bytes = fs::read(&file).with_context(|| format!("Failed to read {relative}"))?;
+    if bytes.contains(&0) {
+        bail!("Binary files cannot be displayed");
+    }
+    String::from_utf8(bytes).context("File is not valid UTF-8")
+}
+
+fn validate_relative_path(value: &str) -> Result<()> {
+    let path = Path::new(value);
+    if value.is_empty()
+        || path.is_absolute()
+        || path
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+    {
+        bail!("Invalid workspace-relative file path");
+    }
+    Ok(())
 }
 
 fn ensure_directory(path: &Path) -> Result<()> {
@@ -236,5 +293,13 @@ mod tests {
         assert_eq!(entries.get("src"), Some(&true));
         assert_eq!(entries.get("src/components"), Some(&true));
         assert_eq!(entries.get("src/components/Input.tsx"), Some(&false));
+    }
+
+    #[test]
+    fn workspace_paths_cannot_escape_the_root() {
+        assert!(validate_relative_path("src/components/Input.tsx").is_ok());
+        assert!(validate_relative_path("../secret").is_err());
+        assert!(validate_relative_path("/tmp/secret").is_err());
+        assert!(validate_relative_path("src/../secret").is_err());
     }
 }

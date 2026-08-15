@@ -37,6 +37,12 @@
   --color-danger: #f15b5b;
   --color-info: #4ea1ff;
   --color-cyan: #89ddff;
+  --syntax-keyword: #c792ea;
+  --syntax-string: #c3e88d;
+  --syntax-number: #f78c6c;
+  --syntax-title: #82aaff;
+  --syntax-variable: #f07178;
+  --color-code-bg: #11151c;
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -87,6 +93,12 @@ html.light {
   --color-ink-5: #606060;
   --color-ink-7: #858585;
   --color-ink-9: #ababab;
+  --syntax-keyword: #7c3aed;
+  --syntax-string: #237a3b;
+  --syntax-number: #b45309;
+  --syntax-title: #1d4ed8;
+  --syntax-variable: #b91c1c;
+  --color-code-bg: #f7f9fc;
 }
 
 /* ─── Reset ───────────────────────────────────────────────────────────────── */
@@ -224,6 +236,10 @@ html {
   );
 }
 
+.git-review-tree {
+  width: var(--workspace-tree-width, 240px);
+}
+
 .git-diff-view {
   --diff-background-color: var(--color-bg);
   --diff-text-color: var(--color-ink-1);
@@ -256,11 +272,172 @@ html {
   color: var(--color-ink-7);
 }
 
+/* ─── Source viewer syntax ───────────────────────────────────────────────── */
+.source-viewer .hljs-comment,
+.source-viewer .hljs-quote {
+  color: var(--color-ink-7);
+  font-style: italic;
+}
+.source-viewer .hljs-keyword,
+.source-viewer .hljs-selector-tag,
+.source-viewer .hljs-literal,
+.source-viewer .hljs-doctag {
+  color: var(--syntax-keyword);
+}
+.source-viewer .hljs-string,
+.source-viewer .hljs-regexp,
+.source-viewer .hljs-attr,
+.source-viewer .hljs-template-tag,
+.source-viewer .hljs-template-variable {
+  color: var(--syntax-string);
+}
+.source-viewer .hljs-number,
+.source-viewer .hljs-symbol,
+.source-viewer .hljs-bullet {
+  color: var(--syntax-number);
+}
+.source-viewer .hljs-title,
+.source-viewer .hljs-section,
+.source-viewer .hljs-built_in,
+.source-viewer .hljs-type {
+  color: var(--syntax-title);
+}
+.source-viewer .hljs-variable,
+.source-viewer .hljs-params,
+.source-viewer .hljs-property {
+  color: var(--syntax-variable);
+}
+.source-viewer .hljs-meta,
+.source-viewer .hljs-operator,
+.source-viewer .hljs-punctuation {
+  color: var(--color-cyan);
+}
+.source-viewer .hljs-addition {
+  color: var(--color-success);
+}
+.source-viewer .hljs-deletion {
+  color: var(--color-danger);
+}
+.source-viewer .hljs-strong {
+  font-weight: 600;
+}
+.source-viewer .hljs-emphasis {
+  font-style: italic;
+}
+
+/* ─── Markdown preview ───────────────────────────────────────────────────── */
+.markdown-preview {
+  color: var(--color-ink-1);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.markdown-preview > :first-child {
+  margin-top: 0;
+}
+.markdown-preview > :last-child {
+  margin-bottom: 0;
+}
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4 {
+  margin: 1.5em 0 0.55em;
+  color: var(--color-ink-0);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.markdown-preview h1 {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.35em;
+  font-size: 1.7em;
+}
+.markdown-preview h2 {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3em;
+  font-size: 1.4em;
+}
+.markdown-preview h3 {
+  font-size: 1.18em;
+}
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview pre,
+.markdown-preview blockquote,
+.markdown-preview table {
+  margin: 0 0 1em;
+}
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: 1.6em;
+}
+.markdown-preview ul {
+  list-style: disc;
+}
+.markdown-preview ol {
+  list-style: decimal;
+}
+.markdown-preview a {
+  color: var(--color-info);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-preview code {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-2);
+  padding: 0.1em 0.3em;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.markdown-preview pre {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  padding: 12px;
+}
+.markdown-preview pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.markdown-preview blockquote {
+  border-left: 3px solid var(--color-border-strong);
+  padding-left: 1em;
+  color: var(--color-ink-5);
+}
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+.markdown-preview th {
+  background: var(--color-bg-elev);
+  color: var(--color-ink-0);
+}
+.markdown-preview hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+.markdown-preview img {
+  max-width: 100%;
+}
+
 @media (max-width: 699px) {
   .git-review-workspace {
     border-left: 0;
   }
   .git-review-resize-handle {
+    display: none;
+  }
+  .workspace-tree-resize-handle {
     display: none;
   }
   .git-review-workspace[data-selected="false"] .git-review-diff {

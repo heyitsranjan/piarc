@@ -16,3 +16,15 @@ pub fn list_omp_commands(cwd: String) -> Result<Vec<OmpCommand>, String> {
 pub fn list_omp_paths(cwd: String, query: String) -> Result<Vec<OmpPathSuggestion>, String> {
     completion::list_paths(Path::new(&cwd), &query).map_err(|error| error.to_string())
 }
+
+/// Return the project file tree for the workspace rooted at `cwd`.
+#[tauri::command]
+pub fn list_workspace_entries(cwd: String) -> Result<Vec<OmpPathSuggestion>, String> {
+    completion::list_workspace_entries(Path::new(&cwd)).map_err(|error| error.to_string())
+}
+
+/// Read one UTF-8 file within the workspace rooted at `cwd`.
+#[tauri::command]
+pub fn read_workspace_file(cwd: String, path: String) -> Result<String, String> {
+    completion::read_workspace_file(Path::new(&cwd), &path).map_err(|error| error.to_string())
+}

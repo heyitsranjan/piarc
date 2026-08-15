@@ -108,6 +108,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             completion::list_omp_commands,
             completion::list_omp_paths,
+            completion::list_workspace_entries,
+            completion::read_workspace_file,
             git::get_git_changes,
             git::get_git_file_diff,
             sessions::list_sessions,

@@ -68,6 +68,14 @@ export const listOmpCommands = (cwd: string): Promise<OmpCommand[]> =>
 export const listOmpPaths = (cwd: string, query: string): Promise<OmpPathSuggestion[]> =>
   invoke("list_omp_paths", { cwd, query });
 
+/** Return the ignore-aware project tree rooted at `cwd`. */
+export const listWorkspaceEntries = (cwd: string): Promise<OmpPathSuggestion[]> =>
+  invoke("list_workspace_entries", { cwd });
+
+/** Read one UTF-8 project file. Paths are workspace-relative and containment-checked. */
+export const readWorkspaceFile = (cwd: string, path: string): Promise<string> =>
+  invoke("read_workspace_file", { cwd, path });
+
 // ─── Git review ───────────────────────────────────────────────────────────
 
 /** List staged, unstaged, and untracked files in the repository containing `cwd`. */

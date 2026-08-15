@@ -5,7 +5,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import CommandPalette from "@/components/CommandPalette";
-import GitReview from "@/components/GitReview";
+import WorkspacePanel from "@/components/GitReview";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 import { useSessionStore } from "@/store/sessions";
@@ -47,8 +47,8 @@ export default function Layout() {
   const activeSession = useSessionStore((state) => state.activeSession);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
-  const gitReviewOpen = useUiStore((state) => state.gitReviewOpen);
-  const closeGitReview = useUiStore((state) => state.closeGitReview);
+  const workspaceMode = useUiStore((state) => state.workspaceMode);
+  const closeWorkspace = useUiStore((state) => state.closeWorkspace);
   const [width, setWidth] = useState(getSavedWidth);
   const widthRef = useRef(width);
   const dragging = useRef(false);
@@ -133,13 +133,14 @@ export default function Layout() {
         >
           {activeSession?.id ? <TerminalArea /> : <EmptyState />}
         </main>
-        {gitReviewOpen && activeSession?.cwd && (
-          <GitReview
+        {workspaceMode && activeSession?.cwd && (
+          <WorkspacePanel
             cwd={activeSession.cwd}
             leftInset={
               sidebarCollapsed ? 0 : width + RESIZE_HANDLE_WIDTH + REVIEW_SIDEBAR_GAP
             }
-            onClose={closeGitReview}
+            mode={workspaceMode}
+            onClose={closeWorkspace}
           />
         )}
       </div>
