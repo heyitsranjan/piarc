@@ -7,9 +7,12 @@ import { useRef } from "react";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessionStore } from "@/store/sessions";
+import { useUiStore } from "@/store/ui";
 
 export default function SearchBar() {
   const { searchQuery, setSearch } = useSessionStore();
+  const sidebarMode = useUiStore((state) => state.sidebarMode);
+  const label = sidebarMode === "terminals" ? "terminals" : "sessions";
   const ref = useRef<HTMLInputElement>(null);
 
   useKeyboard([
@@ -36,8 +39,8 @@ export default function SearchBar() {
         type="search"
         value={searchQuery}
         onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search sessions"
-        aria-label="Search sessions (⌘F)"
+        placeholder={`Search ${label}`}
+        aria-label={`Search ${label} (⌘F)`}
         className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-border)]
           bg-[var(--color-input)] pl-8 pr-8 text-[13px] text-[var(--color-ink-1)]
           placeholder:text-[var(--color-ink-7)] focus:border-[var(--color-focus)]

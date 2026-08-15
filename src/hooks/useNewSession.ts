@@ -18,6 +18,7 @@ import { newSessionPty, shellPty } from "@/lib/ipc";
 import { log } from "@/lib/logger";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
+import { useUiStore } from "@/store/ui";
 
 export interface UseNewSessionReturn {
   /** Start a new omp session — opens a terminal running `omp`. */
@@ -39,6 +40,7 @@ export function useNewSession(): UseNewSessionReturn {
   const [isStarting, setIsStarting] = useState(false);
   const { openTab, setTabReady, setTabError } = useTerminalStore();
   const setActive = useSessionStore((s) => s.setActive);
+  const setSidebarMode = useUiStore((state) => state.setSidebarMode);
 
   const start = useCallback(
     async (kind: "omp" | "terminal") => {
@@ -58,6 +60,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
         return;
       }
+      setSidebarMode(isTerminal ? "terminals" : "sessions");
 
       setActive(
         isTerminal
@@ -82,7 +85,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [openTab, setTabReady, setTabError, setActive]
+    [openTab, setTabReady, setTabError, setActive, setSidebarMode]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);

@@ -23,6 +23,7 @@ export default function CommandPalette() {
   const { state, sessions, loadSessions } = useSessions();
   const { openSession } = useTerminal();
   const close = useUiStore((s) => s.closeCommandPalette);
+  const setSidebarMode = useUiStore((s) => s.setSidebarMode);
   const tabs = useTerminalStore((s) => s.tabs);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const setActiveSession = useSessionStore((s) => s.setActive);
@@ -65,14 +66,24 @@ export default function CommandPalette() {
       const result = results[index];
       if (!result) return;
       if (result.kind === "session") {
+        setSidebarMode("sessions");
         await openSession(result.session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
       } else {
+        setSidebarMode("terminals");
         setActiveSession(null);
         setActiveTab(result.tab.id);
       }
       close();
     },
-    [results, selectedIdx, openSession, setActiveSession, setActiveTab, close]
+    [
+      results,
+      selectedIdx,
+      openSession,
+      setActiveSession,
+      setActiveTab,
+      setSidebarMode,
+      close,
+    ]
   );
 
   useKeyboard([

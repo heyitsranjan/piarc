@@ -2,7 +2,7 @@
  * @module components/Sidebar
  * Left panel — session browser with all async states.
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useEffect } from "react";
 
 import {
   TERMINAL_DEFAULT_COLS,
@@ -12,6 +12,7 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 import type { OmpSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
@@ -22,10 +23,13 @@ import SidebarHeader from "./SidebarHeader";
 import TerminalRow from "./TerminalRow";
 
 export default function Sidebar() {
-  const { state, filtered, activeSession, loadSessions, pinnedIds } = useSessions();
+  const { state, filtered, activeSession, loadSessions, pinnedIds, searchQuery } =
+    useSessions();
   const { openSession } = useTerminal();
   const openCmdPalette = useUiStore((s) => s.openCommandPalette);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const sidebarMode = useUiStore((s) => s.sidebarMode);
+  const setSidebarMode = useUiStore((s) => s.setSidebarMode);
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
@@ -33,9 +37,20 @@ export default function Sidebar() {
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
   const setActiveSession = useSessionStore((s) => s.setActive);
-  const terminals = tabs
-    .filter((tab) => tab.kind === "terminal")
+  const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
+  const q = searchQuery.toLowerCase().trim();
+  const terminals = allTerminals
+    .filter(
+      (tab) =>
+        !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q)
+    )
     .sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
+
+  useEffect(() => {
+    if (allTerminals.length === 0 && sidebarMode === "terminals") {
+      setSidebarMode("sessions");
+    }
+  }, [allTerminals.length, sidebarMode, setSidebarMode]);
 
   useKeyboard([
     { key: "k", meta: true, handler: openCmdPalette },
@@ -56,64 +71,94 @@ export default function Sidebar() {
 
       {/* ── State machine ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {state.type === "initial" && <Hint>Starting…</Hint>}
-        {state.type === "loading" && <LoadingSkeleton />}
-        {state.type === "error" && (
-          <ErrorBanner message={state.message} onRetry={loadSessions} />
+        {sidebarMode === "sessions" && (
+          <>
+            {state.type === "initial" && <Hint>Starting…</Hint>}
+            {state.type === "loading" && <LoadingSkeleton />}
+            {state.type === "error" && (
+              <ErrorBanner message={state.message} onRetry={loadSessions} />
+            )}
+            {state.type === "empty" && <EmptyList />}
+            {state.type === "data" && (
+              <ul role="list" className="pb-3 pt-1">
+                {filtered.map((session, idx) => {
+                  const isPinned = pinnedIds.includes(session.id);
+                  const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
+                  return (
+                    <Fragment key={session.id}>
+                      {!isPinned && prevPinned && (
+                        <li
+                          aria-hidden
+                          className="mx-3 my-1.5 border-t border-[var(--color-border)]"
+                        />
+                      )}
+                      <SessionRow
+                        session={session}
+                        isActive={activeSession?.id === session.id}
+                        onSelect={() => handleSelect(session)}
+                      />
+                    </Fragment>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <li className="px-3 py-6 text-center">
+                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
+                  </li>
+                )}
+              </ul>
+            )}
+          </>
         )}
-        {state.type === "empty" && <EmptyList />}
-        {state.type === "data" && (
+        {sidebarMode === "terminals" && (
           <ul role="list" className="pb-3 pt-1">
-            {filtered.map((session, idx) => {
-              const isPinned = pinnedIds.includes(session.id);
-              const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
-              return (
-                <Fragment key={session.id}>
-                  {!isPinned && prevPinned && (
-                    <li
-                      aria-hidden
-                      className="mx-3 my-1.5 border-t border-[var(--color-border)]"
-                    />
-                  )}
-                  <SessionRow
-                    session={session}
-                    isActive={activeSession?.id === session.id}
-                    onSelect={() => handleSelect(session)}
-                  />
-                </Fragment>
-              );
-            })}
-            {filtered.length === 0 && (
+            {terminals.map((tab) => (
+              <TerminalRow
+                key={tab.id}
+                tab={tab}
+                isActive={activeTabId === tab.id}
+                onSelect={() => {
+                  setActiveSession(null);
+                  setActiveTab(tab.id);
+                }}
+                onRename={(title) => updateTabTitle(tab.id, title)}
+                onTogglePin={() => toggleTabPin(tab.id)}
+                onDelete={() => void closeTab(tab.id)}
+              />
+            ))}
+            {terminals.length === 0 && (
               <li className="px-3 py-6 text-center">
                 <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
               </li>
             )}
           </ul>
         )}
-        {terminals.length > 0 && (
-          <section className="border-t border-[var(--color-border)] pb-2 pt-2">
-            <h2 className="px-3 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-9)]">
-              Terminals
-            </h2>
-            <ul role="list">
-              {terminals.map((tab) => (
-                <TerminalRow
-                  key={tab.id}
-                  tab={tab}
-                  isActive={activeTabId === tab.id}
-                  onSelect={() => {
-                    setActiveSession(null);
-                    setActiveTab(tab.id);
-                  }}
-                  onRename={(title) => updateTabTitle(tab.id, title)}
-                  onTogglePin={() => toggleTabPin(tab.id)}
-                  onDelete={() => void closeTab(tab.id)}
-                />
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
+      {allTerminals.length > 0 && (
+        <div className="shrink-0 border-t border-[var(--color-border)] p-2">
+          <div
+            role="group"
+            aria-label="Sidebar content"
+            className="grid grid-cols-2 rounded-[var(--radius-sm)] bg-[var(--color-input)] p-0.5"
+          >
+            {(["sessions", "terminals"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={sidebarMode === mode}
+                onClick={() => setSidebarMode(mode)}
+                className={cn(
+                  "h-7 rounded-[3px] text-[11px] capitalize text-[var(--color-ink-7)]",
+                  "transition-colors hover:text-[var(--color-ink-1)]",
+                  sidebarMode === mode &&
+                    "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)] shadow-sm"
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

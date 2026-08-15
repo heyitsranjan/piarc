@@ -10,9 +10,13 @@ export type Theme = "dark" | "light" | "system";
 
 export type WorkspaceMode = "explorer" | "git";
 
+export type SidebarMode = "sessions" | "terminals";
+
 interface UiState {
   /** Controls sidebar visibility (toggled by ⌘B). */
   sidebarCollapsed: boolean;
+  /** Which item collection the sidebar is showing. */
+  sidebarMode: SidebarMode;
   /** True while the ⌘K command palette is showing. */
   commandPaletteOpen: boolean;
   /** Active right-side workspace, or null when the workspace is closed. */
@@ -23,6 +27,7 @@ interface UiState {
   richInputEnabled: boolean;
 
   toggleSidebar: () => void;
+  setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   toggleWorkspace: (mode: WorkspaceMode) => void;
@@ -35,12 +40,14 @@ export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
+      sidebarMode: "sessions",
       commandPaletteOpen: false,
       workspaceMode: null,
       theme: "system",
       richInputEnabled: true,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
       closeCommandPalette: () => set({ commandPaletteOpen: false }),
       toggleWorkspace: (mode) =>
