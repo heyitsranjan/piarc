@@ -211,7 +211,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     } else {
       term.blur();
     }
-  }, [terminalInputEnabled]);
+  }, [terminalInputEnabled, tab.isLoading, tab.error]);
 
   return (
     <div
