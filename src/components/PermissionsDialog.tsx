@@ -57,7 +57,7 @@ export default function PermissionsDialog({ onClose }: PermissionsDialogProps) {
               Privacy & Permissions
             </h2>
             <p className="mt-0.5 text-[10.5px] text-[var(--color-ink-7)]">
-              OMPX asks only when an approved action needs access.
+              πx asks only when an approved action needs access.
             </p>
           </div>
           <button

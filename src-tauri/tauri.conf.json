@@ -1,5 +1,5 @@
 {
-  "productName": "OMPX",
+  "productName": "πx",
   "version": "0.1.0",
   "identifier": "com.heyitsranjan.ompx",
   "build": {
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "OMPX",
+        "title": "πx",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

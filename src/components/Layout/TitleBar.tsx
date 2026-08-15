@@ -147,7 +147,7 @@ export default function TitleBar() {
             <PanelLeft size={18} strokeWidth={1.7} />
           </button>
           <span className="app-wordmark truncate text-[13px] font-medium text-[var(--color-ink-1)]">
-            OMPX
+            πx
           </span>
         </div>
 

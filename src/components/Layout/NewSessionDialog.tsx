@@ -45,14 +45,14 @@ export default function NewSessionDialog({
         <div className="border-b border-[var(--color-border)] px-4 py-3.5">
           <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">Create</h2>
           <p className="mt-0.5 text-[11px] text-[var(--color-ink-7)]">
-            Start OMPX or open a plain terminal.
+            Start πx or open a plain terminal.
           </p>
         </div>
         <div className="grid gap-2 p-3">
           <Choice
             autoFocus
             icon={<Bot size={18} strokeWidth={1.7} />}
-            title="OMPX session"
+            title="πx session"
             description={
               ompAvailable ? "Start a new omp session" : "Install omp to create sessions"
             }

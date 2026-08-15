@@ -10,7 +10,6 @@ import {
   Pin,
   PinOff,
   SquarePen,
-  TerminalSquare,
   Trash2,
 } from "lucide-react";
 
@@ -85,11 +84,6 @@ export default function TerminalRow({
   const isWorking = tab.isLoading || isAgentWorking(tab.activity);
   const needsAttention =
     tab.activity.state === "waiting_approval" || tab.activity.state === "error";
-  const isIdle =
-    !isWorking &&
-    !needsAttention &&
-    tab.error === null &&
-    (tab.activity.state === "waiting_input" || tab.activity.state === "done");
   const activityLabel = agentActivityLabel(tab.activity);
 
   const showActivity = isWorking || needsAttention;
@@ -110,45 +104,8 @@ export default function TerminalRow({
         )}
       >
         {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--color-accent)]" />
+          <span className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[var(--color-accent)]" />
         )}
-
-        <span className="flex size-4 shrink-0 items-center justify-center">
-          {isWorking ? (
-            <Loader2
-              size={14}
-              strokeWidth={2}
-              className="animate-spin text-[var(--color-accent)]"
-              aria-label={tab.isLoading ? "Starting terminal" : activityLabel}
-            />
-          ) : needsAttention ? (
-            <CircleAlert
-              size={13}
-              className={
-                tab.activity.state === "error"
-                  ? "text-[var(--color-danger)]"
-                  : "text-[var(--color-warn)]"
-              }
-              aria-label={activityLabel}
-            />
-          ) : isIdle ? (
-            <span
-              title={activityLabel}
-              aria-label={activityLabel}
-              className="size-2 rounded-full bg-[var(--color-accent)] opacity-80"
-            />
-          ) : tab.isPinned ? (
-            <Pin
-              size={12}
-              fill="currentColor"
-              strokeWidth={0}
-              className="text-[var(--color-accent)] opacity-70"
-              aria-label="Pinned"
-            />
-          ) : (
-            <TerminalSquare size={13} className="text-[var(--color-ink-7)]" />
-          )}
-        </span>
 
         <div className="min-w-0 flex-1">
           <span
@@ -175,15 +132,39 @@ export default function TerminalRow({
         </div>
 
         <div className="relative flex h-7 w-14 shrink-0 items-center justify-end">
-          <span
-            className={cn(
-              "text-[11px] tabular-nums leading-4 text-[var(--color-ink-7)]",
-              "transition-opacity duration-[var(--duration-fast)]",
-              menuOpen ? "opacity-0" : "group-hover:opacity-0"
-            )}
-          >
-            {timeAgo(tab.createdAt)}
-          </span>
+          {isWorking ? (
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              className={cn(
+                "animate-spin text-[var(--color-accent)] transition-opacity",
+                menuOpen ? "opacity-0" : "group-hover:opacity-0"
+              )}
+              aria-label={tab.isLoading ? "Starting terminal" : activityLabel}
+            />
+          ) : needsAttention ? (
+            <CircleAlert
+              size={13}
+              className={cn(
+                tab.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : "text-[var(--color-warn)]",
+                "transition-opacity",
+                menuOpen ? "opacity-0" : "group-hover:opacity-0"
+              )}
+              aria-label={activityLabel}
+            />
+          ) : (
+            <span
+              className={cn(
+                "text-[11px] tabular-nums leading-4 text-[var(--color-ink-7)]",
+                "transition-opacity duration-[var(--duration-fast)]",
+                menuOpen ? "opacity-0" : "group-hover:opacity-0"
+              )}
+            >
+              {timeAgo(tab.createdAt)}
+            </span>
+          )}
           <button
             ref={buttonRef}
             type="button"
