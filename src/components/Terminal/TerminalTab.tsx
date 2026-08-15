@@ -156,14 +156,20 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     };
   }, [setTabOutputting, tab.id, tab.isLoading, tab.error]);
 
-  // Refit + focus when tab becomes visible
+  // Refit the visible pane, synchronize PTY rows, and reveal the prompt.
   useEffect(() => {
     if (!isVisible) return;
     setTimeout(() => {
-      fitRef.current?.fit();
-      termRef.current?.focus();
+      const fit = fitRef.current;
+      const term = termRef.current;
+      if (!fit || !term) return;
+
+      fit.fit();
+      term.scrollToBottom();
+      term.focus();
+      resizePty(tab.id, term.cols, term.rows).catch(() => {});
     }, 0);
-  }, [isVisible]);
+  }, [isVisible, tab.id]);
 
   return (
     <div
@@ -241,11 +247,11 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
 
       {/* ── Live terminal ───────────────────────────────────────────────── */}
       {!tab.isLoading && tab.error === null && (
-        // flex-col: terminal fills all space; 8px spacer below keeps the last
-        // line off the window edge without adding top/bottom padding.
-        <div className="flex-1 w-full flex flex-col bg-[var(--color-bg)] overflow-hidden min-h-0">
+        // Reserve border space around the fitted xterm viewport without
+        // changing its font size or line height.
+        <div className="flex-1 w-full flex flex-col bg-[var(--color-bg)] overflow-hidden min-h-0 px-4">
           <div ref={containerRef} className="flex-1 w-full min-h-0" />
-          <div className="h-2 shrink-0 bg-[var(--color-bg)]" />
+          <div className="h-4 shrink-0 bg-[var(--color-bg)]" />
         </div>
       )}
 
