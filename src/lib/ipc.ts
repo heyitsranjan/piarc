@@ -43,6 +43,13 @@ export const openPermissionSettings = (kind: PermissionKind): Promise<void> =>
 export type CustomModelApi =
   "openai-completions" | "openai-responses" | "anthropic-messages";
 
+export interface CustomModelCost {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
 export interface CustomModelDraft {
   name: string;
   providerName: string;
@@ -54,6 +61,7 @@ export interface CustomModelDraft {
   imageInput: boolean;
   contextWindow: number;
   maxTokens: number;
+  cost: CustomModelCost;
 }
 
 export interface CustomModel {
@@ -67,6 +75,7 @@ export interface CustomModel {
   imageInput: boolean;
   contextWindow: number;
   maxTokens: number;
+  cost: CustomModelCost;
 }
 
 export interface ConnectionReport {
@@ -97,30 +106,6 @@ export const updateCustomModel = (
 /** Delete a custom model, its unused credential, and its OMP role assignments. */
 export const deleteCustomModel = (providerId: string, modelId: string): Promise<void> =>
   invoke("delete_custom_model", { providerId, modelId });
-
-export type ModelRole =
-  | "default"
-  | "smol"
-  | "slow"
-  | "vision"
-  | "plan"
-  | "designer"
-  | "commit"
-  | "tiny"
-  | "task"
-  | "advisor"
-  | "fallback";
-
-/** Return OMP use-case assignments, keyed by model role. */
-export const listModelRoles = (): Promise<Partial<Record<ModelRole, string>>> =>
-  invoke("list_model_roles");
-
-/** Assign a saved custom model to an OMP use case, or clear that assignment. */
-export const setModelRole = (
-  role: ModelRole,
-  selector: string | null
-): Promise<Partial<Record<ModelRole, string>>> =>
-  invoke("set_model_role", { role, selector });
 
 // ─── Sessions ──────────────────────────────────────────────────────────────
 

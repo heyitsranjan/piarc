@@ -14,15 +14,13 @@ use serde_json::json;
 use serde_yaml::Value;
 use uuid::Uuid;
 
-use crate::models::{ConnectionReport, CustomModel, CustomModelApi, CustomModelDraft};
+use crate::models::{
+    ConnectionReport, CustomModel, CustomModelApi, CustomModelCost, CustomModelDraft,
+};
 
 const PROVIDER_PREFIX: &str = "ompx-";
 const KEYCHAIN_ACCOUNT: &str = "ompx";
 const KEYCHAIN_SERVICE_PREFIX: &str = "com.heyitsranjan.ompx.provider.";
-const MODEL_ROLES: [&str; 11] = [
-    "default", "smol", "slow", "vision", "plan", "designer", "commit", "tiny", "task", "advisor",
-    "fallback",
-];
 
 pub async fn test(draft: &CustomModelDraft) -> Result<ConnectionReport> {
     validate_draft(draft, false)?;
@@ -141,6 +139,7 @@ pub fn list() -> Result<Vec<CustomModel>> {
                 image_input,
                 context_window: model.context_window.unwrap_or(128_000),
                 max_tokens: model.max_tokens.unwrap_or(8_192),
+                cost: model.cost.unwrap_or_default(),
             });
         }
     }
@@ -272,63 +271,6 @@ fn replace_role_selector(previous: &str, replacement: Option<&str>) -> Result<()
     Ok(())
 }
 
-pub fn list_roles() -> Result<BTreeMap<String, String>> {
-    let path = config_path()?;
-    if !path.exists() {
-        return Ok(BTreeMap::new());
-    }
-    reject_symlink(&path)?;
-    let config: OmpConfig = serde_yaml::from_str(
-        &fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?,
-    )
-    .with_context(|| format!("invalid OMP configuration at {}", path.display()))?;
-    Ok(config.model_roles)
-}
-
-pub fn set_role(role: &str, selector: Option<&str>) -> Result<BTreeMap<String, String>> {
-    let models = list()?;
-    set_role_at(&config_path()?, role, selector, &models)
-}
-
-fn set_role_at(
-    path: &Path,
-    role: &str,
-    selector: Option<&str>,
-    models: &[CustomModel],
-) -> Result<BTreeMap<String, String>> {
-    if !MODEL_ROLES.contains(&role) {
-        bail!("Unsupported OMP model use case");
-    }
-    if let Some(selector) = selector {
-        let configured = models
-            .iter()
-            .any(|model| format!("{}/{}", model.provider_id, model.model_id) == selector);
-        if !configured {
-            bail!("Model is not configured in OMPX");
-        }
-    }
-
-    let mut config = if path.exists() {
-        reject_symlink(path)?;
-        serde_yaml::from_str::<OmpConfig>(
-            &fs::read_to_string(path)
-                .with_context(|| format!("failed to read {}", path.display()))?,
-        )
-        .with_context(|| format!("invalid OMP configuration at {}", path.display()))?
-    } else {
-        OmpConfig::default()
-    };
-    if let Some(selector) = selector {
-        config.model_roles.insert(role.into(), selector.into());
-    } else {
-        config.model_roles.remove(role);
-    }
-    let serialized =
-        serde_yaml::to_string(&config).context("failed to serialize OMP configuration")?;
-    atomic_write(path, &serialized)?;
-    Ok(config.model_roles)
-}
-
 fn save_config(
     draft: &CustomModelDraft,
     provider_id: &str,
@@ -381,6 +323,7 @@ fn save_config(
         } else {
             vec!["text".into()]
         }),
+        cost: Some(draft.cost.clone()),
         context_window: Some(draft.context_window),
         max_tokens: Some(draft.max_tokens),
         extra: BTreeMap::new(),
@@ -400,6 +343,7 @@ fn save_config(
         image_input: draft.image_input,
         context_window: draft.context_window,
         max_tokens: draft.max_tokens,
+        cost: draft.cost.clone(),
     })
 }
 
@@ -423,6 +367,16 @@ fn validate_draft(draft: &CustomModelDraft, require_api_key: bool) -> Result<()>
     }
     if draft.name.len() > 100 || draft.provider_name.len() > 100 || draft.model_id.len() > 256 {
         bail!("Model identity is too long");
+    }
+    for price in [
+        draft.cost.input,
+        draft.cost.output,
+        draft.cost.cache_read,
+        draft.cost.cache_write,
+    ] {
+        if !price.is_finite() || price < 0.0 {
+            bail!("Token prices must be finite, non-negative USD amounts");
+        }
     }
     if draft.context_window == 0 || draft.max_tokens == 0 {
         bail!("Token limits must be positive");
@@ -717,6 +671,8 @@ struct ModelConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     input: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    cost: Option<CustomModelCost>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     context_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u64>,
@@ -727,7 +683,6 @@ struct ModelConfig {
 #[cfg(test)]
 mod tests {
     use std::{
-        fs,
         io::{Read, Write},
         net::TcpListener,
         thread,
@@ -735,8 +690,8 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     use super::{delete_secret, get_secret, set_secret};
-    use super::{provider_id, set_role_at, test, validate};
-    use crate::models::{CustomModel, CustomModelApi, CustomModelDraft};
+    use super::{provider_id, test, validate};
+    use crate::models::{CustomModelApi, CustomModelCost, CustomModelDraft};
 
     fn draft() -> CustomModelDraft {
         CustomModelDraft {
@@ -750,6 +705,7 @@ mod tests {
             image_input: false,
             context_window: 128_000,
             max_tokens: 8_192,
+            cost: CustomModelCost::default(),
         }
     }
 
@@ -768,6 +724,30 @@ mod tests {
         assert!(validate(&value).is_err());
         value.base_url = "http://127.0.0.1:11434/v1".into();
         assert!(validate(&value).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_pricing() {
+        let mut value = draft();
+        value.cost.input = -0.01;
+        assert!(validate(&value).is_err());
+        value.cost.input = f64::NAN;
+        assert!(validate(&value).is_err());
+    }
+
+    #[test]
+    fn pricing_uses_omp_yaml_keys() {
+        let cost = CustomModelCost {
+            input: 1.4,
+            output: 4.4,
+            cache_read: 0.26,
+            cache_write: 0.0,
+        };
+        let yaml = serde_yaml::to_string(&cost).unwrap();
+        assert!(yaml.contains("input: 1.4"));
+        assert!(yaml.contains("output: 4.4"));
+        assert!(yaml.contains("cacheRead: 0.26"));
+        assert!(yaml.contains("cacheWrite: 0.0"));
     }
 
     #[test]
@@ -804,33 +784,5 @@ mod tests {
         assert_eq!(get_secret(&service).unwrap(), b"temporary-secret");
         delete_secret(&service).unwrap();
         assert!(get_secret(&service).is_err());
-    }
-
-    #[test]
-    fn role_assignment_preserves_unrelated_config() {
-        let root = std::env::temp_dir().join(format!("ompx-role-test-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        let path = root.join("config.yml");
-        fs::write(&path, "theme: dark\nmodelRoles:\n  slow: built-in/model\n").unwrap();
-        let model = CustomModel {
-            provider_id: "ompx-work".into(),
-            provider_name: "Work".into(),
-            name: "Claude".into(),
-            model_id: "claude".into(),
-            base_url: "https://example.com/v1".into(),
-            api: CustomModelApi::OpenaiCompletions,
-            reasoning: false,
-            image_input: false,
-            context_window: 128_000,
-            max_tokens: 8_192,
-        };
-
-        let roles = set_role_at(&path, "task", Some("ompx-work/claude"), &[model]).unwrap();
-        let saved = fs::read_to_string(&path).unwrap();
-        assert_eq!(roles.get("slow").unwrap(), "built-in/model");
-        assert_eq!(roles.get("task").unwrap(), "ompx-work/claude");
-        assert!(saved.contains("theme: dark"));
-        assert!(set_role_at(&path, "unknown", None, &[]).is_err());
-        fs::remove_dir_all(root).unwrap();
     }
 }

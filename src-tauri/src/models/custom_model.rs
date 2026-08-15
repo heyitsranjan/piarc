@@ -18,6 +18,15 @@ impl CustomModelApi {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomModelCost {
+    pub input: f64,
+    pub output: f64,
+    pub cache_read: f64,
+    pub cache_write: f64,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomModelDraft {
@@ -31,6 +40,7 @@ pub struct CustomModelDraft {
     pub image_input: bool,
     pub context_window: u64,
     pub max_tokens: u64,
+    pub cost: CustomModelCost,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -46,6 +56,7 @@ pub struct CustomModel {
     pub image_input: bool,
     pub context_window: u64,
     pub max_tokens: u64,
+    pub cost: CustomModelCost,
 }
 
 #[derive(Debug, Serialize)]

@@ -21,12 +21,9 @@ import {
   type CustomModel,
   type CustomModelApi,
   type CustomModelDraft,
-  type ModelRole,
   deleteCustomModel,
   listCustomModels,
-  listModelRoles,
   saveCustomModel,
-  setModelRole,
   testCustomModel,
   updateCustomModel,
 } from "@/lib/ipc";
@@ -46,39 +43,27 @@ const emptyDraft: CustomModelDraft = {
   imageInput: false,
   contextWindow: 128_000,
   maxTokens: 8_192,
+  cost: {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  },
 };
-
-const modelRoles: { id: ModelRole; label: string }[] = [
-  { id: "default", label: "Default" },
-  { id: "smol", label: "Fast" },
-  { id: "slow", label: "Strong" },
-  { id: "vision", label: "Vision" },
-  { id: "plan", label: "Plan" },
-  { id: "designer", label: "Designer" },
-  { id: "commit", label: "Commit" },
-  { id: "tiny", label: "Tiny" },
-  { id: "task", label: "Task" },
-  { id: "advisor", label: "Advisor" },
-  { id: "fallback", label: "Fallback" },
-];
 
 export default function SettingsDialog({ onClose }: SettingsDialogProps) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CustomModel | null>(null);
   const [models, setModels] = useState<CustomModel[]>([]);
-  const [roles, setRoles] = useState<Partial<Record<ModelRole, string>>>({});
   const [draft, setDraft] = useState<CustomModelDraft>(emptyDraft);
   const [report, setReport] = useState<ConnectionReport | null>(null);
-  const [busy, setBusy] = useState<"test" | "save" | ModelRole | null>(null);
+  const [busy, setBusy] = useState<"test" | "save" | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([listCustomModels(), listModelRoles()])
-      .then(([savedModels, savedRoles]) => {
-        setModels(savedModels);
-        setRoles(savedRoles);
-      })
+    void listCustomModels()
+      .then(setModels)
       .catch((reason) =>
         setError(reason instanceof Error ? reason.message : String(reason))
       );
@@ -130,19 +115,6 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
       setReport(null);
       setEditing(null);
       setAdding(false);
-      setRoles(await listModelRoles());
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const assignRole = async (role: ModelRole, selector: string | null) => {
-    setBusy(role);
-    setError(null);
-    try {
-      setRoles(await setModelRole(role, selector));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -163,6 +135,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
       imageInput: model.imageInput,
       contextWindow: model.contextWindow,
       maxTokens: model.maxTokens,
+      cost: model.cost,
     });
     setReport(null);
     setError(null);
@@ -181,7 +154,6 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
           (item) => item.providerId !== model.providerId || item.modelId !== model.modelId
         )
       );
-      setRoles(await listModelRoles());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -197,7 +169,8 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
     draft.modelId.trim() &&
     draft.contextWindow > 0 &&
     draft.maxTokens > 0 &&
-    draft.maxTokens <= draft.contextWindow;
+    draft.maxTokens <= draft.contextWindow &&
+    Object.values(draft.cost).every((price) => Number.isFinite(price) && price >= 0);
 
   return createPortal(
     <div
@@ -273,11 +246,8 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
             ) : (
               <ModelList
                 models={models}
-                roles={roles}
-                busyRole={busy !== "test" && busy !== "save" ? busy : null}
                 deleting={deleting}
                 error={error}
-                onAssign={(role, selector) => void assignRole(role, selector)}
                 onEdit={editModel}
                 onDelete={(model) => void removeModel(model)}
                 onAdd={() => {
@@ -300,7 +270,7 @@ interface ModelFormProps {
   update: <K extends keyof CustomModelDraft>(key: K, value: CustomModelDraft[K]) => void;
   report: ConnectionReport | null;
   error: string | null;
-  busy: "test" | "save" | ModelRole | null;
+  busy: "test" | "save" | null;
   editing: boolean;
   valid: boolean;
   onCancel: () => void;
@@ -416,6 +386,37 @@ function ModelForm({
         </Field>
       </div>
 
+      <div>
+        <div className="text-[10.5px] font-medium text-[var(--color-ink-5)]">
+          Pricing
+          <span className="ml-2 font-normal text-[var(--color-ink-9)]">
+            USD per 1M tokens · optional
+          </span>
+        </div>
+        <div className="mt-1.5 grid grid-cols-2 gap-3">
+          {(
+            [
+              ["input", "Input"],
+              ["output", "Output"],
+              ["cacheRead", "Cache read"],
+              ["cacheWrite", "Cache write"],
+            ] as const
+          ).map(([key, label]) => (
+            <Field key={key} label={label}>
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                value={draft.cost[key]}
+                onChange={(event) =>
+                  update("cost", { ...draft.cost, [key]: Number(event.target.value) })
+                }
+              />
+            </Field>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-4 text-[11px] text-[var(--color-ink-5)]">
         <Check
           label="Reasoning"
@@ -471,21 +472,15 @@ function ModelForm({
 
 function ModelList({
   models,
-  roles,
-  busyRole,
   deleting,
   error,
-  onAssign,
   onEdit,
   onDelete,
   onAdd,
 }: {
   models: CustomModel[];
-  roles: Partial<Record<ModelRole, string>>;
-  busyRole: ModelRole | null;
   deleting: string | null;
   error: string | null;
-  onAssign: (role: ModelRole, selector: string | null) => void;
   onEdit: (model: CustomModel) => void;
   onDelete: (model: CustomModel) => void;
   onAdd: () => void;
@@ -495,11 +490,10 @@ function ModelList({
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h4 className="text-[12px] font-medium text-[var(--color-ink-1)]">
-            Model use cases
+            Saved models
           </h4>
           <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-ink-7)]">
-            Assign each saved model to OMP roles. Changes appear immediately in every{" "}
-            <code>/model</code> picker.
+            Choose a saved model from OMP&apos;s <code>/model</code> picker.
           </p>
         </div>
         <Button variant="default" onClick={onAdd} className="shrink-0">
@@ -554,29 +548,8 @@ function ModelList({
                     )}
                   </button>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-1.5" aria-label="OMP use cases">
-                  {modelRoles.map((role) => {
-                    const assigned = roles[role.id] === selector;
-                    return (
-                      <button
-                        key={role.id}
-                        type="button"
-                        aria-pressed={assigned}
-                        disabled={busyRole !== null}
-                        onClick={() => onAssign(role.id, assigned ? null : selector)}
-                        className={`rounded-full border px-2 py-1 text-[9.5px] transition-colors disabled:opacity-50 ${
-                          assigned
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
-                            : "border-[var(--color-border-2)] text-[var(--color-ink-7)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-ink-3)]"
-                        }`}
-                      >
-                        {busyRole === role.id && (
-                          <Loader2 size={9} className="mr-1 inline animate-spin" />
-                        )}
-                        {role.label}
-                      </button>
-                    );
-                  })}
+                <div className="mt-2 text-[10px] text-[var(--color-ink-7)]">
+                  {pricingSummary(model)}
                 </div>
               </div>
             );
@@ -595,6 +568,17 @@ function ModelList({
       )}
     </div>
   );
+}
+
+function pricingSummary(model: CustomModel) {
+  if (Object.values(model.cost).every((price) => price === 0)) {
+    return "Pricing not configured";
+  }
+  return `${formatPrice(model.cost.input)} input · ${formatPrice(model.cost.output)} output · ${formatPrice(model.cost.cacheRead)} cache read · ${formatPrice(model.cost.cacheWrite)} cache write / 1M`;
+}
+
+function formatPrice(value: number) {
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
 }
 
 function Field({
