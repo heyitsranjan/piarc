@@ -1,4 +1,10 @@
-use std::{collections::BTreeMap, fs, io::Write, path::PathBuf, time::Duration};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use reqwest::{Client, StatusCode, Url};
@@ -12,6 +18,10 @@ use crate::models::{ConnectionReport, CustomModel, CustomModelApi, CustomModelDr
 const PROVIDER_PREFIX: &str = "ompx-";
 const KEYCHAIN_ACCOUNT: &str = "ompx";
 const KEYCHAIN_SERVICE_PREFIX: &str = "com.heyitsranjan.ompx.provider.";
+const MODEL_ROLES: [&str; 11] = [
+    "default", "smol", "slow", "vision", "plan", "designer", "commit", "tiny", "task", "advisor",
+    "fallback",
+];
 
 #[cfg(target_os = "macos")]
 mod keychain_acl {
@@ -28,8 +38,11 @@ mod keychain_acl {
         declare_TCFType, impl_TCFType,
         string::{CFString, CFStringRef},
     };
-    use security_framework::os::macos::{access::SecAccess, passwords::find_generic_password};
-    use security_framework_sys::base::{SecAccessRef, SecKeychainItemRef};
+    use security_framework::{
+        os::macos::access::SecAccess,
+        passwords::{set_generic_password_options, PasswordOptions},
+    };
+    use security_framework_sys::base::SecAccessRef;
 
     type SecTrustedApplicationRef = *mut c_void;
 
@@ -45,8 +58,10 @@ mod keychain_acl {
     unsafe impl Send for SecTrustedApplication {}
     unsafe impl Sync for SecTrustedApplication {}
 
+    #[allow(non_upper_case_globals)]
     #[link(name = "Security", kind = "framework")]
     extern "C" {
+        static kSecAttrAccess: CFStringRef;
         fn SecTrustedApplicationGetTypeID() -> CFTypeID;
         fn SecTrustedApplicationCreateFromPath(
             path: *const c_char,
@@ -57,10 +72,21 @@ mod keychain_acl {
             trusted_list: core_foundation::array::CFArrayRef,
             access: *mut SecAccessRef,
         ) -> i32;
-        fn SecKeychainItemSetAccess(item: SecKeychainItemRef, access: SecAccessRef) -> i32;
     }
 
-    pub fn allow_security_tool(service: &str, account: &str) -> Result<()> {
+    pub fn set_password(service: &str, account: &str, secret: &[u8]) -> Result<()> {
+        let access = create_access()?;
+        let mut options = PasswordOptions::new_generic_password(service, account);
+        #[allow(deprecated)]
+        options.query.push((
+            unsafe { CFString::wrap_under_get_rule(kSecAttrAccess) },
+            access.into_CFType(),
+        ));
+        set_generic_password_options(secret, options)
+            .context("failed to store API key in macOS Keychain")
+    }
+
+    fn create_access() -> Result<SecAccess> {
         let executable = std::env::current_exe().context("failed to locate OMPX executable")?;
         let executable_path = CString::new(executable.as_os_str().as_bytes())
             .context("invalid OMPX executable path")?;
@@ -78,13 +104,7 @@ mod keychain_acl {
             )
         })
         .context("failed to create Keychain access policy")?;
-        let access = unsafe { SecAccess::wrap_under_create_rule(access_ref) };
-        let (_, item) = find_generic_password(None, service, account)
-            .context("failed to find stored API key")?;
-        status(unsafe {
-            SecKeychainItemSetAccess(item.as_concrete_TypeRef(), access.as_concrete_TypeRef())
-        })
-        .context("failed to grant OMP Keychain access")
+        Ok(unsafe { SecAccess::wrap_under_create_rule(access_ref) })
     }
 
     fn trusted_application(path: Option<&CString>) -> Result<SecTrustedApplication> {
@@ -109,41 +129,53 @@ mod keychain_acl {
 }
 
 pub async fn test(draft: &CustomModelDraft) -> Result<ConnectionReport> {
-    validate(draft)?;
-    let url = endpoint(draft)?;
+    validate_draft(draft, false)?;
+    let mut effective = draft.clone();
+    if effective.api_key.trim().is_empty() {
+        let provider_id = provider_id(&effective.provider_name)?;
+        effective.api_key = String::from_utf8(get_secret(&keychain_service(&provider_id))?)
+            .context("stored API key is not valid UTF-8")?;
+    }
+    if effective.api_key.trim().is_empty() {
+        bail!("API key is required");
+    }
+    let url = endpoint(&effective)?;
     let client = Client::builder()
         .timeout(Duration::from_secs(20))
         .build()
         .context("failed to create HTTP client")?;
 
-    let request = match draft.api {
-        CustomModelApi::OpenaiCompletions => {
-            client.post(url).bearer_auth(&draft.api_key).json(&json!({
-                "model": draft.model_id.trim(),
-                "messages": [{"role": "user", "content": "Reply OK"}],
-                "max_tokens": 1,
-                "stream": false
-            }))
-        }
-        CustomModelApi::OpenaiResponses => {
-            client.post(url).bearer_auth(&draft.api_key).json(&json!({
-                "model": draft.model_id.trim(),
-                "input": "Reply OK",
-                "max_output_tokens": 16,
-                "stream": false
-            }))
-        }
-        CustomModelApi::AnthropicMessages => client
-            .post(url)
-            .header("x-api-key", draft.api_key.trim())
-            .header("anthropic-version", "2023-06-01")
-            .json(&json!({
-                "model": draft.model_id.trim(),
-                "messages": [{"role": "user", "content": "Reply OK"}],
-                "max_tokens": 1,
-                "stream": false
-            })),
-    };
+    let request =
+        match effective.api {
+            CustomModelApi::OpenaiCompletions => client
+                .post(url)
+                .bearer_auth(&effective.api_key)
+                .json(&json!({
+                    "model": effective.model_id.trim(),
+                    "messages": [{"role": "user", "content": "Reply OK"}],
+                    "max_tokens": 1,
+                    "stream": false
+                })),
+            CustomModelApi::OpenaiResponses => client
+                .post(url)
+                .bearer_auth(&effective.api_key)
+                .json(&json!({
+                    "model": effective.model_id.trim(),
+                    "input": "Reply OK",
+                    "max_output_tokens": 16,
+                    "stream": false
+                })),
+            CustomModelApi::AnthropicMessages => client
+                .post(url)
+                .header("x-api-key", effective.api_key.trim())
+                .header("anthropic-version", "2023-06-01")
+                .json(&json!({
+                    "model": effective.model_id.trim(),
+                    "messages": [{"role": "user", "content": "Reply OK"}],
+                    "max_tokens": 1,
+                    "stream": false
+                })),
+        };
 
     let response = request.send().await.context("connection failed")?;
     let status = response.status();
@@ -164,7 +196,7 @@ pub fn save(draft: &CustomModelDraft) -> Result<CustomModel> {
     let previous_key = get_secret(&service).ok();
     set_secret(&service, draft.api_key.trim().as_bytes())?;
 
-    let result = save_config(draft, &provider_id);
+    let result = save_config(draft, &provider_id, None);
     if result.is_err() {
         if let Some(secret) = previous_key {
             let _ = set_secret(&service, &secret);
@@ -201,6 +233,10 @@ pub fn list() -> Result<Vec<CustomModel>> {
             let Some(api) = parse_api(&api) else {
                 continue;
             };
+            let image_input = model
+                .input
+                .as_ref()
+                .is_some_and(|input| input.iter().any(|kind| kind == "image"));
             models.push(CustomModel {
                 provider_name: provider_id
                     .trim_start_matches(PROVIDER_PREFIX)
@@ -210,13 +246,200 @@ pub fn list() -> Result<Vec<CustomModel>> {
                 model_id,
                 base_url: base_url.clone(),
                 api,
+                reasoning: model.reasoning.unwrap_or(false),
+                image_input,
+                context_window: model.context_window.unwrap_or(128_000),
+                max_tokens: model.max_tokens.unwrap_or(8_192),
             });
         }
     }
     Ok(models)
 }
 
-fn save_config(draft: &CustomModelDraft, provider_id: &str) -> Result<CustomModel> {
+pub fn update(
+    original_provider_id: &str,
+    original_model_id: &str,
+    draft: &CustomModelDraft,
+) -> Result<CustomModel> {
+    validate_draft(draft, false)?;
+    let original_selector = format!("{original_provider_id}/{original_model_id}");
+    if !list()?.iter().any(|model| {
+        model.provider_id == original_provider_id && model.model_id == original_model_id
+    }) {
+        bail!("Custom model no longer exists");
+    }
+
+    let new_provider_id = provider_id(&draft.provider_name)?;
+    let old_service = keychain_service(original_provider_id);
+    let new_service = keychain_service(&new_provider_id);
+    let old_secret = get_secret(&old_service)?;
+    let new_secret = if draft.api_key.trim().is_empty() {
+        old_secret.clone()
+    } else {
+        draft.api_key.trim().as_bytes().to_vec()
+    };
+    let previous_new_secret = get_secret(&new_service).ok();
+    set_secret(&new_service, &new_secret)?;
+
+    let result = save_config(
+        draft,
+        &new_provider_id,
+        Some((original_provider_id, original_model_id)),
+    );
+    let model = match result {
+        Ok(model) => model,
+        Err(error) => {
+            if let Some(secret) = previous_new_secret {
+                let _ = set_secret(&new_service, &secret);
+            } else {
+                let _ = delete_secret(&new_service);
+            }
+            return Err(error);
+        }
+    };
+
+    let new_selector = format!("{}/{}", model.provider_id, model.model_id);
+    replace_role_selector(&original_selector, Some(&new_selector))?;
+    if original_provider_id != new_provider_id
+        && !list()?
+            .iter()
+            .any(|saved| saved.provider_id == original_provider_id)
+    {
+        delete_secret(&old_service)?;
+    }
+    Ok(model)
+}
+
+pub fn delete(provider_id: &str, model_id: &str) -> Result<()> {
+    if !provider_id.starts_with(PROVIDER_PREFIX) {
+        bail!("Only OMPX custom models can be deleted");
+    }
+    let path = models_path()?;
+    reject_symlink(&path)?;
+    let mut config: ModelsConfig = serde_yaml::from_str(
+        &fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?,
+    )
+    .with_context(|| format!("invalid OMP model configuration at {}", path.display()))?;
+    let provider = config
+        .providers
+        .get_mut(provider_id)
+        .context("Custom model no longer exists")?;
+    let before = provider.models.len();
+    provider
+        .models
+        .retain(|model| model.id.as_deref() != Some(model_id));
+    if provider.models.len() == before {
+        bail!("Custom model no longer exists");
+    }
+    let remove_provider = provider.models.is_empty();
+    if remove_provider {
+        config.providers.remove(provider_id);
+    }
+    let serialized = serde_yaml::to_string(&config).context("failed to serialize OMP models")?;
+    atomic_write(&path, &serialized)?;
+
+    let selector = format!("{provider_id}/{model_id}");
+    replace_role_selector(&selector, None)?;
+    if remove_provider {
+        delete_secret(&keychain_service(provider_id))?;
+    }
+    Ok(())
+}
+
+fn replace_role_selector(previous: &str, replacement: Option<&str>) -> Result<()> {
+    let path = config_path()?;
+    if !path.exists() {
+        return Ok(());
+    }
+    reject_symlink(&path)?;
+    let mut config: OmpConfig = serde_yaml::from_str(
+        &fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?,
+    )
+    .with_context(|| format!("invalid OMP configuration at {}", path.display()))?;
+    let mut changed = false;
+    for selector in config.model_roles.values_mut() {
+        if selector == previous {
+            if let Some(replacement) = replacement {
+                *selector = replacement.into();
+            } else {
+                selector.clear();
+            }
+            changed = true;
+        }
+    }
+    config
+        .model_roles
+        .retain(|_, selector| !selector.is_empty());
+    if changed {
+        let serialized =
+            serde_yaml::to_string(&config).context("failed to serialize OMP configuration")?;
+        atomic_write(&path, &serialized)?;
+    }
+    Ok(())
+}
+
+pub fn list_roles() -> Result<BTreeMap<String, String>> {
+    let path = config_path()?;
+    if !path.exists() {
+        return Ok(BTreeMap::new());
+    }
+    reject_symlink(&path)?;
+    let config: OmpConfig = serde_yaml::from_str(
+        &fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?,
+    )
+    .with_context(|| format!("invalid OMP configuration at {}", path.display()))?;
+    Ok(config.model_roles)
+}
+
+pub fn set_role(role: &str, selector: Option<&str>) -> Result<BTreeMap<String, String>> {
+    let models = list()?;
+    set_role_at(&config_path()?, role, selector, &models)
+}
+
+fn set_role_at(
+    path: &Path,
+    role: &str,
+    selector: Option<&str>,
+    models: &[CustomModel],
+) -> Result<BTreeMap<String, String>> {
+    if !MODEL_ROLES.contains(&role) {
+        bail!("Unsupported OMP model use case");
+    }
+    if let Some(selector) = selector {
+        let configured = models
+            .iter()
+            .any(|model| format!("{}/{}", model.provider_id, model.model_id) == selector);
+        if !configured {
+            bail!("Model is not configured in OMPX");
+        }
+    }
+
+    let mut config = if path.exists() {
+        reject_symlink(path)?;
+        serde_yaml::from_str::<OmpConfig>(
+            &fs::read_to_string(path)
+                .with_context(|| format!("failed to read {}", path.display()))?,
+        )
+        .with_context(|| format!("invalid OMP configuration at {}", path.display()))?
+    } else {
+        OmpConfig::default()
+    };
+    if let Some(selector) = selector {
+        config.model_roles.insert(role.into(), selector.into());
+    } else {
+        config.model_roles.remove(role);
+    }
+    let serialized =
+        serde_yaml::to_string(&config).context("failed to serialize OMP configuration")?;
+    atomic_write(path, &serialized)?;
+    Ok(config.model_roles)
+}
+
+fn save_config(
+    draft: &CustomModelDraft,
+    provider_id: &str,
+    original: Option<(&str, &str)>,
+) -> Result<CustomModel> {
     let path = models_path()?;
     let parent = path.parent().context("OMP models path has no parent")?;
     fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
@@ -231,6 +454,17 @@ fn save_config(draft: &CustomModelDraft, provider_id: &str) -> Result<CustomMode
     } else {
         ModelsConfig::default()
     };
+
+    if let Some((original_provider_id, original_model_id)) = original {
+        if let Some(provider) = config.providers.get_mut(original_provider_id) {
+            provider
+                .models
+                .retain(|model| model.id.as_deref() != Some(original_model_id));
+            if provider.models.is_empty() {
+                config.providers.remove(original_provider_id);
+            }
+        }
+    }
 
     let provider = config.providers.entry(provider_id.into()).or_default();
     provider.base_url = Some(draft.base_url.trim_end_matches('/').into());
@@ -259,28 +493,7 @@ fn save_config(draft: &CustomModelDraft, provider_id: &str) -> Result<CustomMode
     });
 
     let serialized = serde_yaml::to_string(&config).context("failed to serialize OMP models")?;
-    if path.exists() {
-        fs::copy(&path, path.with_extension("yml.bak"))
-            .with_context(|| format!("failed to back up {}", path.display()))?;
-    }
-
-    let temporary = parent.join(format!(".models-{}.tmp", Uuid::new_v4()));
-    let write_result = (|| -> Result<()> {
-        let mut file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&temporary)
-            .with_context(|| format!("failed to create {}", temporary.display()))?;
-        file.write_all(serialized.as_bytes())?;
-        file.sync_all()?;
-        fs::rename(&temporary, &path)
-            .with_context(|| format!("failed to replace {}", path.display()))?;
-        Ok(())
-    })();
-    if write_result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    write_result?;
+    atomic_write(&path, &serialized)?;
 
     Ok(CustomModel {
         provider_id: provider_id.into(),
@@ -289,20 +502,30 @@ fn save_config(draft: &CustomModelDraft, provider_id: &str) -> Result<CustomMode
         model_id: draft.model_id.trim().into(),
         base_url: draft.base_url.trim_end_matches('/').into(),
         api: draft.api.clone(),
+        reasoning: draft.reasoning,
+        image_input: draft.image_input,
+        context_window: draft.context_window,
+        max_tokens: draft.max_tokens,
     })
 }
 
 fn validate(draft: &CustomModelDraft) -> Result<()> {
+    validate_draft(draft, true)
+}
+
+fn validate_draft(draft: &CustomModelDraft, require_api_key: bool) -> Result<()> {
     for (label, value) in [
         ("Display name", draft.name.trim()),
         ("Provider name", draft.provider_name.trim()),
         ("Base URL", draft.base_url.trim()),
-        ("API key", draft.api_key.trim()),
         ("Model ID", draft.model_id.trim()),
     ] {
         if value.is_empty() {
             bail!("{label} is required");
         }
+    }
+    if require_api_key && draft.api_key.trim().is_empty() {
+        bail!("API key is required");
     }
     if draft.name.len() > 100 || draft.provider_name.len() > 100 || draft.model_id.len() > 256 {
         bail!("Model identity is too long");
@@ -387,6 +610,41 @@ fn models_path() -> Result<PathBuf> {
         .join(".omp/agent/models.yml"))
 }
 
+fn config_path() -> Result<PathBuf> {
+    Ok(dirs::home_dir()
+        .context("home directory is unavailable")?
+        .join(".omp/agent/config.yml"))
+}
+
+fn atomic_write(path: &Path, contents: &str) -> Result<()> {
+    let parent = path
+        .parent()
+        .context("OMP configuration path has no parent")?;
+    fs::create_dir_all(parent).with_context(|| format!("failed to create {}", parent.display()))?;
+    reject_symlink(path)?;
+    if path.exists() {
+        fs::copy(path, path.with_extension("yml.bak"))
+            .with_context(|| format!("failed to back up {}", path.display()))?;
+    }
+
+    let temporary = parent.join(format!(".config-{}.tmp", Uuid::new_v4()));
+    let write_result = (|| -> Result<()> {
+        let mut file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temporary)
+            .with_context(|| format!("failed to create {}", temporary.display()))?;
+        file.write_all(contents.as_bytes())?;
+        file.sync_all()?;
+        fs::rename(&temporary, path)
+            .with_context(|| format!("failed to replace {}", path.display()))
+    })();
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    write_result
+}
+
 fn reject_symlink(path: &std::path::Path) -> Result<()> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
@@ -405,9 +663,12 @@ fn keychain_service(provider_id: &str) -> String {
 
 #[cfg(target_os = "macos")]
 fn set_secret(service: &str, secret: &[u8]) -> Result<()> {
-    security_framework::passwords::set_generic_password(service, KEYCHAIN_ACCOUNT, secret)
-        .context("failed to store API key in macOS Keychain")?;
-    keychain_acl::allow_security_tool(service, KEYCHAIN_ACCOUNT)
+    match security_framework::passwords::delete_generic_password(service, KEYCHAIN_ACCOUNT) {
+        Ok(()) => {}
+        Err(error) if error.code() == security_framework_sys::base::errSecItemNotFound => {}
+        Err(error) => return Err(error).context("failed to replace API key in macOS Keychain"),
+    }
+    keychain_acl::set_password(service, KEYCHAIN_ACCOUNT, secret)
 }
 
 #[cfg(target_os = "macos")]
@@ -441,6 +702,15 @@ fn delete_secret(_service: &str) -> Result<()> {
     Err(anyhow::anyhow!(
         "custom model credentials require macOS Keychain"
     ))
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OmpConfig {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    model_roles: BTreeMap<String, String>,
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -492,13 +762,14 @@ struct ModelConfig {
 #[cfg(test)]
 mod tests {
     use std::{
+        fs,
         io::{Read, Write},
         net::TcpListener,
         thread,
     };
 
-    use super::{provider_id, test, validate};
-    use crate::models::{CustomModelApi, CustomModelDraft};
+    use super::{provider_id, set_role_at, test, validate};
+    use crate::models::{CustomModel, CustomModelApi, CustomModelDraft};
 
     fn draft() -> CustomModelDraft {
         CustomModelDraft {
@@ -556,5 +827,33 @@ mod tests {
         let report = tauri::async_runtime::block_on(test(&value)).unwrap();
         assert!(report.success);
         server.join().unwrap();
+    }
+
+    #[test]
+    fn role_assignment_preserves_unrelated_config() {
+        let root = std::env::temp_dir().join(format!("ompx-role-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("config.yml");
+        fs::write(&path, "theme: dark\nmodelRoles:\n  slow: built-in/model\n").unwrap();
+        let model = CustomModel {
+            provider_id: "ompx-work".into(),
+            provider_name: "Work".into(),
+            name: "Claude".into(),
+            model_id: "claude".into(),
+            base_url: "https://example.com/v1".into(),
+            api: CustomModelApi::OpenaiCompletions,
+            reasoning: false,
+            image_input: false,
+            context_window: 128_000,
+            max_tokens: 8_192,
+        };
+
+        let roles = set_role_at(&path, "task", Some("ompx-work/claude"), &[model]).unwrap();
+        let saved = fs::read_to_string(&path).unwrap();
+        assert_eq!(roles.get("slow").unwrap(), "built-in/model");
+        assert_eq!(roles.get("task").unwrap(), "ompx-work/claude");
+        assert!(saved.contains("theme: dark"));
+        assert!(set_role_at(&path, "unknown", None, &[]).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }

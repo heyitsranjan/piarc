@@ -42,6 +42,10 @@ pub struct CustomModel {
     pub model_id: String,
     pub base_url: String,
     pub api: CustomModelApi,
+    pub reasoning: bool,
+    pub image_input: bool,
+    pub context_window: u64,
+    pub max_tokens: u64,
 }
 
 #[derive(Debug, Serialize)]

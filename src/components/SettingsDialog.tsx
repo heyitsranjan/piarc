@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   Loader2,
+  Pencil,
   Plus,
   Settings,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -19,9 +21,14 @@ import {
   type CustomModel,
   type CustomModelApi,
   type CustomModelDraft,
+  type ModelRole,
+  deleteCustomModel,
   listCustomModels,
+  listModelRoles,
   saveCustomModel,
+  setModelRole,
   testCustomModel,
+  updateCustomModel,
 } from "@/lib/ipc";
 
 interface SettingsDialogProps {
@@ -41,18 +48,40 @@ const emptyDraft: CustomModelDraft = {
   maxTokens: 8_192,
 };
 
+const modelRoles: { id: ModelRole; label: string }[] = [
+  { id: "default", label: "Default" },
+  { id: "smol", label: "Fast" },
+  { id: "slow", label: "Strong" },
+  { id: "vision", label: "Vision" },
+  { id: "plan", label: "Plan" },
+  { id: "designer", label: "Designer" },
+  { id: "commit", label: "Commit" },
+  { id: "tiny", label: "Tiny" },
+  { id: "task", label: "Task" },
+  { id: "advisor", label: "Advisor" },
+  { id: "fallback", label: "Fallback" },
+];
+
 export default function SettingsDialog({ onClose }: SettingsDialogProps) {
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<CustomModel | null>(null);
   const [models, setModels] = useState<CustomModel[]>([]);
+  const [roles, setRoles] = useState<Partial<Record<ModelRole, string>>>({});
   const [draft, setDraft] = useState<CustomModelDraft>(emptyDraft);
   const [report, setReport] = useState<ConnectionReport | null>(null);
-  const [busy, setBusy] = useState<"test" | "save" | null>(null);
+  const [busy, setBusy] = useState<"test" | "save" | ModelRole | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void listCustomModels()
-      .then(setModels)
-      .catch(() => undefined);
+    void Promise.all([listCustomModels(), listModelRoles()])
+      .then(([savedModels, savedRoles]) => {
+        setModels(savedModels);
+        setRoles(savedRoles);
+      })
+      .catch((reason) =>
+        setError(reason instanceof Error ? reason.message : String(reason))
+      );
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -86,14 +115,22 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
     setBusy("save");
     setError(null);
     try {
-      const model = await saveCustomModel(draft);
+      const model = editing
+        ? await updateCustomModel(editing.providerId, editing.modelId, draft)
+        : await saveCustomModel(draft);
       setModels((current) => [
         model,
-        ...current.filter((item) => item.modelId !== model.modelId),
+        ...current.filter((item) =>
+          editing
+            ? item.providerId !== editing.providerId || item.modelId !== editing.modelId
+            : item.providerId !== model.providerId || item.modelId !== model.modelId
+        ),
       ]);
       setDraft(emptyDraft);
       setReport(null);
+      setEditing(null);
       setAdding(false);
+      setRoles(await listModelRoles());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -101,11 +138,62 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
     }
   };
 
+  const assignRole = async (role: ModelRole, selector: string | null) => {
+    setBusy(role);
+    setError(null);
+    try {
+      setRoles(await setModelRole(role, selector));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const editModel = (model: CustomModel) => {
+    setEditing(model);
+    setDraft({
+      name: model.name,
+      providerName: model.providerName,
+      baseUrl: model.baseUrl,
+      apiKey: "",
+      modelId: model.modelId,
+      api: model.api,
+      reasoning: model.reasoning,
+      imageInput: model.imageInput,
+      contextWindow: model.contextWindow,
+      maxTokens: model.maxTokens,
+    });
+    setReport(null);
+    setError(null);
+    setAdding(true);
+  };
+
+  const removeModel = async (model: CustomModel) => {
+    const selector = `${model.providerId}/${model.modelId}`;
+    if (!window.confirm(`Delete ${model.name}? This removes it from OMP.`)) return;
+    setDeleting(selector);
+    setError(null);
+    try {
+      await deleteCustomModel(model.providerId, model.modelId);
+      setModels((current) =>
+        current.filter(
+          (item) => item.providerId !== model.providerId || item.modelId !== model.modelId
+        )
+      );
+      setRoles(await listModelRoles());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const valid =
     draft.name.trim() &&
     draft.providerName.trim() &&
     draft.baseUrl.trim() &&
-    draft.apiKey &&
+    (editing || draft.apiKey) &&
     draft.modelId.trim() &&
     draft.contextWindow > 0 &&
     draft.maxTokens > 0 &&
@@ -169,9 +257,11 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
                 update={update}
                 report={report}
                 error={error}
+                editing={Boolean(editing)}
                 busy={busy}
                 valid={Boolean(valid)}
                 onCancel={() => {
+                  setEditing(null);
                   setAdding(false);
                   setDraft(emptyDraft);
                   setReport(null);
@@ -181,7 +271,21 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
                 onSave={() => void save()}
               />
             ) : (
-              <ModelList models={models} onAdd={() => setAdding(true)} />
+              <ModelList
+                models={models}
+                roles={roles}
+                busyRole={busy !== "test" && busy !== "save" ? busy : null}
+                deleting={deleting}
+                error={error}
+                onAssign={(role, selector) => void assignRole(role, selector)}
+                onEdit={editModel}
+                onDelete={(model) => void removeModel(model)}
+                onAdd={() => {
+                  setEditing(null);
+                  setDraft(emptyDraft);
+                  setAdding(true);
+                }}
+              />
             )}
           </div>
         </div>
@@ -196,7 +300,8 @@ interface ModelFormProps {
   update: <K extends keyof CustomModelDraft>(key: K, value: CustomModelDraft[K]) => void;
   report: ConnectionReport | null;
   error: string | null;
-  busy: "test" | "save" | null;
+  busy: "test" | "save" | ModelRole | null;
+  editing: boolean;
   valid: boolean;
   onCancel: () => void;
   onTest: () => void;
@@ -210,6 +315,7 @@ function ModelForm({
   error,
   busy,
   valid,
+  editing,
   onCancel,
   onTest,
   onSave,
@@ -225,7 +331,7 @@ function ModelForm({
     >
       <div>
         <h4 className="text-[13px] font-medium text-[var(--color-ink-0)]">
-          Add custom model
+          {editing ? "Edit custom model" : "Add custom model"}
         </h4>
         <p className="mt-1 text-[10.5px] text-[var(--color-ink-7)]">
           Test sends a minimal request and may incur a small provider charge.
@@ -269,7 +375,12 @@ function ModelForm({
           placeholder="https://api.example.com/v1"
         />
       </Field>
-      <Field label="API key" hint="Stored only in macOS Keychain">
+      <Field
+        label="API key"
+        hint={
+          editing ? "Leave blank to keep the stored key" : "Stored only in macOS Keychain"
+        }
+      >
         <Input
           type="password"
           value={draft.apiKey}
@@ -351,36 +462,125 @@ function ModelForm({
           disabled={!report?.success || busy !== null}
         >
           {busy === "save" && <Loader2 size={13} className="animate-spin" />}
-          Save Model
+          {editing ? "Save Changes" : "Save Model"}
         </Button>
       </div>
     </form>
   );
 }
 
-function ModelList({ models, onAdd }: { models: CustomModel[]; onAdd: () => void }) {
+function ModelList({
+  models,
+  roles,
+  busyRole,
+  deleting,
+  error,
+  onAssign,
+  onEdit,
+  onDelete,
+  onAdd,
+}: {
+  models: CustomModel[];
+  roles: Partial<Record<ModelRole, string>>;
+  busyRole: ModelRole | null;
+  deleting: string | null;
+  error: string | null;
+  onAssign: (role: ModelRole, selector: string | null) => void;
+  onEdit: (model: CustomModel) => void;
+  onDelete: (model: CustomModel) => void;
+  onAdd: () => void;
+}) {
   return (
     <div className="mx-auto max-w-xl">
-      <div className="mb-4 flex justify-end">
-        <Button variant="default" onClick={onAdd}>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h4 className="text-[12px] font-medium text-[var(--color-ink-1)]">
+            Model use cases
+          </h4>
+          <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-ink-7)]">
+            Assign each saved model to OMP roles. Changes appear immediately in every{" "}
+            <code>/model</code> picker.
+          </p>
+        </div>
+        <Button variant="default" onClick={onAdd} className="shrink-0">
           <Plus size={13} /> Add Custom Model
         </Button>
       </div>
+      {error && (
+        <div
+          role="alert"
+          className="mb-3 rounded-[var(--radius-sm)] border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-3 text-[11px] text-[var(--color-danger)]"
+        >
+          {error}
+        </div>
+      )}
       {models.length ? (
-        <div className="grid gap-2">
-          {models.map((model) => (
-            <div
-              key={`${model.providerId}/${model.modelId}`}
-              className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
-            >
-              <div className="text-[12px] font-medium text-[var(--color-ink-1)]">
-                {model.name}
+        <div className="grid gap-3">
+          {models.map((model) => {
+            const selector = `${model.providerId}/${model.modelId}`;
+            return (
+              <div
+                key={selector}
+                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] font-medium text-[var(--color-ink-1)]">
+                      {model.name}
+                    </div>
+                    <div className="mt-1 truncate text-[10.5px] text-[var(--color-ink-7)]">
+                      {model.providerName} · {selector}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(model)}
+                    aria-label={`Edit ${model.name}`}
+                    className="titlebar-button"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(model)}
+                    disabled={deleting !== null}
+                    aria-label={`Delete ${model.name}`}
+                    className="titlebar-button text-[var(--color-danger)] disabled:opacity-50"
+                  >
+                    {deleting === selector ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5" aria-label="OMP use cases">
+                  {modelRoles.map((role) => {
+                    const assigned = roles[role.id] === selector;
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        aria-pressed={assigned}
+                        disabled={busyRole !== null}
+                        onClick={() => onAssign(role.id, assigned ? null : selector)}
+                        className={`rounded-full border px-2 py-1 text-[9.5px] transition-colors disabled:opacity-50 ${
+                          assigned
+                            ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
+                            : "border-[var(--color-border-2)] text-[var(--color-ink-7)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-ink-3)]"
+                        }`}
+                      >
+                        {busyRole === role.id && (
+                          <Loader2 size={9} className="mr-1 inline animate-spin" />
+                        )}
+                        {role.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="mt-1 text-[10.5px] text-[var(--color-ink-7)]">
-                {model.providerName} · {model.providerId}/{model.modelId}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-strong)] px-6 py-12 text-center">

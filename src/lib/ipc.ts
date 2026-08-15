@@ -63,6 +63,10 @@ export interface CustomModel {
   modelId: string;
   baseUrl: string;
   api: CustomModelApi;
+  reasoning: boolean;
+  imageInput: boolean;
+  contextWindow: number;
+  maxTokens: number;
 }
 
 export interface ConnectionReport {
@@ -81,6 +85,42 @@ export const saveCustomModel = (draft: CustomModelDraft): Promise<CustomModel> =
 /** Return custom models currently configured in OMP's global models file. */
 export const listCustomModels = (): Promise<CustomModel[]> =>
   invoke("list_custom_models");
+
+/** Update an existing custom model without exposing its stored credential. */
+export const updateCustomModel = (
+  originalProviderId: string,
+  originalModelId: string,
+  draft: CustomModelDraft
+): Promise<CustomModel> =>
+  invoke("update_custom_model", { originalProviderId, originalModelId, draft });
+
+/** Delete a custom model, its unused credential, and its OMP role assignments. */
+export const deleteCustomModel = (providerId: string, modelId: string): Promise<void> =>
+  invoke("delete_custom_model", { providerId, modelId });
+
+export type ModelRole =
+  | "default"
+  | "smol"
+  | "slow"
+  | "vision"
+  | "plan"
+  | "designer"
+  | "commit"
+  | "tiny"
+  | "task"
+  | "advisor"
+  | "fallback";
+
+/** Return OMP use-case assignments, keyed by model role. */
+export const listModelRoles = (): Promise<Partial<Record<ModelRole, string>>> =>
+  invoke("list_model_roles");
+
+/** Assign a saved custom model to an OMP use case, or clear that assignment. */
+export const setModelRole = (
+  role: ModelRole,
+  selector: string | null
+): Promise<Partial<Record<ModelRole, string>>> =>
+  invoke("set_model_role", { role, selector });
 
 // ─── Sessions ──────────────────────────────────────────────────────────────
 

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     models::{ConnectionReport, CustomModel, CustomModelDraft},
     services::custom_models,
@@ -18,4 +20,32 @@ pub fn save_custom_model(draft: CustomModelDraft) -> Result<CustomModel, String>
 #[tauri::command]
 pub fn list_custom_models() -> Result<Vec<CustomModel>, String> {
     custom_models::list().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn update_custom_model(
+    original_provider_id: String,
+    original_model_id: String,
+    draft: CustomModelDraft,
+) -> Result<CustomModel, String> {
+    custom_models::update(&original_provider_id, &original_model_id, &draft)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn delete_custom_model(provider_id: String, model_id: String) -> Result<(), String> {
+    custom_models::delete(&provider_id, &model_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn list_model_roles() -> Result<BTreeMap<String, String>, String> {
+    custom_models::list_roles().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn set_model_role(
+    role: String,
+    selector: Option<String>,
+) -> Result<BTreeMap<String, String>, String> {
+    custom_models::set_role(&role, selector.as_deref()).map_err(|error| error.to_string())
 }
