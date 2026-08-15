@@ -1,6 +1,6 @@
 {
   "productName": "πx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.heyitsranjan.ompx",
   "build": {
     "beforeDevCommand": "bun run dev",

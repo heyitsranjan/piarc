@@ -1,6 +1,6 @@
 [package]
 name        = "ompx"
-version     = "0.1.0"
+version     = "0.1.1"
 description = "OMPX — local OMP session browser and embedded terminal"
 authors     = ["Smruti Ranjan Rana <heyitsranjan>"]
 edition     = "2021"
