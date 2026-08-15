@@ -34,15 +34,30 @@ pub enum PtyProgram<'a> {
     Shell,
 }
 
-fn shell_command(program: PtyProgram<'_>, cwd: &str, shell: &str) -> String {
-    let safe_cwd = cwd.replace('\'', "'\\''");
-    match program {
-        PtyProgram::NewSession => format!("cd '{safe_cwd}' 2>/dev/null; omp; exec {shell}"),
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+fn valid_session_id(session_id: &str) -> bool {
+    (6..=128).contains(&session_id.len())
+        && session_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn shell_command(program: PtyProgram<'_>, shell: &str) -> Result<String> {
+    let shell = shell_quote(shell);
+    Ok(match program {
+        PtyProgram::NewSession => format!("omp; exec {shell} -l"),
         PtyProgram::Resume(session_id) => {
-            format!("cd '{safe_cwd}' 2>/dev/null; omp --resume {session_id}; exec {shell}")
+            anyhow::ensure!(
+                valid_session_id(session_id),
+                "invalid OMP session identifier"
+            );
+            format!("omp --resume {}; exec {shell} -l", shell_quote(session_id))
         }
-        PtyProgram::Shell => format!("cd '{safe_cwd}' 2>/dev/null; exec {shell} -l"),
-    }
+        PtyProgram::Shell => format!("exec {shell} -l"),
+    })
 }
 
 // ─── Manager ──────────────────────────────────────────────────────────────
@@ -74,15 +89,21 @@ impl PtyManager {
         tab_id: String,
         program: PtyProgram<'_>,
         cwd: &str,
-        cols: u16,
-        rows: u16,
+        size: (u16, u16),
         shell: &str,
         on_output: F,
     ) -> Result<()>
     where
         F: Fn(String, String) + Send + 'static,
     {
-        info!("spawn PTY tab={tab_id} program={program:?} cwd={cwd}");
+        let (cols, rows) = size;
+        let cwd = std::fs::canonicalize(cwd).context("resolve PTY working directory")?;
+        anyhow::ensure!(cwd.is_dir(), "PTY working directory is not a directory");
+        let shell = std::fs::canonicalize(shell).context("resolve login shell")?;
+        anyhow::ensure!(shell.is_file(), "login shell is not a regular file");
+        let shell = shell.to_string_lossy();
+
+        info!("spawning PTY");
 
         let pty_system = native_pty_system();
         let size = PtySize {
@@ -93,10 +114,9 @@ impl PtyManager {
         };
         let pair = pty_system.openpty(size).context("openpty")?;
 
-        let cmd_str = shell_command(program, cwd, shell);
-        debug!("PTY command: {cmd_str}");
+        let cmd_str = shell_command(program, &shell)?;
 
-        let mut cmd = CommandBuilder::new(shell);
+        let mut cmd = CommandBuilder::new(shell.as_ref());
         cmd.args(["-l", "-c", &cmd_str]);
         cmd.cwd(cwd);
 
@@ -107,12 +127,12 @@ impl PtyManager {
 
         let tid = tab_id.clone();
         std::thread::spawn(move || {
-            debug!("PTY reader thread started for tab={tid}");
+            debug!("PTY reader thread started");
             let mut buf = [0u8; 4096];
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) | Err(_) => {
-                        info!("PTY process exited for tab={tid}");
+                        info!("PTY process exited");
                         on_output(tid.clone(), String::new()); // empty = exit signal
                         break;
                     }
@@ -132,7 +152,7 @@ impl PtyManager {
         self.evict_if_full();
         self.sessions.lock().insert(tab_id.clone(), session);
         self.touch(&tab_id);
-        info!("PTY spawned tab={tab_id}");
+        info!("PTY spawned");
         Ok(())
     }
 
@@ -164,7 +184,7 @@ impl PtyManager {
         };
         session.master.resize(size).context("resize PTY")?;
         session.size = size;
-        debug!("PTY resized tab={tab_id} cols={cols} rows={rows}");
+        debug!("PTY resized to {cols}x{rows}");
         Ok(())
     }
 
@@ -174,15 +194,22 @@ impl PtyManager {
     /// Safe to call even if the process has already exited.
     pub fn kill(&self, tab_id: &str) {
         if let Some(mut session) = self.sessions.lock().remove(tab_id) {
-            if let Err(e) = session.child.kill() {
-                warn!("kill PTY tab={tab_id}: {e}");
+            if session.child.kill().is_err() {
+                warn!("PTY termination reported an error");
             } else {
-                info!("PTY killed tab={tab_id}");
+                info!("PTY killed");
             }
         }
         self.lru.lock().retain(|id| id != tab_id);
     }
 
+    /// Terminate every child process before the desktop application exits.
+    pub fn kill_all(&self) {
+        let ids: Vec<String> = self.sessions.lock().keys().cloned().collect();
+        for id in ids {
+            self.kill(&id);
+        }
+    }
     /// Returns `true` if a live PTY process exists for `tab_id`.
     pub fn has(&self, tab_id: &str) -> bool {
         self.sessions.lock().contains_key(tab_id)
@@ -206,7 +233,7 @@ impl PtyManager {
             }
         };
         if let Some(id) = oldest {
-            warn!("PTY cache full — evicting LRU tab={id}");
+            warn!("PTY cache full — evicting least recently used process");
             self.kill(&id);
         }
     }
@@ -218,17 +245,26 @@ impl Default for PtyManager {
     }
 }
 
+impl Drop for PtyManager {
+    fn drop(&mut self) {
+        self.kill_all();
+    }
+}
 #[cfg(test)]
 mod tests {
-    use super::{shell_command, PtyProgram};
+    use super::{shell_command, valid_session_id, PtyProgram};
 
     #[test]
     fn shell_program_opens_login_shell_without_omp() {
-        let command = shell_command(PtyProgram::Shell, "/tmp/my project", "/bin/zsh");
-        assert_eq!(
-            command,
-            "cd '/tmp/my project' 2>/dev/null; exec /bin/zsh -l"
-        );
+        let command = shell_command(PtyProgram::Shell, "/bin/zsh").unwrap();
+        assert_eq!(command, "exec '/bin/zsh' -l");
         assert!(!command.contains("omp"));
+    }
+
+    #[test]
+    fn resume_rejects_shell_syntax_in_session_id() {
+        assert!(valid_session_id("019ffe5e-3e7e-7000-a243-ccce1998a378"));
+        assert!(shell_command(PtyProgram::Resume("abc; touch /tmp/pwned"), "/bin/zsh").is_err());
+        assert!(shell_command(PtyProgram::Resume("$(whoami)"), "/bin/zsh").is_err());
     }
 }

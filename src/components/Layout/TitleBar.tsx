@@ -1,21 +1,30 @@
 /** Global window chrome shared by the sidebar and terminal. */
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FileDiff, Files, Loader2, PanelLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+import { FileDiff, Files, Loader2, PanelLeft, Plus, ShieldCheck } from "lucide-react";
+
+import PermissionsDialog from "@/components/PermissionsDialog";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useNewSession } from "@/hooks/useNewSession";
-import { cn } from "@/lib/utils";
+
+import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { cn } from "@/lib/utils";
 
 import NewSessionDialog from "./NewSessionDialog";
 
 export default function TitleBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const loadSessions = useSessionStore((state) => state.loadSessions);
+  const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const activeSession = useSessionStore((state) => state.activeSession);
   const activeTab = useTerminalStore((state) =>
     state.tabs.find((tab) => tab.id === state.activeTabId)
@@ -128,7 +137,7 @@ export default function TitleBar() {
             <PanelLeft size={18} strokeWidth={1.7} />
           </button>
           <span className="app-wordmark truncate text-[13px] font-medium text-[var(--color-ink-1)]">
-            Oh My Pi
+            OMPX
           </span>
         </div>
 
@@ -175,6 +184,15 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
+            onClick={() => setPermissionsOpen(true)}
+            title="Privacy & Permissions"
+            aria-label="Privacy and permissions"
+            className="titlebar-button"
+          >
+            <ShieldCheck size={16} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
             onClick={() => setNewDialogOpen(true)}
             disabled={isStarting}
             title="Create (⌘N)"
@@ -189,8 +207,10 @@ export default function TitleBar() {
           </button>
         </div>
       </header>
+      {permissionsOpen && <PermissionsDialog onClose={() => setPermissionsOpen(false)} />}
       {newDialogOpen && (
         <NewSessionDialog
+          ompAvailable={ompAvailable}
           busy={isStarting}
           onClose={() => setNewDialogOpen(false)}
           onNewSession={startNewSession}

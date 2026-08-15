@@ -7,18 +7,22 @@
  * 2. Spawn PTY running `omp` in the user's home directory.
  * 3. omp creates a JSONL file; the FS watcher fires and updates the sidebar.
  */
-import { homeDir } from "@tauri-apps/api/path";
 import { useCallback, useState } from "react";
+
+import { homeDir } from "@tauri-apps/api/path";
 
 import {
   TERMINAL_DEFAULT_COLS,
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
-import { newSessionPty, shellPty } from "@/lib/ipc";
-import { log } from "@/lib/logger";
+
+import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { newSessionPty, shellPty } from "@/lib/ipc";
+import { log } from "@/lib/logger";
 
 export interface UseNewSessionReturn {
   /** Start a new omp session — opens a terminal running `omp`. */
@@ -38,12 +42,17 @@ export interface UseNewSessionReturn {
  */
 export function useNewSession(): UseNewSessionReturn {
   const [isStarting, setIsStarting] = useState(false);
+  const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const { openTab, setTabReady, setTabError } = useTerminalStore();
   const setActive = useSessionStore((s) => s.setActive);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
 
   const start = useCallback(
     async (kind: "omp" | "terminal") => {
+      if (kind === "omp" && !ompAvailable) {
+        log.warn("Cannot start OMP session: OMP is unavailable");
+        return;
+      }
       setIsStarting(true);
       const cwd = await homeDir().catch(() => "~");
       const isTerminal = kind === "terminal";
@@ -85,7 +94,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [openTab, setTabReady, setTabError, setActive, setSidebarMode]
+    [ompAvailable, openTab, setTabReady, setTabError, setActive, setSidebarMode]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);

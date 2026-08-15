@@ -2,22 +2,26 @@
  * @module components/CommandPalette
  * ⌘K overlay — search and open any session. All async states handled.
  */
-import { Loader2, Search, TerminalSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { Loader2, Search, TerminalSquare } from "lucide-react";
 
 import {
   TERMINAL_DEFAULT_COLS,
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
+
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
-import { cwdShort, timeAgo } from "@/lib/session";
-import { cn } from "@/lib/utils";
+
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { cwdShort, timeAgo } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 export default function CommandPalette() {
   const { state, sessions, loadSessions } = useSessions();

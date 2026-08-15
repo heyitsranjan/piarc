@@ -38,6 +38,8 @@ pub fn get_file_diff(cwd: &Path, path: &str, staged: bool, untracked: bool) -> R
                 "--literal-pathspecs",
                 "diff",
                 "--no-index",
+                "--no-ext-diff",
+                "--no-textconv",
                 "--unified=3",
                 "--",
                 "/dev/null",
@@ -52,6 +54,7 @@ pub fn get_file_diff(cwd: &Path, path: &str, staged: bool, untracked: bool) -> R
                 "diff",
                 "--cached",
                 "--no-ext-diff",
+                "--no-textconv",
                 "--unified=3",
                 "--",
                 path,
@@ -64,6 +67,7 @@ pub fn get_file_diff(cwd: &Path, path: &str, staged: bool, untracked: bool) -> R
                 "--literal-pathspecs",
                 "diff",
                 "--no-ext-diff",
+                "--no-textconv",
                 "--unified=3",
                 "--",
                 path,
@@ -110,9 +114,7 @@ fn validate_relative_path(value: &str) -> Result<()> {
 }
 
 fn git(cwd: &Path, args: &[&str]) -> Result<Output> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
+    let output = safe_command(cwd, args)
         .output()
         .with_context(|| format!("Failed to run git in {}", cwd.display()))?;
     if output.status.success() {
@@ -123,9 +125,7 @@ fn git(cwd: &Path, args: &[&str]) -> Result<Output> {
 }
 
 fn git_allowing_diff_exit(cwd: &Path, args: &[&str]) -> Result<Output> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
+    let output = safe_command(cwd, args)
         .output()
         .with_context(|| format!("Failed to run git in {}", cwd.display()))?;
     if output.status.success() || output.status.code() == Some(1) {
@@ -133,6 +133,28 @@ fn git_allowing_diff_exit(cwd: &Path, args: &[&str]) -> Result<Output> {
     } else {
         Err(git_error(output))
     }
+}
+
+pub(crate) fn safe_command(cwd: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new("/usr/bin/git");
+    command
+        .env_clear()
+        .env("HOME", "/var/empty")
+        .env("LANG", "en_US.UTF-8")
+        .env("PATH", "/usr/bin:/bin")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .args([
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "diff.external=",
+        ])
+        .args(args)
+        .current_dir(cwd);
+    command
 }
 
 fn git_error(output: Output) -> anyhow::Error {
@@ -205,7 +227,9 @@ fn parse_porcelain(bytes: &[u8]) -> Result<Vec<GitFileChange>> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_porcelain;
+    use super::{get_changes, get_file_diff, parse_porcelain, safe_command};
+    #[cfg(unix)]
+    use std::{fs, os::unix::fs::PermissionsExt, process::Command};
 
     #[test]
     fn parses_staged_unstaged_untracked_and_rename_entries() {
@@ -229,5 +253,49 @@ mod tests {
             files.iter().filter(|file| file.path == "both.ts").count(),
             2
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn repository_config_cannot_execute_programs() {
+        let root = std::env::temp_dir().join(format!("ompx-hostile-git-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        assert!(Command::new("/usr/bin/git")
+            .args(["init", "--quiet"])
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+
+        let marker = root.join("executed");
+        let hook = root.join("hostile-hook");
+        fs::write(&hook, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).unwrap();
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(
+            root.join(".git/config"),
+            format!(
+                "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tfsmonitor = {}\n[diff \"hostile\"]\n\ttextconv = {}\n",
+                hook.display(),
+                hook.display()
+            ),
+        )
+        .unwrap();
+        fs::write(root.join(".gitattributes"), "*.txt diff=hostile\n").unwrap();
+        fs::write(root.join("sample.txt"), "before\n").unwrap();
+        assert!(
+            safe_command(&root, &["add", ".gitattributes", "sample.txt"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        fs::write(root.join("sample.txt"), "after\n").unwrap();
+
+        get_changes(&root).unwrap();
+        let diff = get_file_diff(&root, "sample.txt", false, false).unwrap();
+        assert!(diff.contains("-before"));
+        assert!(diff.contains("+after"));
+        assert!(!marker.exists());
+
+        fs::remove_dir_all(root).unwrap();
     }
 }

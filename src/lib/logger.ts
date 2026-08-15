@@ -2,10 +2,7 @@
  * @module lib/logger
  * Structured application logger for the frontend.
  *
- * Wraps `@tauri-apps/plugin-log` to write logs to:
- * - macOS: `~/Library/Logs/com.oh-my-pi.app/`
- * - Windows: `%APPDATA%\com.oh-my-pi.app\logs\`
- * - Linux: `~/.local/share/com.oh-my-pi.app/logs/`
+ * Writes structured, privacy-filtered logs to OMPX's platform log directory.
  *
  * Falls back to `console.*` when running outside Tauri (e.g. browser dev).
  *
@@ -18,10 +15,16 @@
  */
 import { debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 
-/** Serialise extra context to a string appended to the message. */
+/** Serialize context without persisting arbitrary strings or structured user data. */
 function ctx(context?: Record<string, unknown>): string {
   if (!context || Object.keys(context).length === 0) return "";
-  return "  " + JSON.stringify(context);
+  const safe = Object.fromEntries(
+    Object.entries(context).map(([key, value]) => [
+      key,
+      typeof value === "number" || typeof value === "boolean" ? value : "[redacted]",
+    ])
+  );
+  return "  " + JSON.stringify(safe);
 }
 
 /** Whether we are running inside the Tauri shell (not a bare browser). */

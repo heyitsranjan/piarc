@@ -4,9 +4,6 @@
  * Change here; every consumer updates automatically.
  */
 
-/** Number of most-recent sessions to pre-warm PTY processes for on launch. */
-export const PREWARM_COUNT = 3;
-
 /** Maximum number of concurrent terminal tabs. */
 export const MAX_TABS = 12;
 

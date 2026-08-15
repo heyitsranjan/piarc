@@ -6,9 +6,10 @@
  * the `AsyncState<OmpSession[]>` discriminated union so every consumer gets
  * exhaustive state handling for free.
  */
+import { useSessionStore } from "@/store/sessions";
+
 import { type AsyncState, deriveState } from "@/lib/async-state";
 import type { OmpSession } from "@/lib/session";
-import { useSessionStore } from "@/store/sessions";
 
 export interface UseSessionsReturn {
   /** Typed async state — covers initial / loading / error / empty / data. */

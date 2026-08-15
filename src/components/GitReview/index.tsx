@@ -1,5 +1,3 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, FolderTree, GitBranch, Loader2, RefreshCw, X } from "lucide-react";
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -8,10 +6,16 @@ import {
   useState,
 } from "react";
 
+import { open } from "@tauri-apps/plugin-dialog";
+
+import { FolderOpen, FolderTree, GitBranch, Loader2, RefreshCw, X } from "lucide-react";
+
 import { useGitReview } from "@/hooks/useGitReview";
 import { useWorkspaceExplorer } from "@/hooks/useWorkspaceExplorer";
-import { cwdShort } from "@/lib/session";
+
 import type { WorkspaceMode } from "@/store/ui";
+
+import { cwdShort } from "@/lib/session";
 
 import DiffViewer from "./DiffViewer";
 import EditorLauncher from "./EditorLauncher";

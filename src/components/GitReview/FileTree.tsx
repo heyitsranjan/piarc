@@ -1,11 +1,12 @@
-import { ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
 import { useMemo, useState } from "react";
+
+import { ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
 
 import type { GitFileChange } from "@/lib/git";
 import { gitChangeKey } from "@/lib/git";
 import { cn } from "@/lib/utils";
 
-import { buildGitTree,type GitTreeNode } from "./tree";
+import { type GitTreeNode, buildGitTree } from "./tree";
 
 interface FileTreeProps {
   files: GitFileChange[];

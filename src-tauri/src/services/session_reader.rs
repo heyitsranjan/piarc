@@ -29,46 +29,62 @@ const READ_PREFIX_BYTES: u64 = 4096;
 /// Returns an empty `Vec` (not an error) when the directory doesn't exist yet —
 /// omp hasn't been used on this machine.
 pub fn list_all_sessions() -> Result<Vec<OmpSession>> {
-    let root = sessions_root();
+    list_sessions_from(&sessions_root())
+}
 
+fn list_sessions_from(root: &Path) -> Result<Vec<OmpSession>> {
     if !root.exists() {
-        debug!("sessions root not found: {}", root.display());
+        debug!("sessions root not found");
         return Ok(vec![]);
     }
 
-    debug!("scanning sessions root: {}", root.display());
+    debug!("scanning sessions");
     let mut sessions = Vec::new();
 
-    for bucket in read_dir_sorted(&root)? {
-        if !bucket.is_dir() {
+    for bucket in read_dir_sorted(root)? {
+        let metadata = match fs::symlink_metadata(&bucket) {
+            Ok(metadata) => metadata,
+            Err(_) => {
+                warn!("skipped unreadable session directory");
+                continue;
+            }
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
             continue;
         }
 
-        for file in read_dir_sorted(&bucket)? {
-            if file.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+        for candidate in read_dir_sorted(&bucket)? {
+            if candidate
+                .extension()
+                .and_then(|extension| extension.to_str())
+                != Some("jsonl")
+            {
                 continue;
             }
 
+            let file = match validated_session_path(&candidate, root) {
+                Ok(file) => file,
+                Err(_) => {
+                    warn!("skipped invalid session file");
+                    continue;
+                }
+            };
             match parse_session_file(&file) {
-                Ok(s) => {
-                    debug!("parsed session: {} ({})", s.id, s.title);
-                    sessions.push(s);
-                }
-                Err(e) => {
-                    warn!("skip {:?}: {e}", file.file_name());
-                }
+                Ok(session) => sessions.push(session),
+                Err(_) => warn!("skipped unreadable session file"),
             }
         }
     }
 
-    sessions.sort_by(|a, b| b.modified.cmp(&a.modified));
+    sessions.sort_by_key(|session| std::cmp::Reverse(session.modified));
     debug!("found {} sessions", sessions.len());
     Ok(sessions)
 }
 
 /// Permanently delete a session JSONL file from disk.
 pub fn delete_session(path: &str) -> Result<()> {
-    fs::remove_file(path).with_context(|| format!("delete session: {path}"))
+    let path = validated_session_path(Path::new(path), &sessions_root())?;
+    fs::remove_file(&path).with_context(|| format!("delete session: {}", path.display()))
 }
 
 /// Rename a session by rewriting its 256-byte title slot and appending
@@ -82,6 +98,7 @@ pub fn delete_session(path: &str) -> Result<()> {
 pub fn rename_session(path: &str, new_title: &str) -> Result<()> {
     use chrono::Utc;
 
+    let path = validated_session_path(Path::new(path), &sessions_root())?;
     let now = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
     // ── Build new 256-byte title slot ────────────────────────────────────
@@ -114,8 +131,8 @@ pub fn rename_session(path: &str, new_title: &str) -> Result<()> {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open(path)
-        .with_context(|| format!("open session for rename: {path}"))?;
+        .open(&path)
+        .with_context(|| format!("open session for rename: {}", path.display()))?;
 
     file.seek(SeekFrom::Start(0))?;
     file.write_all(title_slot.as_bytes())?;
@@ -137,7 +154,7 @@ pub fn rename_session(path: &str, new_title: &str) -> Result<()> {
     file.write_all(entry_line.as_bytes())?;
     file.flush()?;
 
-    tracing::info!("renamed session {path:?} → {new_title:?}");
+    tracing::info!("renamed session");
     Ok(())
 }
 
@@ -268,6 +285,31 @@ pub fn sessions_root() -> PathBuf {
         .join(".omp/agent/sessions")
 }
 
+/// Resolve a user-supplied session path and prove it names a regular JSONL file
+/// in one direct child directory of the canonical OMP sessions root.
+fn validated_session_path(path: &Path, root: &Path) -> Result<PathBuf> {
+    anyhow::ensure!(
+        path.extension().and_then(|ext| ext.to_str()) == Some("jsonl"),
+        "not a session file"
+    );
+    anyhow::ensure!(
+        !fs::symlink_metadata(path)?.file_type().is_symlink(),
+        "session path must not be a symlink"
+    );
+
+    let root = root.canonicalize().context("resolve sessions root")?;
+    let path = path.canonicalize().context("resolve session path")?;
+    let metadata = fs::metadata(&path)?;
+    anyhow::ensure!(metadata.is_file(), "session path is not a regular file");
+
+    let parent = path.parent().context("session path has no parent")?;
+    anyhow::ensure!(
+        parent.parent() == Some(root.as_path()),
+        "session path is outside the OMP sessions root"
+    );
+    Ok(path)
+}
+
 /// Read directory entries and return sorted `PathBuf`s, skipping errors.
 fn read_dir_sorted(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)?
@@ -293,5 +335,84 @@ mod tests {
     fn first_line_trims_and_truncates() {
         let s = "hello\nworld";
         assert_eq!(first_line(s), "hello");
+    }
+
+    #[test]
+    fn session_path_must_be_a_direct_jsonl_child() {
+        let temp = std::env::temp_dir().join(format!("ompx-path-test-{}", uuid::Uuid::new_v4()));
+        let root = temp.join("sessions");
+        let bucket = root.join("project");
+        fs::create_dir_all(&bucket).unwrap();
+        let session = bucket.join("session.jsonl");
+        fs::write(&session, "{}\n").unwrap();
+        let outside = temp.join("outside.jsonl");
+        fs::write(&outside, "{}\n").unwrap();
+        let nested = bucket.join("nested");
+        fs::create_dir(&nested).unwrap();
+        let nested_session = nested.join("session.jsonl");
+        fs::write(&nested_session, "{}\n").unwrap();
+
+        assert_eq!(
+            validated_session_path(&session, &root).unwrap(),
+            session.canonicalize().unwrap()
+        );
+        assert!(validated_session_path(&outside, &root).is_err());
+        assert!(validated_session_path(&nested_session, &root).is_err());
+        assert!(validated_session_path(&bucket.join("not-json.txt"), &root).is_err());
+
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn session_path_rejects_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let temp = std::env::temp_dir().join(format!("ompx-link-test-{}", uuid::Uuid::new_v4()));
+        let root = temp.join("sessions");
+        let bucket = root.join("project");
+        fs::create_dir_all(&bucket).unwrap();
+        let target = bucket.join("target.jsonl");
+        let link = bucket.join("link.jsonl");
+        fs::write(&target, "{}\n").unwrap();
+        symlink(&target, &link).unwrap();
+
+        assert!(validated_session_path(&link, &root).is_err());
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discovery_ignores_symlinked_buckets_and_files() {
+        use std::os::unix::fs::symlink;
+
+        let temp =
+            std::env::temp_dir().join(format!("ompx-discovery-link-test-{}", uuid::Uuid::new_v4()));
+        let root = temp.join("sessions");
+        let bucket = root.join("project");
+        let outside = temp.join("outside");
+        fs::create_dir_all(&bucket).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(
+            outside.join("outside.jsonl"),
+            "{\"type\":\"session\",\"id\":\"outside\",\"cwd\":\"/tmp\"}\n",
+        )
+        .unwrap();
+        fs::write(
+            bucket.join("target.jsonl"),
+            "{\"type\":\"session\",\"id\":\"target\",\"cwd\":\"/tmp\"}\n",
+        )
+        .unwrap();
+        symlink(&outside, root.join("linked-project")).unwrap();
+        symlink(
+            bucket.join("target.jsonl"),
+            bucket.join("linked-session.jsonl"),
+        )
+        .unwrap();
+
+        let sessions = list_sessions_from(&root).unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, "target");
+        fs::remove_dir_all(temp).unwrap();
     }
 }

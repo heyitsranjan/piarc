@@ -8,6 +8,7 @@ import CommandPalette from "@/components/CommandPalette";
 import WorkspacePanel from "@/components/GitReview";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
+
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";

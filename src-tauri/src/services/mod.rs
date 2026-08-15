@@ -7,6 +7,8 @@
 pub mod completion;
 pub mod editors;
 pub mod git_repository;
+pub mod omp;
+pub mod permissions;
 pub mod pty_manager;
 pub mod session_reader;
 pub mod watcher;

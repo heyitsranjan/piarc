@@ -3,7 +3,6 @@ import js from "@eslint/js";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import reactHooks from "eslint-plugin-react-hooks";
-import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 
 /** @type {import("eslint").Linter.Config[]} */
@@ -41,7 +40,6 @@ export default [
     plugins: {
       "@typescript-eslint": tsPlugin,
       "react-hooks":        reactHooks,
-      "simple-import-sort": simpleImportSort,
     },
     rules: {
       // ── TypeScript ───────────────────────────────────────────────────
@@ -60,9 +58,6 @@ export default [
       // Resetting derived state in useEffect is valid (e.g. reset selection on query change)
       "react-hooks/set-state-in-effect": "off",
 
-      // ── Import organisation ──────────────────────────────────────────
-      "simple-import-sort/imports": "error",
-      "simple-import-sort/exports": "error",
 
       // ── General quality ──────────────────────────────────────────────
       "no-console":       ["warn", { allow: ["warn", "error"] }],

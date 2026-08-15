@@ -2,10 +2,12 @@
  * @module components/Sidebar/SearchBar
  * Compact search input for filtering sessions. ⌘F to focus.
  */
-import { Search, X } from "lucide-react";
 import { useRef } from "react";
 
+import { Search, X } from "lucide-react";
+
 import { useKeyboard } from "@/hooks/useKeyboard";
+
 import { useSessionStore } from "@/store/sessions";
 import { useUiStore } from "@/store/ui";
 

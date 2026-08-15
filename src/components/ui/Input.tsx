@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+
 /**
  * @module components/ui/Input
  * Base text input primitive — forwards refs for focus control.
  */
-import { forwardRef,type InputHTMLAttributes } from "react";
+import { type InputHTMLAttributes, forwardRef } from "react";
 
 import { cn } from "@/lib/utils";
 

@@ -1,24 +1,44 @@
 # Changelog
 
-All notable changes to Oh My Pi are documented here.
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to OMPX are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-15
+
 ### Added
-- Initial scaffold: Tauri v2 + React 19 + TypeScript + Vite + Tailwind v4
-- Session browser sidebar with search, pin, delete, and context menu
-- Embedded xterm.js WebGL terminal with PTY via `portable-pty`
-- LRU PTY cache (8 slots) for instant tab switching
-- Pre-warming of top 3 sessions on launch
-- Multi-tab terminal: ⌘T / ⌘W / ⌘1-9 shortcuts
-- Command palette: ⌘K fuzzy search
-- All async states handled: initial / loading / error / empty / data
-- Structured logging: `tauri-plugin-log` → platform log file + DevTools
-- Formatters: Prettier + `@trivago/prettier-plugin-sort-imports`
-- Linter: ESLint v9 flat config
-- Rust: `rustfmt.toml`, `cargo clippy`
-- Pre-commit hooks via `lefthook`
-- CI: GitHub Actions (frontend + Rust cross-platform)
-- Release workflow: Tauri bundle on tag push
+
+- Local-first browser for OMP JSONL sessions with search, pin, rename, and confirmed deletion.
+- Embedded multi-tab xterm.js terminals backed by an eight-process native PTY cache.
+- Disconnected terminal metadata restoration after application relaunch.
+- Project explorer, installed-editor launcher, Git status, and unified diff review.
+- Filesystem watcher for live session updates.
+- OMP installation and login-path prerequisite detection.
+- Just-in-time macOS Automation, Accessibility, and Screen Recording status interface.
+- Menu bar hide, restore, and explicit quit behavior.
+- macOS signing, notarization, universal-binary, draft-release, and checksum workflow.
+- Contributor, security, conduct, issue, and pull-request guidance.
+
+### Security
+
+- Restricted session deletion and rename to regular JSONL files in the canonical OMP sessions tree.
+- Rejected shell syntax in OMP session identifiers and canonicalized PTY working directories and shells.
+- Removed unused shell, opener, and updater WebView plugins and permissions.
+- Added a restrictive production Content Security Policy.
+- Redacted user content and local identifiers from frontend production logs.
+- Added explicit macOS privacy descriptions and Apple Events entitlement.
+
+### Changed
+
+- Renamed the desktop product to OMPX with bundle identifier `com.heyitsranjan.ompx`.
+- Set the minimum supported operating system to macOS 12.
+- Closing the main window hides OMPX; Quit terminates child PTYs.
+
+### Removed
+
+- Disconnected launch-time PTY prewarming.
+- Unsupported Windows and Linux release claims.
+- Incomplete automatic updater configuration.
+
+[Unreleased]: https://github.com/ranjan-hackerrank/ompx/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ranjan-hackerrank/ompx/releases/tag/v0.1.0

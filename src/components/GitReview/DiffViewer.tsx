@@ -1,8 +1,8 @@
-import "react-diff-view/style/index.css";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { Columns2, Rows3 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
+import "react-diff-view/style/index.css";
 
 import type { GitFileChange } from "@/lib/git";
 import { cn } from "@/lib/utils";

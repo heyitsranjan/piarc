@@ -3,7 +3,13 @@
  * Single session row. Dropdown rendered as a portal to escape
  * overflow:hidden on the sidebar and sit above all other layers.
  */
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { createPortal } from "react-dom";
+
 import { message } from "@tauri-apps/plugin-dialog";
+
 import {
   Copy,
   Loader2,
@@ -13,15 +19,13 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+
+import { useSessionStore } from "@/store/sessions";
+import { useTerminalStore } from "@/store/terminal";
 
 import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
 
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
@@ -278,7 +282,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
       {deleteOpen && (
         <ConfirmDeleteDialog
           title="Delete session"
-          message={`Delete "${session.title}" from Oh My Pi? This cannot be undone.`}
+          message={`Delete "${session.title}" from OMPX? This cannot be undone.`}
           onConfirm={() => void deleteSession()}
           onClose={() => setDeleteOpen(false)}
         />

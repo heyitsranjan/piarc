@@ -1,6 +1,8 @@
-import { Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
+
 import { createPortal } from "react-dom";
+
+import { Trash2 } from "lucide-react";
 
 interface ConfirmDeleteDialogProps {
   title: string;

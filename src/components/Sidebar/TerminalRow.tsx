@@ -1,3 +1,8 @@
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { createPortal } from "react-dom";
+
 import {
   Loader2,
   MoreVertical,
@@ -7,13 +12,11 @@ import {
   TerminalSquare,
   Trash2,
 } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+
+import type { Tab } from "@/store/terminal";
 
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import type { Tab } from "@/store/terminal";
 
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";

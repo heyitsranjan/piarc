@@ -2,8 +2,9 @@
  * @module components/Sidebar/RenameDialog
  * Modal dialog for renaming an omp session.
  */
-import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 

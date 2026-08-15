@@ -12,22 +12,25 @@
  * Keyboard input is forwarded via `writePty` IPC.
  * Resize synced via `ResizeObserver` → `resizePty` IPC.
  */
-import "@xterm/xterm/css/xterm.css";
-
-import { listen } from "@tauri-apps/api/event";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
-import { Terminal } from "@xterm/xterm";
 import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 
+import { listen } from "@tauri-apps/api/event";
+
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
+
 import { useTerminal } from "@/hooks/useTerminal";
-import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
-import { FEATURE_RICH_INPUT } from "@/lib/features";
-import { resizePty, writePty } from "@/lib/ipc";
+
 import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
+import { FEATURE_RICH_INPUT } from "@/lib/features";
+import { resizePty, writePty } from "@/lib/ipc";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 

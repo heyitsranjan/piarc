@@ -8,13 +8,17 @@ import {
   TERMINAL_DEFAULT_COLS,
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
+
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
-import type { OmpSession } from "@/lib/session";
-import { cn } from "@/lib/utils";
+
+import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import type { OmpSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
@@ -22,9 +26,11 @@ import SidebarHeader from "./SidebarHeader";
 import TerminalRow from "./TerminalRow";
 
 export default function Sidebar() {
+  const ompStatus = useOmpStore((state) => state.status);
+  const refreshOmp = useOmpStore((state) => state.refresh);
   const { state, filtered, activeSession, loadSessions, pinnedIds, searchQuery } =
     useSessions();
-  const { openSession } = useTerminal();
+  const { openSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
@@ -60,6 +66,23 @@ export default function Sidebar() {
     <div className="flex flex-col h-full overflow-hidden">
       <SidebarHeader />
       <SearchBar />
+      {ompStatus && !ompStatus.installed && (
+        <div className="mx-2 mb-2 rounded-[var(--radius-md)] border border-[var(--color-danger)]/20 bg-[var(--color-danger)]/8 p-2.5">
+          <p className="text-[11px] font-medium text-[var(--color-danger)]">
+            OMP required
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-[var(--color-ink-7)]">
+            Install OMP from omp.sh, then refresh.
+          </p>
+          <button
+            type="button"
+            onClick={() => void refreshOmp()}
+            className="mt-1.5 text-[10px] text-[var(--color-accent)] hover:underline"
+          >
+            Check again
+          </button>
+        </div>
+      )}
 
       {/* ── State machine ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -111,6 +134,9 @@ export default function Sidebar() {
                 onSelect={() => {
                   setActiveSession(null);
                   setActiveTab(tab.id);
+                  if (tab.error) {
+                    void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+                  }
                 }}
                 onRename={(title) => updateTabTitle(tab.id, title)}
                 onTogglePin={() => toggleTabPin(tab.id)}

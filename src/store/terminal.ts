@@ -10,6 +10,7 @@
  * Closing a tab kills its PTY via `killPty` IPC.
  */
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import { MAX_TABS } from "@/lib/constants";
 import { killPty } from "@/lib/ipc";
@@ -97,84 +98,102 @@ interface TerminalState {
   setTabOutputting: (tabId: string, outputting: boolean) => void;
 }
 
-export const useTerminalStore = create<TerminalState>()((set, get) => ({
-  tabs: [],
-  activeTabId: null,
-  interactiveTabId: null,
+export const useTerminalStore = create<TerminalState>()(
+  persist(
+    (set, get) => ({
+      tabs: [],
+      activeTabId: null,
+      interactiveTabId: null,
 
-  openTab: (session) => {
-    if (get().tabs.length >= MAX_TABS) return null;
-    const id = `tab-${shortId()}`;
-    const tab: Tab = {
-      id,
-      isLoading: true,
-      error: null,
-      isOutputting: false,
-      createdAt: Date.now() / 1000,
-      isPinned: false,
-      ...session,
-    };
-    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
-    return id;
-  },
+      openTab: (session) => {
+        if (get().tabs.length >= MAX_TABS) return null;
+        const id = `tab-${shortId()}`;
+        const tab: Tab = {
+          id,
+          isLoading: true,
+          error: null,
+          isOutputting: false,
+          createdAt: Date.now() / 1000,
+          isPinned: false,
+          ...session,
+        };
+        set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
+        return id;
+      },
 
-  closeTab: async (tabId) => {
-    try {
-      await killPty(tabId);
-    } catch {
-      // PTY may already be dead — not fatal
+      closeTab: async (tabId) => {
+        try {
+          await killPty(tabId);
+        } catch {
+          // PTY may already be dead — not fatal
+        }
+        set((s) => {
+          const tabs = s.tabs.filter((t) => t.id !== tabId);
+          const activeTabId =
+            s.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.activeTabId;
+          const interactiveTabId =
+            s.interactiveTabId === tabId ? null : s.interactiveTabId;
+          return { tabs, activeTabId, interactiveTabId };
+        });
+      },
+
+      setActiveTab: (tabId) => set({ activeTabId: tabId, interactiveTabId: null }),
+
+      enableTerminalInteraction: (tabId) => set({ interactiveTabId: tabId }),
+
+      disableTerminalInteraction: (tabId) =>
+        set((s) => ({
+          interactiveTabId: s.interactiveTabId === tabId ? null : s.interactiveTabId,
+        })),
+
+      setTabReady: (tabId) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, isLoading: false, error: null } : t
+          ),
+        })),
+
+      setTabError: (tabId, message) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, isLoading: false, error: message } : t
+          ),
+        })),
+
+      updateTabTitle: (tabId, title) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
+        })),
+
+      toggleTabPin: (tabId) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isPinned: !t.isPinned } : t)),
+        })),
+
+      retryTab: (tabId) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, isLoading: true, error: null } : t
+          ),
+        })),
+
+      setTabOutputting: (tabId, isOutputting) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isOutputting } : t)),
+        })),
+    }),
+    {
+      name: "ompx-terminal-tabs",
+      partialize: (state) => ({
+        tabs: state.tabs.map((tab) => ({
+          ...tab,
+          isLoading: false,
+          isOutputting: false,
+          error: "Disconnected — select to reconnect",
+        })),
+        activeTabId: state.activeTabId,
+        interactiveTabId: null,
+      }),
     }
-    set((s) => {
-      const tabs = s.tabs.filter((t) => t.id !== tabId);
-      const activeTabId =
-        s.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.activeTabId;
-      const interactiveTabId = s.interactiveTabId === tabId ? null : s.interactiveTabId;
-      return { tabs, activeTabId, interactiveTabId };
-    });
-  },
-
-  setActiveTab: (tabId) => set({ activeTabId: tabId, interactiveTabId: null }),
-
-  enableTerminalInteraction: (tabId) => set({ interactiveTabId: tabId }),
-
-  disableTerminalInteraction: (tabId) =>
-    set((s) => ({
-      interactiveTabId: s.interactiveTabId === tabId ? null : s.interactiveTabId,
-    })),
-
-  setTabReady: (tabId) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, isLoading: false, error: null } : t
-      ),
-    })),
-
-  setTabError: (tabId, message) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, isLoading: false, error: message } : t
-      ),
-    })),
-
-  updateTabTitle: (tabId, title) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
-    })),
-
-  toggleTabPin: (tabId) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isPinned: !t.isPinned } : t)),
-    })),
-
-  retryTab: (tabId) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, isLoading: true, error: null } : t
-      ),
-    })),
-
-  setTabOutputting: (tabId, isOutputting) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isOutputting } : t)),
-    })),
-}));
+  )
+);

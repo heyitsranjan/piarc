@@ -11,10 +11,11 @@
  */
 import { useCallback } from "react";
 
-import { createPty, shellPty } from "@/lib/ipc";
-import type { OmpSession } from "@/lib/session";
 import { useSessionStore } from "@/store/sessions";
 import { type Tab, useTerminalStore } from "@/store/terminal";
+
+import { createPty, shellPty } from "@/lib/ipc";
+import type { OmpSession } from "@/lib/session";
 
 export interface UseTerminalReturn {
   /**
@@ -92,6 +93,10 @@ export function useTerminal(): UseTerminalReturn {
       const existing = tabs.find((t) => t.sessionId === session.id);
       if (existing) {
         setActiveTab(existing.id);
+        if (existing.error) {
+          markRetry(existing.id);
+          await spawnPty(existing.id, existing, cols, rows);
+        }
         return;
       }
 
@@ -112,7 +117,7 @@ export function useTerminal(): UseTerminalReturn {
         rows
       );
     },
-    [tabs, openTab, setActiveTab, setActive, spawnPty]
+    [tabs, openTab, setActiveTab, setActive, markRetry, spawnPty]
   );
 
   const retryTab = useCallback(

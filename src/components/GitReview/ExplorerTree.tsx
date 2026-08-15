@@ -1,5 +1,6 @@
-import { ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
 import { useMemo, useState } from "react";
+
+import { ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
 
 import type { OmpPathSuggestion } from "@/lib/ipc";
 import { cn } from "@/lib/utils";

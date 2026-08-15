@@ -23,15 +23,15 @@ fn login_shell() -> String {
 
 /// Emit a PTY output event; log on failure.
 fn emit_output(app: &tauri::AppHandle, tab: &str, chunk: String) {
-    if let Err(e) = app.emit(&format!("pty_output:{tab}"), chunk) {
-        error!("emit pty_output:{tab}: {e}");
+    if app.emit(&format!("pty_output:{tab}"), chunk).is_err() {
+        error!("failed to emit PTY output");
     }
 }
 
 /// Emit a PTY exit event; log on failure.
 fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
-    if let Err(e) = app.emit(&format!("pty_exit:{tab}"), code) {
-        error!("emit pty_exit:{tab}: {e}");
+    if app.emit(&format!("pty_exit:{tab}"), code).is_err() {
+        error!("failed to emit PTY exit");
     }
 }
 
@@ -42,7 +42,7 @@ fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
 /// Shell command: `cd '<cwd>'; omp --resume <id>; exec <shell>`
 /// The `exec <shell>` keeps the window interactive after omp exits.
 ///
-/// If a PTY already exists for `tab_id` (pre-warm hit), this is a no-op.
+/// If a PTY already exists for `tab_id`, this is a no-op.
 #[tauri::command]
 pub async fn create_pty(
     tab_id: String,
@@ -53,10 +53,10 @@ pub async fn create_pty(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    info!("create_pty tab={tab_id} session={session_id}");
+    info!("resume PTY requested");
 
     if state.pty_manager.has(&tab_id) {
-        info!("create_pty: cache hit tab={tab_id}");
+        info!("reused live PTY");
         return Ok(());
     }
 
@@ -67,8 +67,7 @@ pub async fn create_pty(
         tab_id.clone(),
         PtyProgram::Resume(&session_id),
         &cwd,
-        cols,
-        rows,
+        (cols, rows),
         &shell,
         {
             let app = app.clone();
@@ -81,9 +80,9 @@ pub async fn create_pty(
             }
         },
     )
-    .map_err(|e| {
-        error!("create_pty failed tab={tab_id}: {e}");
-        e.to_string()
+    .map_err(|error| {
+        error!("resume PTY failed");
+        error.to_string()
     })
 }
 
@@ -114,50 +113,8 @@ pub fn resize_pty(
 /// Safe to call even if the process has already exited.
 #[tauri::command]
 pub fn kill_pty(tab_id: String, state: State<'_, AppState>) {
-    info!("kill_pty tab={tab_id}");
+    info!("PTY close requested");
     state.pty_manager.kill(&tab_id);
-}
-
-/// Pre-warm a PTY for a session before the user clicks it.
-///
-/// Uses cache key `"prewarm:<session_id>"`. The frontend must pass this same
-/// string as `tab_id` to `create_pty` in order to get a cache hit.
-#[tauri::command]
-pub async fn prewarm_pty(
-    session_id: String,
-    cwd: String,
-    state: State<'_, AppState>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
-    let tab_id = format!("prewarm:{session_id}");
-    info!("prewarm_pty tab={tab_id}");
-
-    if state.pty_manager.has(&tab_id) {
-        return Ok(());
-    }
-
-    let shell = login_shell();
-    let pm = state.pty_manager.clone();
-
-    pm.spawn(
-        tab_id,
-        PtyProgram::Resume(&session_id),
-        &cwd,
-        120,
-        30,
-        &shell,
-        {
-            let app = app.clone();
-            move |tab, chunk| {
-                if chunk.is_empty() {
-                    emit_exit(&app, &tab, 0);
-                } else {
-                    emit_output(&app, &tab, chunk);
-                }
-            }
-        },
-    )
-    .map_err(|e| e.to_string())
 }
 
 /// Spawn a PTY running `omp` (no --resume) to start a brand-new session.
@@ -172,7 +129,7 @@ pub async fn new_session_pty(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    info!("new_session_pty tab={tab_id} cwd={cwd}");
+    info!("new OMP PTY requested");
 
     let shell = login_shell();
     let pm = state.pty_manager.clone();
@@ -181,8 +138,7 @@ pub async fn new_session_pty(
         tab_id.clone(),
         PtyProgram::NewSession,
         &cwd,
-        cols,
-        rows,
+        (cols, rows),
         &shell,
         {
             let app = app.clone();
@@ -195,9 +151,9 @@ pub async fn new_session_pty(
             }
         },
     )
-    .map_err(|e| {
-        log::error!("new_session_pty failed: {e}");
-        e.to_string()
+    .map_err(|error| {
+        error!("new OMP PTY failed");
+        error.to_string()
     })
 }
 
@@ -211,7 +167,7 @@ pub async fn shell_pty(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    info!("shell_pty tab={tab_id} cwd={cwd}");
+    info!("shell PTY requested");
 
     let shell = login_shell();
     let pm = state.pty_manager.clone();
@@ -220,8 +176,7 @@ pub async fn shell_pty(
         tab_id.clone(),
         PtyProgram::Shell,
         &cwd,
-        cols,
-        rows,
+        (cols, rows),
         &shell,
         {
             let app = app.clone();
@@ -234,8 +189,8 @@ pub async fn shell_pty(
             }
         },
     )
-    .map_err(|e| {
-        error!("shell_pty failed tab={tab_id}: {e}");
-        e.to_string()
+    .map_err(|error| {
+        error!("shell PTY failed");
+        error.to_string()
     })
 }

@@ -3,4 +3,5 @@ pub mod completion;
 pub mod editors;
 pub mod git;
 pub mod sessions;
+pub mod system;
 pub mod terminal;

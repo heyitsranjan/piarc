@@ -13,6 +13,31 @@ import { invoke } from "@tauri-apps/api/core";
 import type { GitChangesSnapshot } from "@/lib/git";
 import type { OmpSession } from "@/lib/session";
 
+export interface OmpStatus {
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  error: string | null;
+}
+
+/** Resolve OMP using the user's login-shell environment. */
+export const getOmpStatus = (): Promise<OmpStatus> => invoke("get_omp_status");
+
+export type PermissionKind = "automation" | "accessibility" | "screenRecording";
+export type PermissionState = "granted" | "denied" | "managedBySystem" | "unsupported";
+
+export interface MachinePermission {
+  kind: PermissionKind;
+  state: PermissionState;
+  title: string;
+  detail: string;
+}
+
+export const getMachinePermissions = (): Promise<MachinePermission[]> =>
+  invoke("get_machine_permissions");
+
+export const openPermissionSettings = (kind: PermissionKind): Promise<void> =>
+  invoke("open_permission_settings", { kind });
 // ─── Sessions ──────────────────────────────────────────────────────────────
 
 /**
@@ -149,17 +174,6 @@ export const resizePty = (tabId: string, cols: number, rows: number): Promise<vo
  * Safe to call even if the process has already exited.
  */
 export const killPty = (tabId: string): Promise<void> => invoke("kill_pty", { tabId });
-
-/**
- * Pre-warm a PTY for a session without associating it with a visible tab.
- * The Rust backend spawns the process and holds it in the LRU cache so the
- * first time the user clicks this session the terminal is already running.
- *
- * @param sessionId - omp session UUID.
- * @param cwd       - Working directory for the shell.
- */
-export const prewarmPty = (sessionId: string, cwd: string): Promise<void> =>
-  invoke("prewarm_pty", { sessionId, cwd });
 
 /** Parameters for spawning a fresh omp session (no --resume). */
 export interface NewSessionPtyParams {

@@ -7,10 +7,11 @@
  */
 import { useEffect, useRef } from "react";
 
-import { FEATURE_RICH_INPUT } from "@/lib/features";
-import { writePty } from "@/lib/ipc";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { FEATURE_RICH_INPUT } from "@/lib/features";
+import { writePty } from "@/lib/ipc";
 
 import RichInput from "./RichInput";
 import TerminalBottomBar from "./TerminalBottomBar";

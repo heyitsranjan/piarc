@@ -1,5 +1,6 @@
-import { ChevronDown, Code2, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import { ChevronDown, Code2, Loader2 } from "lucide-react";
 
 import {
   type InstalledEditor,

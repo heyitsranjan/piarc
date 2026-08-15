@@ -185,11 +185,12 @@ fn list_directory(directory: &Path, display_prefix: &str) -> Result<Vec<OmpPathS
 }
 
 fn git_entries(cwd: &Path) -> Option<BTreeMap<String, bool>> {
-    let output = Command::new("git")
-        .args(["ls-files", "-co", "--exclude-standard", "-z"])
-        .current_dir(cwd)
-        .output()
-        .ok()?;
+    let output = crate::services::git_repository::safe_command(
+        cwd,
+        &["ls-files", "-co", "--exclude-standard", "-z"],
+    )
+    .output()
+    .ok()?;
     if !output.status.success() {
         return None;
     }

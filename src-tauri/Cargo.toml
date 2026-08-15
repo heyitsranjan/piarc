@@ -1,12 +1,15 @@
 [package]
-name        = "oh-my-pi"
+name        = "ompx"
 version     = "0.1.0"
-description = "Oh My Pi — omp session browser and embedded terminal"
+description = "OMPX — local OMP session browser and embedded terminal"
 authors     = ["Smruti Ranjan Rana <heyitsranjan>"]
 edition     = "2021"
+license     = "MIT"
+repository  = "https://github.com/ranjan-hackerrank/ompx"
+publish     = false
 
 [lib]
-name       = "oh_my_pi_lib"
+name       = "ompx_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -15,18 +18,13 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # ── Tauri core + plugins ──────────────────────────────────────────────────
 tauri               = { version = "2", features = ["tray-icon", "image-png"] }
-tauri-plugin-shell  = "2"
-tauri-plugin-opener = "2"
 tauri-plugin-log       = "2"
 tauri-plugin-dialog    = "2"
-tauri-plugin-updater   = "2"
 
 # ── Serialisation ─────────────────────────────────────────────────────────
 serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# ── Async runtime ─────────────────────────────────────────────────────────
-tokio = { version = "1", features = ["full"] }
 
 # ── File-system watching ──────────────────────────────────────────────────
 notify = "6"
@@ -46,3 +44,10 @@ base64      = "0.22"
 parking_lot = "0.12"
 uuid        = { version = "1", features = ["v4"] }
 chrono      = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = "symbols"

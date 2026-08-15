@@ -25,9 +25,8 @@ export function useTheme(): void {
     const apply = (t: Theme) => {
       const isDark =
         t === "dark" ||
-        (t === "system" &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.classList.toggle("dark",  isDark);
+        (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.classList.toggle("dark", isDark);
       document.documentElement.classList.toggle("light", !isDark);
     };
 

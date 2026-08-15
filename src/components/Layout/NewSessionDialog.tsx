@@ -1,14 +1,17 @@
-import { Bot, TerminalSquare } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
+
+import { Bot, TerminalSquare } from "lucide-react";
 
 interface NewSessionDialogProps {
   busy: boolean;
+  ompAvailable: boolean;
   onClose: () => void;
   onNewSession: () => Promise<void>;
   onTerminal: () => Promise<void>;
 }
 
 export default function NewSessionDialog({
+  ompAvailable,
   busy,
   onClose,
   onNewSession,
@@ -42,17 +45,19 @@ export default function NewSessionDialog({
         <div className="border-b border-[var(--color-border)] px-4 py-3.5">
           <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">Create</h2>
           <p className="mt-0.5 text-[11px] text-[var(--color-ink-7)]">
-            Start Oh My Pi or open a plain terminal.
+            Start OMPX or open a plain terminal.
           </p>
         </div>
         <div className="grid gap-2 p-3">
           <Choice
             autoFocus
             icon={<Bot size={18} strokeWidth={1.7} />}
-            title="Oh My Pi session"
-            description="Start a new omp session"
+            title="OMPX session"
+            description={
+              ompAvailable ? "Start a new omp session" : "Install omp to create sessions"
+            }
             shortcut="⌘⇧N"
-            disabled={busy}
+            disabled={busy || !ompAvailable}
             onClick={() => choose(onNewSession)}
           />
           <Choice

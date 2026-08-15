@@ -1,7 +1,7 @@
 //! Tauri application library root.
 //!
-//! Wires together plugins, managed state, the FS watcher, tray icon,
-//! auto-updater, logging, and all command handlers.
+//! Wires together plugins, managed state, the filesystem watcher, tray icon,
+//! logging, and command handlers.
 
 mod commands;
 mod models;
@@ -16,7 +16,7 @@ use tauri::{
 use tauri_plugin_log::{Target, TargetKind};
 use tracing::info;
 
-use commands::{completion, editors, git, sessions, terminal};
+use commands::{completion, editors, git, sessions, system, terminal};
 use services::watcher;
 use state::AppState;
 
@@ -29,7 +29,7 @@ pub fn run() {
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
-                        file_name: Some("oh-my-pi".into()),
+                        file_name: Some("ompx".into()),
                     }),
                     Target::new(TargetKind::Webview),
                 ])
@@ -41,13 +41,16 @@ pub fn run() {
                 .build(),
         )
         // ── Other plugins ──────────────────────────────────────────────────
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         // ── Setup ──────────────────────────────────────────────────────────
         .setup(|app| {
-            info!("Oh My Pi starting up v{}", env!("CARGO_PKG_VERSION"));
+            info!("OMPX starting up v{}", env!("CARGO_PKG_VERSION"));
 
             // Managed state
             let app_state = AppState::new();
@@ -56,22 +59,23 @@ pub fn run() {
                     info!("FS watcher started");
                     *app_state.watcher.lock() = Some(w);
                 }
-                Err(e) => {
-                    log::warn!("FS watcher failed: {e}");
+                Err(_) => {
+                    log::warn!("FS watcher failed");
                 }
             }
             app.manage(app_state);
 
             // ── Tray icon ─────────────────────────────────────────────────
-            let show = MenuItem::with_id(app, "show", "Show Oh My Pi", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show OMPX", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
 
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tauri::include_image!("icons/44x44.png"))
+                .icon_as_template(true)
                 .menu(&menu)
-                .tooltip("Oh My Pi")
+                .tooltip("OMPX")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(w) = app.get_webview_window("main") {
@@ -115,16 +119,18 @@ pub fn run() {
             git::get_git_changes,
             git::get_git_file_diff,
             sessions::list_sessions,
+            system::get_omp_status,
             sessions::delete_session,
+            system::get_machine_permissions,
+            system::open_permission_settings,
             sessions::rename_session,
             terminal::create_pty,
             terminal::write_pty,
             terminal::resize_pty,
             terminal::kill_pty,
-            terminal::prewarm_pty,
             terminal::new_session_pty,
             terminal::shell_pty,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Oh My Pi");
+        .expect("error while running OMPX");
 }

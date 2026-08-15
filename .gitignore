@@ -13,3 +13,8 @@ bun.lockb
 .env
 .env.*
 !.env.example
+
+# Local analysis and release output
+graphify-out/
+*.dmg
+SHA256SUMS.txt

@@ -1,15 +1,17 @@
-import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
+
+import { type Tab, useTerminalStore } from "@/store/terminal";
+
 import {
-  listOmpCommands,
-  listOmpPaths,
   type OmpCommand,
   type OmpPathSuggestion,
+  listOmpCommands,
+  listOmpPaths,
   writePty,
 } from "@/lib/ipc";
-import { type Tab, useTerminalStore } from "@/store/terminal";
 
 import TerminalBottomBar from "./TerminalBottomBar";
 

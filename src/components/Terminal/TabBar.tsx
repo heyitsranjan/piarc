@@ -6,10 +6,13 @@
  * Keyboard shortcuts: ⌘W closes the active tab; ⌘1-9 switches by index.
  */
 import Button from "@/components/ui/Button";
+
 import { useKeyboard } from "@/hooks/useKeyboard";
-import { cn } from "@/lib/utils";
+
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
+
+import { cn } from "@/lib/utils";
 
 /** The tab bar rendered above the terminal pane. */
 export default function TabBar() {
