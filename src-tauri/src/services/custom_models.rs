@@ -13,6 +13,101 @@ const PROVIDER_PREFIX: &str = "ompx-";
 const KEYCHAIN_ACCOUNT: &str = "ompx";
 const KEYCHAIN_SERVICE_PREFIX: &str = "com.heyitsranjan.ompx.provider.";
 
+#[cfg(target_os = "macos")]
+mod keychain_acl {
+    use std::{
+        ffi::{c_char, c_void, CString},
+        os::unix::ffi::OsStrExt,
+        ptr,
+    };
+
+    use anyhow::{bail, Context, Result};
+    use core_foundation::{
+        array::CFArray,
+        base::{CFTypeID, TCFType},
+        declare_TCFType, impl_TCFType,
+        string::{CFString, CFStringRef},
+    };
+    use security_framework::os::macos::{access::SecAccess, passwords::find_generic_password};
+    use security_framework_sys::base::{SecAccessRef, SecKeychainItemRef};
+
+    type SecTrustedApplicationRef = *mut c_void;
+
+    declare_TCFType! {
+        SecTrustedApplication, SecTrustedApplicationRef
+    }
+    impl_TCFType!(
+        SecTrustedApplication,
+        SecTrustedApplicationRef,
+        SecTrustedApplicationGetTypeID
+    );
+
+    unsafe impl Send for SecTrustedApplication {}
+    unsafe impl Sync for SecTrustedApplication {}
+
+    #[link(name = "Security", kind = "framework")]
+    extern "C" {
+        fn SecTrustedApplicationGetTypeID() -> CFTypeID;
+        fn SecTrustedApplicationCreateFromPath(
+            path: *const c_char,
+            application: *mut SecTrustedApplicationRef,
+        ) -> i32;
+        fn SecAccessCreate(
+            descriptor: CFStringRef,
+            trusted_list: core_foundation::array::CFArrayRef,
+            access: *mut SecAccessRef,
+        ) -> i32;
+        fn SecKeychainItemSetAccess(item: SecKeychainItemRef, access: SecAccessRef) -> i32;
+    }
+
+    pub fn allow_security_tool(service: &str, account: &str) -> Result<()> {
+        let executable = std::env::current_exe().context("failed to locate OMPX executable")?;
+        let executable_path = CString::new(executable.as_os_str().as_bytes())
+            .context("invalid OMPX executable path")?;
+        let current = trusted_application(Some(&executable_path))?;
+        let security_path = CString::new("/usr/bin/security").unwrap();
+        let security = trusted_application(Some(&security_path))?;
+        let trusted = CFArray::from_CFTypes(&[current, security]);
+        let descriptor = CFString::new("OMPX custom model credential");
+        let mut access_ref = ptr::null_mut();
+        status(unsafe {
+            SecAccessCreate(
+                descriptor.as_concrete_TypeRef(),
+                trusted.as_concrete_TypeRef(),
+                &mut access_ref,
+            )
+        })
+        .context("failed to create Keychain access policy")?;
+        let access = unsafe { SecAccess::wrap_under_create_rule(access_ref) };
+        let (_, item) = find_generic_password(None, service, account)
+            .context("failed to find stored API key")?;
+        status(unsafe {
+            SecKeychainItemSetAccess(item.as_concrete_TypeRef(), access.as_concrete_TypeRef())
+        })
+        .context("failed to grant OMP Keychain access")
+    }
+
+    fn trusted_application(path: Option<&CString>) -> Result<SecTrustedApplication> {
+        let mut application = ptr::null_mut();
+        status(unsafe {
+            SecTrustedApplicationCreateFromPath(
+                path.map_or(ptr::null(), |value| value.as_ptr()),
+                &mut application,
+            )
+        })
+        .context("failed to create trusted Keychain application")?;
+        Ok(unsafe { SecTrustedApplication::wrap_under_create_rule(application) })
+    }
+
+    fn status(value: i32) -> Result<()> {
+        if value == 0 {
+            Ok(())
+        } else {
+            bail!("macOS Security error {value}")
+        }
+    }
+}
+
 pub async fn test(draft: &CustomModelDraft) -> Result<ConnectionReport> {
     validate(draft)?;
     let url = endpoint(draft)?;
@@ -153,7 +248,6 @@ fn save_config(draft: &CustomModelDraft, provider_id: &str) -> Result<CustomMode
         name: Some(draft.name.trim().into()),
         api: Some(draft.api.as_str().into()),
         reasoning: Some(draft.reasoning),
-        supports_tools: Some(draft.supports_tools),
         input: Some(if draft.image_input {
             vec!["text".into(), "image".into()]
         } else {
@@ -312,7 +406,8 @@ fn keychain_service(provider_id: &str) -> String {
 #[cfg(target_os = "macos")]
 fn set_secret(service: &str, secret: &[u8]) -> Result<()> {
     security_framework::passwords::set_generic_password(service, KEYCHAIN_ACCOUNT, secret)
-        .context("failed to store API key in macOS Keychain")
+        .context("failed to store API key in macOS Keychain")?;
+    keychain_acl::allow_security_tool(service, KEYCHAIN_ACCOUNT)
 }
 
 #[cfg(target_os = "macos")]
@@ -385,8 +480,6 @@ struct ModelConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reasoning: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    supports_tools: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     input: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     context_window: Option<u64>,
@@ -415,7 +508,6 @@ mod tests {
             api_key: "secret".into(),
             model_id: "@anthropic/claude".into(),
             api: CustomModelApi::OpenaiCompletions,
-            supports_tools: true,
             reasoning: true,
             image_input: false,
             context_window: 128_000,

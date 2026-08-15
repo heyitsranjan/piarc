@@ -35,7 +35,6 @@ const emptyDraft: CustomModelDraft = {
   apiKey: "",
   modelId: "",
   api: "openai-completions",
-  supportsTools: true,
   reasoning: false,
   imageInput: false,
   contextWindow: 128_000,
@@ -307,11 +306,6 @@ function ModelForm({
       </div>
 
       <div className="flex flex-wrap gap-4 text-[11px] text-[var(--color-ink-5)]">
-        <Check
-          label="Tool calling"
-          checked={draft.supportsTools}
-          onChange={(value) => update("supportsTools", value)}
-        />
         <Check
           label="Reasoning"
           checked={draft.reasoning}

@@ -50,7 +50,6 @@ export interface CustomModelDraft {
   apiKey: string;
   modelId: string;
   api: CustomModelApi;
-  supportsTools: boolean;
   reasoning: boolean;
   imageInput: boolean;
   contextWindow: number;

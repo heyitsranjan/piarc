@@ -27,7 +27,6 @@ pub struct CustomModelDraft {
     pub api_key: String,
     pub model_id: String,
     pub api: CustomModelApi,
-    pub supports_tools: bool,
     pub reasoning: bool,
     pub image_input: bool,
     pub context_window: u64,
