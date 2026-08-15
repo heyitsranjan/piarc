@@ -11,11 +11,10 @@
  */
 import { useCallback } from "react";
 
-import { useSessionStore } from "@/store/sessions";
-import { type Tab, useTerminalStore } from "@/store/terminal";
-
 import { createPty, shellPty } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
+import { useSessionStore } from "@/store/sessions";
+import { type Tab, useTerminalStore } from "@/store/terminal";
 
 export interface UseTerminalReturn {
   /**

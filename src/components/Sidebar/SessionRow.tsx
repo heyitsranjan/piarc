@@ -28,7 +28,7 @@ interface MenuPos {
 }
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
-  const { pinnedIds, togglePin } = useSessionStore();
+  const { pinnedIds, togglePin, renameSession } = useSessionStore();
   const tabs = useTerminalStore((s) => s.tabs);
   const tab = tabs.find((t) => t.sessionId === session.id);
   /** PTY spawning → spinner */
@@ -240,7 +240,12 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
         )}
 
       {renameOpen && (
-        <RenameDialog session={session} onClose={() => setRenameOpen(false)} />
+        <RenameDialog
+          title={session.title}
+          subtitle={session.path.split("/").slice(-2).join("/")}
+          onRename={(title) => renameSession(session.path, title)}
+          onClose={() => setRenameOpen(false)}
+        />
       )}
     </>
   );

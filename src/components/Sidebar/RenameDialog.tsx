@@ -5,20 +5,24 @@
 import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type { OmpSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { useSessionStore } from "@/store/sessions";
 
 interface RenameDialogProps {
-  session: OmpSession;
+  title: string;
+  subtitle: string;
+  onRename: (title: string) => Promise<void> | void;
   onClose: () => void;
 }
 
-export default function RenameDialog({ session, onClose }: RenameDialogProps) {
-  const [value,  setValue]  = useState(session.title);
+export default function RenameDialog({
+  title,
+  subtitle,
+  onRename,
+  onClose,
+}: RenameDialogProps) {
+  const [value, setValue] = useState(title);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { renameSession } = useSessionStore();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -27,9 +31,12 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
 
   const handleSave = async () => {
     const trimmed = value.trim();
-    if (!trimmed || trimmed === session.title) { onClose(); return; }
+    if (!trimmed || trimmed === title) {
+      onClose();
+      return;
+    }
     setSaving(true);
-    await renameSession(session.path, trimmed);
+    await onRename(trimmed);
     setSaving(false);
     onClose();
   };
@@ -38,7 +45,9 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center
         bg-black/60 backdrop-blur-[2px] palette-backdrop"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         role="dialog"
@@ -51,15 +60,17 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
           overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3
-          border-b border-[var(--color-border)]">
+        <div
+          className="flex items-center gap-2.5 px-4 pt-4 pb-3
+          border-b border-[var(--color-border)]"
+        >
           <Pencil size={14} strokeWidth={1.8} className="text-[var(--color-ink-7)]" />
           <div>
             <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">
               Rename session
             </h2>
             <p className="text-[10.5px] text-[var(--color-ink-9)] mt-0.5 truncate font-mono">
-              {session.path.split("/").slice(-2).join("/")}
+              {subtitle}
             </p>
           </div>
         </div>
@@ -72,7 +83,7 @@ export default function RenameDialog({ session, onClose }: RenameDialogProps) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter")  handleSave();
+              if (e.key === "Enter") handleSave();
               if (e.key === "Escape") onClose();
             }}
             placeholder="Session title"

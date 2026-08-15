@@ -2,7 +2,6 @@
  * @module components/Sidebar
  * Left panel — session browser with all async states.
  */
-import { Loader2, TerminalSquare, X } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
 import {
@@ -20,6 +19,7 @@ import { useUiStore } from "@/store/ui";
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
 import SidebarHeader from "./SidebarHeader";
+import TerminalRow from "./TerminalRow";
 
 export default function Sidebar() {
   const { state, filtered, activeSession, loadSessions, pinnedIds } = useSessions();
@@ -30,8 +30,12 @@ export default function Sidebar() {
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const closeTab = useTerminalStore((s) => s.closeTab);
+  const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
+  const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
   const setActiveSession = useSessionStore((s) => s.setActive);
-  const terminals = tabs.filter((tab) => tab.kind === "terminal");
+  const terminals = tabs
+    .filter((tab) => tab.kind === "terminal")
+    .sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
 
   useKeyboard([
     { key: "k", meta: true, handler: openCmdPalette },
@@ -93,42 +97,18 @@ export default function Sidebar() {
             </h2>
             <ul role="list">
               {terminals.map((tab) => (
-                <li
+                <TerminalRow
                   key={tab.id}
-                  className="group mx-1.5 flex items-center rounded-[var(--radius-sm)]"
-                  data-active={activeTabId === tab.id || undefined}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveSession(null);
-                      setActiveTab(tab.id);
-                    }}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2
-                      text-left text-[var(--color-ink-5)] hover:bg-[var(--color-bg-hover)]
-                      group-data-[active=true]:bg-[var(--color-bg-active)] group-data-[active=true]:text-[var(--color-ink-1)]"
-                  >
-                    {tab.isLoading ? (
-                      <Loader2 size={13} className="shrink-0 animate-spin" />
-                    ) : (
-                      <TerminalSquare size={13} className="shrink-0" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-[11.5px]">
-                      {tab.title}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    title={`Close ${tab.title}`}
-                    aria-label={`Close ${tab.title}`}
-                    onClick={() => void closeTab(tab.id)}
-                    className="mr-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-sm)]
-                      text-[var(--color-ink-9)] hover:bg-[var(--color-bg-hi)] hover:text-[var(--color-ink-1)]
-                      group-hover:flex group-focus-within:flex"
-                  >
-                    <X size={12} />
-                  </button>
-                </li>
+                  tab={tab}
+                  isActive={activeTabId === tab.id}
+                  onSelect={() => {
+                    setActiveSession(null);
+                    setActiveTab(tab.id);
+                  }}
+                  onRename={(title) => updateTabTitle(tab.id, title)}
+                  onTogglePin={() => toggleTabPin(tab.id)}
+                  onDelete={() => void closeTab(tab.id)}
+                />
               ))}
             </ul>
           </section>

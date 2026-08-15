@@ -29,6 +29,10 @@ export interface Tab {
   title: string;
   /** Working directory; passed to `createPty`. */
   cwd: string;
+  /** Creation timestamp used by the sidebar's relative time label. */
+  createdAt: number;
+  /** Whether this terminal floats to the top of the terminal section. */
+  isPinned: boolean;
   /**
    * True while the PTY process is being spawned.
    * Cleared to false on success or error.
@@ -84,6 +88,8 @@ interface TerminalState {
 
   /** Update the tab's display title (e.g. from omp session rename). */
   updateTabTitle: (tabId: string, title: string) => void;
+  /** Toggle whether a terminal floats to the top of the sidebar section. */
+  toggleTabPin: (tabId: string) => void;
 
   /** Retry: reset a failed tab back to loading so the caller can re-spawn. */
   retryTab: (tabId: string) => void;
@@ -104,6 +110,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       isLoading: true,
       error: null,
       isOutputting: false,
+      createdAt: Date.now() / 1000,
+      isPinned: false,
       ...session,
     };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
@@ -151,6 +159,11 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   updateTabTitle: (tabId, title) =>
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
+    })),
+
+  toggleTabPin: (tabId) =>
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isPinned: !t.isPinned } : t)),
     })),
 
   retryTab: (tabId) =>
