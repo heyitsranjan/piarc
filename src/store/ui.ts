@@ -17,6 +17,8 @@ interface UiState {
   gitReviewOpen: boolean;
   /** Active color theme. */
   theme: Theme;
+  /** Whether the rich composer owns text input instead of the active terminal. */
+  richInputEnabled: boolean;
 
   toggleSidebar: () => void;
   openCommandPalette: () => void;
@@ -24,6 +26,7 @@ interface UiState {
   toggleGitReview: () => void;
   closeGitReview: () => void;
   setTheme: (t: Theme) => void;
+  toggleRichInput: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -33,6 +36,7 @@ export const useUiStore = create<UiState>()(
       commandPaletteOpen: false,
       gitReviewOpen: false,
       theme: "system",
+      richInputEnabled: true,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
@@ -40,10 +44,15 @@ export const useUiStore = create<UiState>()(
       toggleGitReview: () => set((s) => ({ gitReviewOpen: !s.gitReviewOpen })),
       closeGitReview: () => set({ gitReviewOpen: false }),
       setTheme: (theme) => set({ theme }),
+      toggleRichInput: () => set((s) => ({ richInputEnabled: !s.richInputEnabled })),
     }),
     {
       name: "omp-ui-settings",
-      partialize: (s) => ({ theme: s.theme, sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({
+        theme: s.theme,
+        sidebarCollapsed: s.sidebarCollapsed,
+        richInputEnabled: s.richInputEnabled,
+      }),
     }
   )
 );

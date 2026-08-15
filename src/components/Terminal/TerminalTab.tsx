@@ -12,23 +12,22 @@
  * Keyboard input is forwarded via `writePty` IPC.
  * Resize synced via `ResizeObserver` → `resizePty` IPC.
  */
-import type { ReactNode } from "react";
-import { memo, useEffect, useRef, useState } from "react";
+import "@xterm/xterm/css/xterm.css";
 
 import { listen } from "@tauri-apps/api/event";
-
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
+import type { ReactNode } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { useTerminal } from "@/hooks/useTerminal";
-
+import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
+import { FEATURE_RICH_INPUT } from "@/lib/features";
+import { resizePty, writePty } from "@/lib/ipc";
 import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
-
-import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
-import { resizePty, writePty } from "@/lib/ipc";
+import { useUiStore } from "@/store/ui";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 
@@ -98,15 +97,24 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const outputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const richInputPreference = useUiStore((state) => state.richInputEnabled);
+  const richInputEnabled = FEATURE_RICH_INPUT && richInputPreference;
+  const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();
   const setTabOutputting = useTerminalStore((s) => s.setTabOutputting);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
-  const terminalInteractionEnabled = useTerminalStore(
+  const interactiveCommandEnabled = useTerminalStore(
     (s) => s.interactiveTabId === tab.id
   );
+  const terminalInputEnabled =
+    isVisible && (!richInputEnabled || interactiveCommandEnabled);
+
+  useEffect(() => {
+    richInputEnabledRef.current = richInputEnabled;
+  }, [richInputEnabled]);
 
   // ── Mount xterm.js when tab is live (not loading, not error) ─────────────
   useEffect(() => {
@@ -158,11 +166,13 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       term.write(`\r\n\x1b[2m[process exited with code ${ev.payload}]\x1b[0m\r\n`);
     });
 
-    // Interactive OMP menus accept navigation controls, never free-form text.
+    // Direct mode forwards all input. Rich mode limits xterm to OMP menu controls.
     const onDataDispose = term.onData((data) => {
-      if (!isTerminalNavigationInput(data)) return;
+      if (richInputEnabledRef.current && !isTerminalNavigationInput(data)) return;
       writePty(tab.id, data).catch(() => {});
-      if (data === "\x1b") disableTerminalInteraction(tab.id);
+      if (richInputEnabledRef.current && data === "\x1b") {
+        disableTerminalInteraction(tab.id);
+      }
     });
 
     // Container resize → PTY
@@ -187,24 +197,25 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     };
   }, [disableTerminalInteraction, setTabOutputting, tab.id, tab.isLoading, tab.error]);
 
-  // xterm is output-only until a submitted OMP command needs its terminal UI.
+  // Direct mode gives the visible terminal normal stdin. Rich mode enables
+  // xterm only while an OMP command owns an interactive terminal menu.
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
-    term.options.disableStdin = !terminalInteractionEnabled;
-    term.options.cursorBlink = terminalInteractionEnabled;
-    term.options.theme = terminalInteractionEnabled ? XTERM_THEME : PASSIVE_XTERM_THEME;
-    if (terminalInteractionEnabled && isVisible) {
+    term.options.disableStdin = !terminalInputEnabled;
+    term.options.cursorBlink = terminalInputEnabled;
+    term.options.theme = terminalInputEnabled ? XTERM_THEME : PASSIVE_XTERM_THEME;
+    if (terminalInputEnabled) {
       window.requestAnimationFrame(() => term.focus());
     } else {
       term.blur();
     }
-  }, [isVisible, terminalInteractionEnabled]);
+  }, [terminalInputEnabled]);
 
   return (
     <div
       className="terminal-pane relative flex h-full w-full flex-col"
-      data-terminal-interactive={terminalInteractionEnabled}
+      data-terminal-interactive={terminalInputEnabled}
     >
       {/* ── Loading state ──────────────────────────────────────────────── */}
       {tab.isLoading && (

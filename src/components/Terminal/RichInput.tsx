@@ -1,16 +1,14 @@
+import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
-
-import { type Tab, useTerminalStore } from "@/store/terminal";
-
 import {
-  type OmpCommand,
-  type OmpPathSuggestion,
   listOmpCommands,
   listOmpPaths,
+  type OmpCommand,
+  type OmpPathSuggestion,
   writePty,
 } from "@/lib/ipc";
+import { type Tab, useTerminalStore } from "@/store/terminal";
 
 interface CompletionContext {
   kind: "command" | "subcommand" | "path";
@@ -27,6 +25,9 @@ interface CompletionItem {
   value: string;
   isDirectory?: boolean;
 }
+
+const commandCache = new Map<string, OmpCommand[]>();
+const commandRequests = new Map<string, Promise<OmpCommand[]>>();
 
 function fuzzyScore(query: string, target: string): number {
   if (!query) return 1;
@@ -190,7 +191,9 @@ export default function RichInput({ tab }: { tab: Tab }) {
   const [cursor, setCursor] = useState(0);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [commands, setCommands] = useState<OmpCommand[]>([]);
+  const [commands, setCommands] = useState<OmpCommand[]>(
+    () => commandCache.get(tab.cwd) ?? []
+  );
   const [paths, setPaths] = useState<OmpPathSuggestion[]>([]);
   const [loadingCommands, setLoadingCommands] = useState(false);
   const [loadingPaths, setLoadingPaths] = useState(false);
@@ -219,32 +222,46 @@ export default function RichInput({ tab }: { tab: Tab }) {
   }, [terminalInteractionEnabled]);
 
   useEffect(() => {
-    setValue("");
-    setCursor(0);
-    setError(null);
-    setPaths([]);
-    setDismissedAt(null);
-  }, [tab.id]);
+    if (commandCache.has(tab.cwd)) return;
 
-  useEffect(() => {
     let cancelled = false;
-    setLoadingCommands(true);
-    setCompletionError(false);
-    void listOmpCommands(tab.cwd)
-      .then((items) => {
-        if (!cancelled) setCommands(items);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCommands([]);
-          setCompletionError(true);
+    let timer: number | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        setLoadingCommands(true);
+        setCompletionError(false);
+        let request = commandRequests.get(tab.cwd);
+        if (!request) {
+          request = listOmpCommands(tab.cwd).then((items) => {
+            commandCache.set(tab.cwd, items);
+            return items;
+          });
+          commandRequests.set(tab.cwd, request);
+          void request.then(
+            () => commandRequests.delete(tab.cwd),
+            () => commandRequests.delete(tab.cwd)
+          );
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCommands(false);
-      });
+        void request
+          .then((items) => {
+            if (!cancelled) setCommands(items);
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setCommands([]);
+              setCompletionError(true);
+            }
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingCommands(false);
+          });
+      }, 0);
+    });
+
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(frame);
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [tab.cwd]);
 
@@ -434,6 +451,7 @@ export default function RichInput({ tab }: { tab: Tab }) {
         <div className="flex items-end gap-1.5 p-1.5">
           <textarea
             ref={inputRef}
+            autoFocus
             rows={1}
             value={value}
             disabled={disabled}
