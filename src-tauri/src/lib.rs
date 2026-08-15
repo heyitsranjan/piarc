@@ -16,7 +16,7 @@ use tauri::{
 use tauri_plugin_log::{Target, TargetKind};
 use tracing::info;
 
-use commands::{completion, editors, git, sessions, system, terminal};
+use commands::{completion, custom_models, editors, git, sessions, system, terminal};
 use services::watcher;
 use state::AppState;
 
@@ -110,6 +110,9 @@ pub fn run() {
         })
         // ── Commands ───────────────────────────────────────────────────────
         .invoke_handler(tauri::generate_handler![
+            custom_models::test_custom_model,
+            custom_models::save_custom_model,
+            custom_models::list_custom_models,
             completion::list_omp_commands,
             completion::list_omp_paths,
             completion::list_workspace_entries,
