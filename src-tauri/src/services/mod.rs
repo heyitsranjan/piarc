@@ -5,6 +5,7 @@
 //! - `pty_manager`    — cross-platform PTY lifecycle (portable-pty)
 //! - `watcher`        — FS watcher bridging notify → Tauri events
 pub mod completion;
+pub mod editors;
 pub mod git_repository;
 pub mod pty_manager;
 pub mod session_reader;

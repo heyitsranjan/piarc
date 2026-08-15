@@ -16,7 +16,7 @@ use tauri::{
 use tauri_plugin_log::{Target, TargetKind};
 use tracing::info;
 
-use commands::{completion, git, sessions, terminal};
+use commands::{completion, editors, git, sessions, terminal};
 use services::watcher;
 use state::AppState;
 
@@ -110,6 +110,8 @@ pub fn run() {
             completion::list_omp_paths,
             completion::list_workspace_entries,
             completion::read_workspace_file,
+            editors::list_installed_editors,
+            editors::open_folder_in_editor,
             git::get_git_changes,
             git::get_git_file_diff,
             sessions::list_sessions,

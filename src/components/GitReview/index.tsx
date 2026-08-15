@@ -14,6 +14,7 @@ import { cwdShort } from "@/lib/session";
 import type { WorkspaceMode } from "@/store/ui";
 
 import DiffViewer from "./DiffViewer";
+import EditorLauncher from "./EditorLauncher";
 import ExplorerTree from "./ExplorerTree";
 import FileTree from "./FileTree";
 import FileViewer from "./FileViewer";
@@ -243,6 +244,7 @@ export default function WorkspacePanel({
         <span className="text-[10px] tabular-nums text-[var(--color-ink-7)]">
           {count}
         </span>
+        {mode === "explorer" && <EditorLauncher path={reviewCwd} />}
         <button
           type="button"
           onClick={() => void chooseFolder()}

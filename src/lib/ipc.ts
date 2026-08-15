@@ -76,6 +76,19 @@ export const listWorkspaceEntries = (cwd: string): Promise<OmpPathSuggestion[]> 
 export const readWorkspaceFile = (cwd: string, path: string): Promise<string> =>
   invoke("read_workspace_file", { cwd, path });
 
+export interface InstalledEditor {
+  id: string;
+  name: string;
+}
+
+/** Return supported desktop editors currently installed on this machine. */
+export const listInstalledEditors = (): Promise<InstalledEditor[]> =>
+  invoke("list_installed_editors");
+
+/** Open a project folder in an installed editor selected by its allowlisted ID. */
+export const openFolderInEditor = (editorId: string, path: string): Promise<void> =>
+  invoke("open_folder_in_editor", { editorId, path });
+
 // ─── Git review ───────────────────────────────────────────────────────────
 
 /** List staged, unstaged, and untracked files in the repository containing `cwd`. */
