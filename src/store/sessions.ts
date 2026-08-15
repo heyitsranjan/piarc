@@ -91,10 +91,16 @@ export const useSessionStore = create<SessionsState>()(
 
       removeSession: async (path) => {
         await deleteSession(path);
-        set((s) => ({
-          sessions: s.sessions.filter((sess) => sess.path !== path),
-          activeSession: s.activeSession?.path === path ? null : s.activeSession,
-        }));
+        set((s) => {
+          const removed = s.sessions.find((session) => session.path === path);
+          return {
+            sessions: s.sessions.filter((session) => session.path !== path),
+            activeSession: s.activeSession?.path === path ? null : s.activeSession,
+            pinnedIds: removed
+              ? s.pinnedIds.filter((id) => id !== removed.id)
+              : s.pinnedIds,
+          };
+        });
       },
 
       renameSession: async (path, title) => {

@@ -3,7 +3,16 @@
  * Single session row. Dropdown rendered as a portal to escape
  * overflow:hidden on the sidebar and sit above all other layers.
  */
-import { Copy, Loader2, MoreVertical, Pin, PinOff, SquarePen } from "lucide-react";
+import { confirm, message } from "@tauri-apps/plugin-dialog";
+import {
+  Copy,
+  Loader2,
+  MoreVertical,
+  Pin,
+  PinOff,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -28,8 +37,9 @@ interface MenuPos {
 }
 
 export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
-  const { pinnedIds, togglePin, renameSession } = useSessionStore();
+  const { pinnedIds, togglePin, renameSession, removeSession } = useSessionStore();
   const tabs = useTerminalStore((s) => s.tabs);
+  const closeTab = useTerminalStore((state) => state.closeTab);
   const tab = tabs.find((t) => t.sessionId === session.id);
   /** PTY spawning → spinner */
   const isSpawning = tab?.isLoading === true;
@@ -83,6 +93,30 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
       left: rect.right - 176, // 176px = w-44 menu width
     });
     setMenuOpen(true);
+  };
+
+  const deleteSession = async () => {
+    setMenuOpen(false);
+    const approved = await confirm(
+      `Delete "${session.title}" from Oh My Pi? This cannot be undone.`,
+      {
+        title: "Delete session",
+        kind: "warning",
+        okLabel: "Delete",
+        cancelLabel: "Cancel",
+      }
+    );
+    if (!approved) return;
+
+    try {
+      if (tab) await closeTab(tab.id);
+      await removeSession(session.path);
+    } catch (reason) {
+      await message(reason instanceof Error ? reason.message : String(reason), {
+        title: "Could not delete session",
+        kind: "error",
+      });
+    }
   };
 
   return (
@@ -235,6 +269,13 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             >
               Copy session ID
             </DropdownItem>
+            <DropdownItem
+              danger
+              icon={<Trash2 size={15} strokeWidth={1.8} />}
+              onClick={() => void deleteSession()}
+            >
+              Delete session
+            </DropdownItem>
           </ul>,
           document.body
         )}
@@ -255,10 +296,12 @@ function DropdownItem({
   icon,
   onClick,
   children,
+  danger = false,
 }: {
   icon: ReactNode;
   onClick: () => void;
   children: ReactNode;
+  danger?: boolean;
 }) {
   return (
     <li
@@ -267,12 +310,16 @@ function DropdownItem({
         e.stopPropagation();
         onClick();
       }}
-      className="mx-0.5 flex h-8 cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)]
-        px-3 text-[13px] text-[var(--color-ink-1)] transition-colors
-        duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)]
-        hover:text-[var(--color-ink-0)]"
+      className={cn(
+        "mx-0.5 flex h-8 cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)]",
+        "px-3 text-[13px] transition-colors duration-[var(--duration-fast)]",
+        "hover:bg-[var(--color-bg-hover)]",
+        danger
+          ? "text-[var(--color-danger)]"
+          : "text-[var(--color-ink-1)] hover:text-[var(--color-ink-0)]"
+      )}
     >
-      <span className="text-[var(--color-ink-7)]">{icon}</span>
+      <span className={danger ? undefined : "text-[var(--color-ink-7)]"}>{icon}</span>
       {children}
     </li>
   );
