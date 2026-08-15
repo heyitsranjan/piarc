@@ -1,3 +1,4 @@
+import { confirm } from "@tauri-apps/plugin-dialog";
 import {
   Loader2,
   MoreVertical,
@@ -68,6 +69,20 @@ export default function TerminalRow({
     if (!rect) return;
     setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
     setMenuOpen(true);
+  };
+
+  const deleteTerminal = async () => {
+    setMenuOpen(false);
+    const approved = await confirm(
+      `Delete "${tab.title}"? Any running process in this terminal will be stopped.`,
+      {
+        title: "Delete terminal",
+        kind: "warning",
+        okLabel: "Delete",
+        cancelLabel: "Cancel",
+      }
+    );
+    if (approved) onDelete();
   };
 
   const isBusy = tab.isLoading || tab.isOutputting;
@@ -204,12 +219,9 @@ export default function TerminalRow({
             <MenuItem
               danger
               icon={<Trash2 size={15} strokeWidth={1.8} />}
-              onClick={() => {
-                setMenuOpen(false);
-                onDelete();
-              }}
+              onClick={() => void deleteTerminal()}
             >
-              Delete
+              Delete terminal
             </MenuItem>
           </ul>,
           document.body
