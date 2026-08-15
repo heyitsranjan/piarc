@@ -47,6 +47,8 @@ export interface Tab {
 interface TerminalState {
   tabs: Tab[];
   activeTabId: string | null;
+  /** Tab temporarily accepting direct keyboard input for an OMP terminal UI. */
+  interactiveTabId: string | null;
 
   /**
    * Open a new terminal tab.
@@ -62,6 +64,10 @@ interface TerminalState {
 
   /** Switch the visible terminal to `tabId`. */
   setActiveTab: (tabId: string) => void;
+  /** Enable direct xterm input while an OMP command owns an interactive terminal UI. */
+  enableTerminalInteraction: (tabId: string) => void;
+  /** Return xterm to passive output-only mode. */
+  disableTerminalInteraction: (tabId: string) => void;
 
   /** Mark a tab's PTY as ready (loading = false, error = null). */
   setTabReady: (tabId: string) => void;
@@ -84,11 +90,18 @@ interface TerminalState {
 export const useTerminalStore = create<TerminalState>()((set, get) => ({
   tabs: [],
   activeTabId: null,
+  interactiveTabId: null,
 
   openTab: (session) => {
     if (get().tabs.length >= MAX_TABS) return null;
     const id = `tab-${shortId()}`;
-    const tab: Tab = { id, isLoading: true, error: null, isOutputting: false, ...session };
+    const tab: Tab = {
+      id,
+      isLoading: true,
+      error: null,
+      isOutputting: false,
+      ...session,
+    };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
     return id;
   },
@@ -103,11 +116,19 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       const tabs = s.tabs.filter((t) => t.id !== tabId);
       const activeTabId =
         s.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.activeTabId;
-      return { tabs, activeTabId };
+      const interactiveTabId = s.interactiveTabId === tabId ? null : s.interactiveTabId;
+      return { tabs, activeTabId, interactiveTabId };
     });
   },
 
-  setActiveTab: (tabId) => set({ activeTabId: tabId }),
+  setActiveTab: (tabId) => set({ activeTabId: tabId, interactiveTabId: null }),
+
+  enableTerminalInteraction: (tabId) => set({ interactiveTabId: tabId }),
+
+  disableTerminalInteraction: (tabId) =>
+    set((s) => ({
+      interactiveTabId: s.interactiveTabId === tabId ? null : s.interactiveTabId,
+    })),
 
   setTabReady: (tabId) =>
     set((s) => ({

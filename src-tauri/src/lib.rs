@@ -16,7 +16,7 @@ use tauri::{
 use tauri_plugin_log::{Target, TargetKind};
 use tracing::info;
 
-use commands::{sessions, terminal};
+use commands::{completion, git, sessions, terminal};
 use services::watcher;
 use state::AppState;
 
@@ -43,6 +43,7 @@ pub fn run() {
         // ── Other plugins ──────────────────────────────────────────────────
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // ── Setup ──────────────────────────────────────────────────────────
         .setup(|app| {
@@ -51,16 +52,21 @@ pub fn run() {
             // Managed state
             let app_state = AppState::new();
             match watcher::start_watcher(app.handle().clone()) {
-                Ok(w)  => { info!("FS watcher started"); *app_state.watcher.lock() = Some(w); }
-                Err(e) => { log::warn!("FS watcher failed: {e}"); }
+                Ok(w) => {
+                    info!("FS watcher started");
+                    *app_state.watcher.lock() = Some(w);
+                }
+                Err(e) => {
+                    log::warn!("FS watcher failed: {e}");
+                }
             }
             app.manage(app_state);
 
             // ── Tray icon ─────────────────────────────────────────────────
-            let show   = MenuItem::with_id(app, "show",   "Show Oh My Pi", true, None::<&str>)?;
-            let quit   = MenuItem::with_id(app, "quit",   "Quit",          true, None::<&str>)?;
-            let sep    = tauri::menu::PredefinedMenuItem::separator(app)?;
-            let menu   = Menu::with_items(app, &[&show, &sep, &quit])?;
+            let show = MenuItem::with_id(app, "show", "Show Oh My Pi", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
+            let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -78,7 +84,7 @@ pub fn run() {
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
-                        button:       MouseButton::Left,
+                        button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
                     } = event
@@ -100,6 +106,10 @@ pub fn run() {
         })
         // ── Commands ───────────────────────────────────────────────────────
         .invoke_handler(tauri::generate_handler![
+            completion::list_omp_commands,
+            completion::list_omp_paths,
+            git::get_git_changes,
+            git::get_git_file_diff,
             sessions::list_sessions,
             sessions::delete_session,
             sessions::rename_session,

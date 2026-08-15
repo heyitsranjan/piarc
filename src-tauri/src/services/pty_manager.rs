@@ -108,10 +108,10 @@ impl PtyManager {
                         info!("PTY process exited for tab={tid}");
                         on_output(tid.clone(), String::new()); // empty = exit signal
                         break;
-                    },
+                    }
                     Ok(n) => {
                         on_output(tid.clone(), B64.encode(&buf[..n]));
-                    },
+                    }
                 }
             }
         });

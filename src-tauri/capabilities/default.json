@@ -8,6 +8,7 @@
     "core:event:default",
     "core:window:default",
     "shell:allow-open",
-    "opener:default"
+    "opener:default",
+    "dialog:allow-open"
   ]
 }

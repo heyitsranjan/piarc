@@ -10,6 +10,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 
+import type { GitChangesSnapshot } from "@/lib/git";
 import type { OmpSession } from "@/lib/session";
 
 // ─── Sessions ──────────────────────────────────────────────────────────────
@@ -37,6 +38,49 @@ export const deleteSession = (path: string): Promise<void> =>
  */
 export const renameSession = (path: string, title: string): Promise<void> =>
   invoke("rename_session", { path, title });
+
+// ─── Rich input completion ────────────────────────────────────────────────
+
+export interface OmpSubcommand {
+  name: string;
+  description: string | null;
+}
+
+export interface OmpCommand {
+  name: string;
+  aliases: string[];
+  description: string | null;
+  source: string | null;
+  input: { hint: string | null } | null;
+  subcommands: OmpSubcommand[];
+}
+
+export interface OmpPathSuggestion {
+  path: string;
+  isDirectory: boolean;
+}
+
+/** Ask the installed OMP binary for commands effective in this working directory. */
+export const listOmpCommands = (cwd: string): Promise<OmpCommand[]> =>
+  invoke("list_omp_commands", { cwd });
+
+/** Return OMP-style fuzzy paths for an `@` file mention. */
+export const listOmpPaths = (cwd: string, query: string): Promise<OmpPathSuggestion[]> =>
+  invoke("list_omp_paths", { cwd, query });
+
+// ─── Git review ───────────────────────────────────────────────────────────
+
+/** List staged, unstaged, and untracked files in the repository containing `cwd`. */
+export const getGitChanges = (cwd: string): Promise<GitChangesSnapshot> =>
+  invoke("get_git_changes", { cwd });
+
+/** Fetch one unified patch without invoking a shell. */
+export const getGitFileDiff = (
+  cwd: string,
+  path: string,
+  staged: boolean,
+  untracked: boolean
+): Promise<string> => invoke("get_git_file_diff", { cwd, path, staged, untracked });
 
 // ─── Terminal / PTY ────────────────────────────────────────────────────────
 

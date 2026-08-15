@@ -1,9 +1,10 @@
 /** Global window chrome shared by the sidebar and terminal. */
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Loader2, PanelLeft, Plus } from "lucide-react";
+import { FileDiff, Loader2, PanelLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useNewSession } from "@/hooks/useNewSession";
+import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/sessions";
 import { useUiStore } from "@/store/ui";
 
@@ -11,6 +12,8 @@ export default function TitleBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const activeSession = useSessionStore((state) => state.activeSession);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const gitReviewOpen = useUiStore((state) => state.gitReviewOpen);
+  const toggleGitReview = useUiStore((state) => state.toggleGitReview);
   const { startNewSession, isStarting } = useNewSession();
 
   useEffect(() => {
@@ -71,6 +74,20 @@ export default function TitleBar() {
       )}
 
       <div className="ml-auto flex items-center gap-0.5 pr-2" data-tauri-drag-region>
+        <button
+          type="button"
+          onClick={toggleGitReview}
+          disabled={!activeSession}
+          title="Review Git changes"
+          aria-label="Review Git changes"
+          aria-pressed={gitReviewOpen}
+          className={cn(
+            "titlebar-button",
+            gitReviewOpen && "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)]"
+          )}
+        >
+          <FileDiff size={17} strokeWidth={1.8} />
+        </button>
         <button
           type="button"
           onClick={startNewSession}

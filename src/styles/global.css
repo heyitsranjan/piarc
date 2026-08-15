@@ -216,6 +216,68 @@ html {
   }
 }
 
+/* ─── Git review workspace ───────────────────────────────────────────────── */
+.git-review-workspace {
+  width: min(
+    var(--git-review-width, 860px),
+    calc(100vw - var(--git-review-left-inset, 0px))
+  );
+}
+
+.git-diff-view {
+  --diff-background-color: var(--color-bg);
+  --diff-text-color: var(--color-ink-1);
+  --diff-font-family: var(--font-mono);
+  --diff-selection-background-color: rgba(78, 161, 255, 0.28);
+  --diff-gutter-insert-background-color: rgba(61, 220, 132, 0.13);
+  --diff-gutter-insert-text-color: var(--color-ink-5);
+  --diff-gutter-delete-background-color: rgba(241, 91, 91, 0.14);
+  --diff-gutter-delete-text-color: var(--color-ink-5);
+  --diff-code-insert-background-color: rgba(61, 220, 132, 0.08);
+  --diff-code-insert-text-color: var(--color-ink-1);
+  --diff-code-delete-background-color: rgba(241, 91, 91, 0.09);
+  --diff-code-delete-text-color: var(--color-ink-1);
+  --diff-code-insert-edit-background-color: rgba(61, 220, 132, 0.24);
+  --diff-code-delete-edit-background-color: rgba(241, 91, 91, 0.25);
+  --diff-omit-gutter-line-color: var(--color-ink-9);
+}
+
+.git-diff-view .diff-line {
+  line-height: 1.55;
+}
+
+.git-diff-view .diff-gutter {
+  border-right: 1px solid var(--color-border-2);
+  color: var(--color-ink-9);
+}
+
+.git-diff-view .diff-decoration {
+  background: var(--color-bg-2);
+  color: var(--color-ink-7);
+}
+
+@media (max-width: 699px) {
+  .git-review-workspace {
+    border-left: 0;
+  }
+  .git-review-resize-handle {
+    display: none;
+  }
+  .git-review-workspace[data-selected="false"] .git-review-diff {
+    display: none;
+  }
+  .git-review-workspace[data-selected="false"] .git-review-tree {
+    width: 100%;
+    border-right: 0;
+  }
+  .git-review-workspace[data-selected="true"] .git-review-tree {
+    display: none;
+  }
+  .git-review-workspace[data-selected="true"] .git-review-back {
+    display: flex;
+  }
+}
+
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
@@ -232,11 +294,20 @@ html {
   background: var(--color-ink-7);
 }
 
+.terminal-pane[data-terminal-interactive="false"] .xterm-cursor-layer {
+  opacity: 0;
+}
+
 /* ─── Focus ring ──────────────────────────────────────────────────────────── */
 :focus-visible {
   outline: 1.5px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+
+.rich-input-control:focus,
+.rich-input-control:focus-visible {
+  outline: none;
 }
 
 /* ─── macOS drag ──────────────────────────────────────────────────────────── */

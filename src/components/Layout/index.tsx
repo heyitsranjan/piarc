@@ -5,6 +5,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import CommandPalette from "@/components/CommandPalette";
+import GitReview from "@/components/GitReview";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 import { useSessionStore } from "@/store/sessions";
@@ -18,6 +19,7 @@ const SIDEBAR_DEFAULT = 300;
 const TERMINAL_MIN = 480;
 const RESIZE_HANDLE_WIDTH = 6;
 const STORAGE_KEY = "omp-sidebar-width";
+const REVIEW_SIDEBAR_GAP = 16;
 
 function availableSidebarMax() {
   if (window.innerWidth < 800) return Math.min(SIDEBAR_MAX, window.innerWidth);
@@ -45,6 +47,8 @@ export default function Layout() {
   const activeSession = useSessionStore((state) => state.activeSession);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
+  const gitReviewOpen = useUiStore((state) => state.gitReviewOpen);
+  const closeGitReview = useUiStore((state) => state.closeGitReview);
   const [width, setWidth] = useState(getSavedWidth);
   const widthRef = useRef(width);
   const dragging = useRef(false);
@@ -124,12 +128,20 @@ export default function Layout() {
         )}
 
         <main
-          key={activeSession?.id ?? "empty"}
           className="session-enter flex min-w-0 flex-1 flex-col overflow-hidden
             bg-[var(--color-bg)]"
         >
           {activeSession?.id ? <TerminalArea /> : <EmptyState />}
         </main>
+        {gitReviewOpen && activeSession?.cwd && (
+          <GitReview
+            cwd={activeSession.cwd}
+            leftInset={
+              sidebarCollapsed ? 0 : width + RESIZE_HANDLE_WIDTH + REVIEW_SIDEBAR_GAP
+            }
+            onClose={closeGitReview}
+          />
+        )}
       </div>
 
       {commandPaletteOpen && <CommandPalette />}

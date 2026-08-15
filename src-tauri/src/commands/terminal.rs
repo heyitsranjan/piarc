@@ -158,11 +158,11 @@ pub async fn new_session_pty(
     info!("new_session_pty tab={tab_id} cwd={cwd}");
 
     let shell = login_shell();
-    let pm    = state.pty_manager.clone();
+    let pm = state.pty_manager.clone();
 
     pm.spawn(
         tab_id.clone(),
-        "",       // empty session_id → pty_manager runs `omp` without --resume
+        "", // empty session_id → pty_manager runs `omp` without --resume
         &cwd,
         cols,
         rows,
@@ -178,5 +178,8 @@ pub async fn new_session_pty(
             }
         },
     )
-    .map_err(|e| { log::error!("new_session_pty failed: {e}"); e.to_string() })
+    .map_err(|e| {
+        log::error!("new_session_pty failed: {e}");
+        e.to_string()
+    })
 }

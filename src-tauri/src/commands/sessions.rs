@@ -32,7 +32,7 @@ pub fn delete_session(path: String, _state: State<'_, AppState>) -> Result<(), S
 /// Setting source="user" prevents omp from auto-renaming it later.
 #[tauri::command]
 pub fn rename_session(
-    path:  String,
+    path: String,
     title: String,
     _state: State<'_, AppState>,
 ) -> Result<(), String> {

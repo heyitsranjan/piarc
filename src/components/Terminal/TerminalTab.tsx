@@ -12,21 +12,23 @@
  * Keyboard input is forwarded via `writePty` IPC.
  * Resize synced via `ResizeObserver` → `resizePty` IPC.
  */
-import "@xterm/xterm/css/xterm.css";
+import type { ReactNode } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { listen } from "@tauri-apps/api/event";
+
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import "@xterm/xterm/css/xterm.css";
 
 import { useTerminal } from "@/hooks/useTerminal";
-import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
-import { resizePty, writePty } from "@/lib/ipc";
+
 import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
+
+import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
+import { resizePty, writePty } from "@/lib/ipc";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 
@@ -37,42 +39,74 @@ interface TerminalTabProps {
 
 /** xterm.js theme — ANSI palette from Warp dark + HackerRank Pair. */
 const XTERM_THEME = {
-  background:          "#0a0b0e",   // canvas bg
-  foreground:          "#f0f1f5",   // primary text
-  cursor:              "#3ddc84",   // accent green cursor
-  cursorAccent:        "#0a0b0e",
+  background: "#0a0b0e", // canvas bg
+  foreground: "#f0f1f5", // primary text
+  cursor: "#3ddc84", // accent green cursor
+  cursorAccent: "#0a0b0e",
   selectionBackground: "#2a2d36",
-  black:               "#1e2028",
-  red:                 "#f15b5b",
-  green:               "#3ddc84",
-  yellow:              "#f2c94c",
-  blue:                "#4ea1ff",
-  magenta:             "#c792ea",
-  cyan:                "#89ddff",
-  white:               "#c8cdd8",
-  brightBlack:         "#636878",
-  brightRed:           "#ff8272",
-  brightGreen:         "#5ae898",
-  brightYellow:        "#fefdc2",
-  brightBlue:          "#82aaff",
-  brightMagenta:       "#e599f7",
-  brightCyan:          "#89ddff",
-  brightWhite:         "#f0f1f5",
+  black: "#1e2028",
+  red: "#f15b5b",
+  green: "#3ddc84",
+  yellow: "#f2c94c",
+  blue: "#4ea1ff",
+  magenta: "#c792ea",
+  cyan: "#89ddff",
+  white: "#c8cdd8",
+  brightBlack: "#636878",
+  brightRed: "#ff8272",
+  brightGreen: "#5ae898",
+  brightYellow: "#fefdc2",
+  brightBlue: "#82aaff",
+  brightMagenta: "#e599f7",
+  brightCyan: "#89ddff",
+  brightWhite: "#f0f1f5",
 };
+
+const PASSIVE_XTERM_THEME = { ...XTERM_THEME, cursor: "transparent" };
+
+const TERMINAL_NAVIGATION_INPUT: Readonly<Record<string, true>> = {
+  "\r": true,
+  "\t": true,
+  "\x03": true, // Ctrl+C
+  "\x1b": true,
+  "\x1b[A": true,
+  "\x1b[B": true,
+  "\x1b[C": true,
+  "\x1b[D": true,
+  "\x1b[H": true,
+  "\x1b[F": true,
+  "\x1bOH": true,
+  "\x1bOF": true,
+  "\x1b[5~": true,
+  "\x1b[6~": true,
+  "\x1b[Z": true,
+};
+function isTerminalNavigationInput(data: string): boolean {
+  return (
+    TERMINAL_NAVIGATION_INPUT[data] === true ||
+    (data.startsWith("\x1b[1;") && /^\d+[A-DHF]$/.test(data.slice(4)))
+  );
+}
 
 /** Tracks whether a PTY process has exited naturally (distinct from an error). */
 interface ExitInfo {
   code: number;
 }
 
-export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
-  const containerRef   = useRef<HTMLDivElement>(null);
-  const termRef        = useRef<Terminal | null>(null);
-  const fitRef         = useRef<FitAddon | null>(null);
-  const outputTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const outputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();
   const setTabOutputting = useTerminalStore((s) => s.setTabOutputting);
+  const disableTerminalInteraction = useTerminalStore(
+    (s) => s.disableTerminalInteraction
+  );
+  const terminalInteractionEnabled = useTerminalStore(
+    (s) => s.interactiveTabId === tab.id
+  );
 
   // ── Mount xterm.js when tab is live (not loading, not error) ─────────────
   useEffect(() => {
@@ -82,14 +116,15 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     if (!container) return;
 
     const term = new Terminal({
-      theme: XTERM_THEME,
+      theme: PASSIVE_XTERM_THEME,
       fontFamily: "'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace",
-      fontSize:    11.5,
+      fontSize: 11.5,
       lineHeight: 1.4,
       cursorStyle: "bar",
-      cursorBlink: true,
+      cursorBlink: false,
+      cursorInactiveStyle: "none",
+      disableStdin: true,
       scrollback: 5000,
-      allowProposedApi: true,
     });
 
     const fit = new FitAddon();
@@ -97,12 +132,6 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
     term.loadAddon(fit);
     term.loadAddon(links);
     term.open(container);
-
-    try {
-      term.loadAddon(new WebglAddon());
-    } catch {
-      // Canvas fallback — WebGL not available (e.g. CI / headless)
-    }
 
     fit.fit();
     termRef.current = term;
@@ -114,7 +143,7 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
 
     const unlistenOutput = listen<string>(outputKey, (ev) => {
       const binary = atob(ev.payload);
-      const bytes  = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
 
       // Mark session as actively outputting → sidebar shows spinner
@@ -129,9 +158,11 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       term.write(`\r\n\x1b[2m[process exited with code ${ev.payload}]\x1b[0m\r\n`);
     });
 
-    // xterm input → PTY
+    // Interactive OMP menus accept navigation controls, never free-form text.
     const onDataDispose = term.onData((data) => {
+      if (!isTerminalNavigationInput(data)) return;
       writePty(tab.id, data).catch(() => {});
+      if (data === "\x1b") disableTerminalInteraction(tab.id);
     });
 
     // Container resize → PTY
@@ -152,29 +183,28 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       clearTimeout(outputTimer.current ?? undefined);
       setTabOutputting(tab.id, false);
       termRef.current = null;
-      fitRef.current  = null;
+      fitRef.current = null;
     };
-  }, [setTabOutputting, tab.id, tab.isLoading, tab.error]);
+  }, [disableTerminalInteraction, setTabOutputting, tab.id, tab.isLoading, tab.error]);
 
-  // Refit the visible pane, synchronize PTY rows, and reveal the prompt.
+  // xterm is output-only until a submitted OMP command needs its terminal UI.
   useEffect(() => {
-    if (!isVisible) return;
-    setTimeout(() => {
-      const fit = fitRef.current;
-      const term = termRef.current;
-      if (!fit || !term) return;
-
-      fit.fit();
-      term.scrollToBottom();
-      term.focus();
-      resizePty(tab.id, term.cols, term.rows).catch(() => {});
-    }, 0);
-  }, [isVisible, tab.id]);
+    const term = termRef.current;
+    if (!term) return;
+    term.options.disableStdin = !terminalInteractionEnabled;
+    term.options.cursorBlink = terminalInteractionEnabled;
+    term.options.theme = terminalInteractionEnabled ? XTERM_THEME : PASSIVE_XTERM_THEME;
+    if (terminalInteractionEnabled && isVisible) {
+      window.requestAnimationFrame(() => term.focus());
+    } else {
+      term.blur();
+    }
+  }, [isVisible, terminalInteractionEnabled]);
 
   return (
     <div
-      className="w-full h-full relative"
-      style={{ display: isVisible ? "flex" : "none", flexDirection: "column" }}
+      className="terminal-pane relative flex h-full w-full flex-col"
+      data-terminal-interactive={terminalInteractionEnabled}
     >
       {/* ── Loading state ──────────────────────────────────────────────── */}
       {tab.isLoading && (
@@ -284,7 +314,9 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       )}
     </div>
   );
-}
+});
+
+export default TerminalTab;
 
 /** Centred overlay for loading and error states. */
 function StateOverlay({ children }: { children: ReactNode }) {

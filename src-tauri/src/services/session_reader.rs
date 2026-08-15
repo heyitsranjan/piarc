@@ -53,10 +53,10 @@ pub fn list_all_sessions() -> Result<Vec<OmpSession>> {
                 Ok(s) => {
                     debug!("parsed session: {} ({})", s.id, s.title);
                     sessions.push(s);
-                },
+                }
                 Err(e) => {
                     warn!("skip {:?}: {e}", file.file_name());
-                },
+                }
             }
         }
     }
@@ -104,7 +104,11 @@ pub fn rename_session(path: &str, new_title: &str) -> Result<()> {
 
     let pad_len = total - fixed_len;
     let title_slot = format!("{}{}{}", prefix, " ".repeat(pad_len), suffix);
-    debug_assert_eq!(title_slot.len(), 256, "title slot must be exactly 256 bytes");
+    debug_assert_eq!(
+        title_slot.len(),
+        256,
+        "title slot must be exactly 256 bytes"
+    );
 
     // ── Overwrite first 256 bytes ────────────────────────────────────────
     let mut file = OpenOptions::new()
@@ -185,14 +189,14 @@ fn parse_session_file(path: &Path) -> Result<OmpSession> {
                 if let Ok(slot) = serde_json::from_value::<TitleSlot>(json) {
                     title_slot = slot.title.filter(|t| !t.is_empty());
                 }
-            },
+            }
             Some("session") => {
                 if let Ok(hdr) = serde_json::from_value::<SessionHeader>(json) {
                     session_id = hdr.id;
                     session_cwd = hdr.cwd.unwrap_or_default();
                     header_title = hdr.title.filter(|t| !t.is_empty());
                 }
-            },
+            }
             Some("message") if first_message.is_empty() => {
                 if let Ok(entry) =
                     serde_json::from_value::<crate::models::session::MessageEntry>(json)
@@ -203,8 +207,8 @@ fn parse_session_file(path: &Path) -> Result<OmpSession> {
                         }
                     }
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
