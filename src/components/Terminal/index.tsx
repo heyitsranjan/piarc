@@ -13,6 +13,7 @@ import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import RichInput from "./RichInput";
+import TerminalBottomBar from "./TerminalBottomBar";
 import TerminalEmpty from "./TerminalEmpty";
 import TerminalTab from "./TerminalTab";
 
@@ -56,6 +57,10 @@ export default function TerminalArea() {
 
   if (tabs.length === 0) return <TerminalEmpty />;
 
+  const bottomControls = FEATURE_RICH_INPUT ? (
+    <RichInputToggle enabled={richInputEnabled} onToggle={toggleRichInput} />
+  ) : null;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]">
       <div className="relative min-h-0 flex-1">
@@ -74,42 +79,45 @@ export default function TerminalArea() {
           );
         })}
       </div>
-      {activeTab && (
-        <>
-          {richInputEnabled && <RichInput key={activeTab.id} tab={activeTab} />}
-          <div
-            className="flex h-8 shrink-0 items-center justify-end gap-2 border-t
-              border-[var(--color-border)] bg-[var(--color-bg-raised)] px-3"
-          >
-            {FEATURE_RICH_INPUT && (
-              <>
-                <span className="text-[11px] text-[var(--color-ink-6)]">Rich input</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-label="Use rich input across the app"
-                  aria-checked={richInputEnabled}
-                  onClick={toggleRichInput}
-                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full
-                    p-0.5 transition-colors focus-visible:outline-none
-                    focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
-                      richInputEnabled
-                        ? "bg-[var(--color-accent)]"
-                        : "bg-[var(--color-border)]"
-                    }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                      richInputEnabled ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
+      {activeTab &&
+        (richInputEnabled ? (
+          <RichInput key={activeTab.id} tab={activeTab} bottomControls={bottomControls} />
+        ) : (
+          <TerminalBottomBar left="Direct terminal input" right={bottomControls} />
+        ))}
     </div>
+  );
+}
+
+function RichInputToggle({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <span className="text-[9px] text-[var(--color-ink-6)]">Rich input</span>
+      <button
+        type="button"
+        role="switch"
+        aria-label="Use rich input across the app"
+        aria-checked={enabled}
+        onClick={onToggle}
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full
+          p-0.5 transition-colors focus-visible:outline-none
+          focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
+            enabled ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"
+          }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            enabled ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </>
   );
 }

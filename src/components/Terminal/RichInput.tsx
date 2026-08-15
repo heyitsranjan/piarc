@@ -1,4 +1,5 @@
 import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -10,11 +11,18 @@ import {
 } from "@/lib/ipc";
 import { type Tab, useTerminalStore } from "@/store/terminal";
 
+import TerminalBottomBar from "./TerminalBottomBar";
+
 interface CompletionContext {
   kind: "command" | "subcommand" | "path";
   start: number;
   query: string;
   command?: OmpCommand;
+}
+
+interface RichInputProps {
+  tab: Tab;
+  bottomControls?: ReactNode;
 }
 
 interface CompletionItem {
@@ -186,7 +194,7 @@ function needsTerminalInteraction(value: string, commands: OmpCommand[]): boolea
   return true;
 }
 
-export default function RichInput({ tab }: { tab: Tab }) {
+export default function RichInput({ tab, bottomControls }: RichInputProps) {
   const [value, setValue] = useState("");
   const [cursor, setCursor] = useState(0);
   const [sending, setSending] = useState(false);
@@ -396,161 +404,167 @@ export default function RichInput({ tab }: { tab: Tab }) {
   const disabled = sending || tab.isLoading || tab.error !== null;
 
   return (
-    <div className="relative shrink-0 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5">
-      {completionOpen && (
-        <div
-          role="listbox"
-          aria-label="OMP completions"
-          className="absolute bottom-full left-2 right-2 z-20 mb-1 max-h-60 overflow-y-auto rounded-[var(--radius-sm)]
+    <>
+      <div className="relative shrink-0 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5">
+        {completionOpen && (
+          <div
+            role="listbox"
+            aria-label="OMP completions"
+            className="absolute bottom-full left-2 right-2 z-20 mb-1 max-h-60 overflow-y-auto rounded-[var(--radius-sm)]
             border border-[var(--color-border)] bg-[var(--color-bg-elev)] py-1 shadow-[0_-12px_32px_rgba(0,0,0,0.32)]"
-        >
-          {loadingPaths && completions.length === 0 ? (
-            <div className="flex h-9 items-center gap-2 px-3 text-[11px] text-[var(--color-ink-7)]">
-              <Loader2 size={12} className="animate-spin" /> Finding files…
-            </div>
-          ) : (
-            completions.map((item, index) => (
-              <button
-                key={item.key}
-                type="button"
-                role="option"
-                aria-selected={index === selectedIndex}
-                onMouseEnter={() => setSelectedIndex(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  applyCompletion(item);
-                }}
-                className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left outline-none focus:outline-none
+          >
+            {loadingPaths && completions.length === 0 ? (
+              <div className="flex h-9 items-center gap-2 px-3 text-[11px] text-[var(--color-ink-7)]">
+                <Loader2 size={12} className="animate-spin" /> Finding files…
+              </div>
+            ) : (
+              completions.map((item, index) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="option"
+                  aria-selected={index === selectedIndex}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    applyCompletion(item);
+                  }}
+                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left outline-none focus:outline-none
                   focus-visible:outline-none ${
                     index === selectedIndex ? "bg-[var(--color-bg-hover)]" : ""
                   }`}
-              >
-                {item.kind === "path" ? (
-                  <File size={12} className="shrink-0 text-[var(--color-ink-7)]" />
-                ) : (
-                  <TerminalSquare
-                    size={12}
-                    className="shrink-0 text-[var(--color-accent)]"
-                  />
-                )}
-                <span className="shrink-0 font-mono text-[11px] text-[var(--color-ink-1)]">
-                  {item.label}
-                </span>
-                {item.description && item.description !== item.label && (
-                  <span className="min-w-0 truncate text-[10px] text-[var(--color-ink-7)]">
-                    {item.description}
+                >
+                  {item.kind === "path" ? (
+                    <File size={12} className="shrink-0 text-[var(--color-ink-7)]" />
+                  ) : (
+                    <TerminalSquare
+                      size={12}
+                      className="shrink-0 text-[var(--color-accent)]"
+                    />
+                  )}
+                  <span className="shrink-0 font-mono text-[11px] text-[var(--color-ink-1)]">
+                    {item.label}
                   </span>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-      )}
+                  {item.description && item.description !== item.label && (
+                    <span className="min-w-0 truncate text-[10px] text-[var(--color-ink-7)]">
+                      {item.description}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
 
-      <div className="rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-input)]">
-        <div className="flex items-end gap-1.5 p-1.5">
-          <textarea
-            ref={inputRef}
-            autoFocus
-            rows={1}
-            value={value}
-            disabled={disabled}
-            aria-label="Rich terminal input"
-            placeholder={
-              tab.isLoading ? "Terminal is starting…" : "Send input to terminal…"
-            }
-            onFocus={() => disableTerminalInteraction(tab.id)}
-            onChange={(event) => {
-              setValue(event.target.value);
-              updateCursor(event.target);
-            }}
-            onClick={(event) => updateCursor(event.currentTarget)}
-            onSelect={(event) => setCursor(event.currentTarget.selectionStart)}
-            onKeyDown={(event) => {
-              if (
-                completionOpen &&
-                completions.length > 0 &&
-                !event.shiftKey &&
-                !event.metaKey
-              ) {
-                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        <div className="rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-input)]">
+          <div className="flex items-end gap-1.5 p-1.5">
+            <textarea
+              ref={inputRef}
+              autoFocus
+              rows={1}
+              value={value}
+              disabled={disabled}
+              aria-label="Rich terminal input"
+              placeholder={
+                tab.isLoading ? "Terminal is starting…" : "Send input to terminal…"
+              }
+              onFocus={() => disableTerminalInteraction(tab.id)}
+              onChange={(event) => {
+                setValue(event.target.value);
+                updateCursor(event.target);
+              }}
+              onClick={(event) => updateCursor(event.currentTarget)}
+              onSelect={(event) => setCursor(event.currentTarget.selectionStart)}
+              onKeyDown={(event) => {
+                if (
+                  completionOpen &&
+                  completions.length > 0 &&
+                  !event.shiftKey &&
+                  !event.metaKey
+                ) {
+                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                    event.preventDefault();
+                    const direction = event.key === "ArrowDown" ? 1 : -1;
+                    setSelectedIndex(
+                      (selectedIndex + direction + completions.length) %
+                        completions.length
+                    );
+                    return;
+                  }
+                  if (
+                    event.key === "Tab" ||
+                    (event.key === "Enter" && !event.ctrlKey && !event.altKey)
+                  ) {
+                    event.preventDefault();
+                    applyCompletion(completions[selectedIndex]);
+                    return;
+                  }
+                }
+                if (event.key === "Escape" && completionOpen) {
                   event.preventDefault();
-                  const direction = event.key === "ArrowDown" ? 1 : -1;
-                  setSelectedIndex(
-                    (selectedIndex + direction + completions.length) % completions.length
-                  );
+                  setDismissedAt(completionKey);
                   return;
                 }
                 if (
-                  event.key === "Tab" ||
-                  (event.key === "Enter" && !event.ctrlKey && !event.altKey)
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.ctrlKey &&
+                  !event.altKey &&
+                  !event.metaKey
                 ) {
                   event.preventDefault();
-                  applyCompletion(completions[selectedIndex]);
-                  return;
+                  void submit();
                 }
-              }
-              if (event.key === "Escape" && completionOpen) {
-                event.preventDefault();
-                setDismissedAt(completionKey);
-                return;
-              }
-              if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                !event.ctrlKey &&
-                !event.altKey &&
-                !event.metaKey
-              ) {
-                event.preventDefault();
-                void submit();
-              }
-            }}
-            className="rich-input-control min-h-8 max-h-[120px] min-w-0 flex-1 resize-none overflow-y-auto
+              }}
+              className="rich-input-control min-h-8 max-h-[120px] min-w-0 flex-1 resize-none overflow-y-auto
               bg-transparent px-1.5 py-1 font-mono text-[12px] leading-5 text-[var(--color-ink-1)]
               placeholder:text-[var(--color-ink-9)] disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          {tab.isOutputting && (
-            <button
-              type="button"
-              onClick={() => void interrupt()}
-              title="Stop agent (Esc Esc)"
-              aria-label="Stop agent"
-              className="rich-input-control flex h-8 w-8 shrink-0 items-center justify-center
+            />
+            {tab.isOutputting && (
+              <button
+                type="button"
+                onClick={() => void interrupt()}
+                title="Stop agent (Esc Esc)"
+                aria-label="Stop agent"
+                className="rich-input-control flex h-8 w-8 shrink-0 items-center justify-center
                 rounded-[var(--radius-sm)] bg-[var(--color-danger)] text-white transition-opacity
                 hover:opacity-90"
-            >
-              <Square size={12} fill="currentColor" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={disabled || !value}
-            title="Send to terminal"
-            aria-label="Send to terminal"
-            className="rich-input-control flex h-8 w-8 shrink-0 items-center justify-center
+              >
+                <Square size={12} fill="currentColor" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={disabled || !value}
+              title="Send to terminal"
+              aria-label="Send to terminal"
+              className="rich-input-control flex h-8 w-8 shrink-0 items-center justify-center
               rounded-[var(--radius-sm)] bg-[var(--color-accent)] text-[var(--color-bg)] transition-opacity
               hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            {sending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <CornerDownLeft size={14} strokeWidth={2} />
-            )}
-          </button>
-        </div>
-        <div className="flex items-center justify-between border-t border-[var(--color-border)] px-2 py-1 text-[9px] text-[var(--color-ink-9)]">
-          <span>
-            {error ?? (completionError ? "Completion unavailable" : "Rich input")}
-          </span>
-          <span>
-            {loadingCommands
-              ? "Reading active OMP commands…"
-              : "OMP completions · ↑↓ choose · Tab accept"}
-          </span>
+            >
+              {sending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <CornerDownLeft size={14} strokeWidth={2} />
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+      <TerminalBottomBar
+        left={error ?? (completionError ? "Completion unavailable" : "Ready")}
+        right={
+          <>
+            <span>
+              {loadingCommands
+                ? "Reading active OMP commands…"
+                : "OMP completions · ↑↓ choose · Tab accept"}
+            </span>
+            {bottomControls}
+          </>
+        }
+      />
+    </>
   );
 }
