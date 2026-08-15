@@ -11,6 +11,7 @@ use std::env;
 use tauri::{Emitter, State};
 use tracing::{error, info};
 
+use crate::services::pty_manager::PtyProgram;
 use crate::state::AppState;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -62,16 +63,24 @@ pub async fn create_pty(
     let shell = login_shell();
     let pm = state.pty_manager.clone();
 
-    pm.spawn(tab_id.clone(), &session_id, &cwd, cols, rows, &shell, {
-        let app = app.clone();
-        move |tab, chunk| {
-            if chunk.is_empty() {
-                emit_exit(&app, &tab, 0);
-            } else {
-                emit_output(&app, &tab, chunk);
+    pm.spawn(
+        tab_id.clone(),
+        PtyProgram::Resume(&session_id),
+        &cwd,
+        cols,
+        rows,
+        &shell,
+        {
+            let app = app.clone();
+            move |tab, chunk| {
+                if chunk.is_empty() {
+                    emit_exit(&app, &tab, 0);
+                } else {
+                    emit_output(&app, &tab, chunk);
+                }
             }
-        }
-    })
+        },
+    )
     .map_err(|e| {
         error!("create_pty failed tab={tab_id}: {e}");
         e.to_string()
@@ -130,16 +139,24 @@ pub async fn prewarm_pty(
     let shell = login_shell();
     let pm = state.pty_manager.clone();
 
-    pm.spawn(tab_id, &session_id, &cwd, 120, 30, &shell, {
-        let app = app.clone();
-        move |tab, chunk| {
-            if chunk.is_empty() {
-                emit_exit(&app, &tab, 0);
-            } else {
-                emit_output(&app, &tab, chunk);
+    pm.spawn(
+        tab_id,
+        PtyProgram::Resume(&session_id),
+        &cwd,
+        120,
+        30,
+        &shell,
+        {
+            let app = app.clone();
+            move |tab, chunk| {
+                if chunk.is_empty() {
+                    emit_exit(&app, &tab, 0);
+                } else {
+                    emit_output(&app, &tab, chunk);
+                }
             }
-        }
-    })
+        },
+    )
     .map_err(|e| e.to_string())
 }
 
@@ -162,7 +179,7 @@ pub async fn new_session_pty(
 
     pm.spawn(
         tab_id.clone(),
-        "", // empty session_id → pty_manager runs `omp` without --resume
+        PtyProgram::NewSession,
         &cwd,
         cols,
         rows,
@@ -180,6 +197,45 @@ pub async fn new_session_pty(
     )
     .map_err(|e| {
         log::error!("new_session_pty failed: {e}");
+        e.to_string()
+    })
+}
+
+/// Spawn a PTY running the user's login shell without starting omp.
+#[tauri::command]
+pub async fn shell_pty(
+    tab_id: String,
+    cwd: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    info!("shell_pty tab={tab_id} cwd={cwd}");
+
+    let shell = login_shell();
+    let pm = state.pty_manager.clone();
+
+    pm.spawn(
+        tab_id.clone(),
+        PtyProgram::Shell,
+        &cwd,
+        cols,
+        rows,
+        &shell,
+        {
+            let app = app.clone();
+            move |tab, chunk| {
+                if chunk.is_empty() {
+                    emit_exit(&app, &tab, 0);
+                } else {
+                    emit_output(&app, &tab, chunk);
+                }
+            }
+        },
+    )
+    .map_err(|e| {
+        error!("shell_pty failed tab={tab_id}: {e}");
         e.to_string()
     })
 }

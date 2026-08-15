@@ -11,10 +11,11 @@
  */
 import { useCallback } from "react";
 
-import { createPty } from "@/lib/ipc";
-import type { OmpSession } from "@/lib/session";
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { type Tab, useTerminalStore } from "@/store/terminal";
+
+import { createPty, shellPty } from "@/lib/ipc";
+import type { OmpSession } from "@/lib/session";
 
 export interface UseTerminalReturn {
   /**
@@ -58,15 +59,17 @@ export function useTerminal(): UseTerminalReturn {
 
   /** Internal: spawn PTY for an already-opened tab. */
   const spawnPty = useCallback(
-    async (tabId: string, session: OmpSession, cols: number, rows: number) => {
+    async (
+      tabId: string,
+      tab: Pick<Tab, "kind" | "sessionId" | "cwd">,
+      cols: number,
+      rows: number
+    ) => {
       try {
-        await createPty({
-          tabId,
-          sessionId: session.id,
-          cwd: session.cwd,
-          cols,
-          rows,
-        });
+        const params = { tabId, cwd: tab.cwd, cols, rows };
+        await (tab.kind === "terminal"
+          ? shellPty(params)
+          : createPty({ ...params, sessionId: tab.sessionId }));
         setTabReady(tabId);
       } catch (err) {
         // Surface the Rust error string to the UI — user can retry
@@ -94,6 +97,7 @@ export function useTerminal(): UseTerminalReturn {
       }
 
       const tabId = openTab({
+        kind: "omp",
         sessionId: session.id,
         title: session.title,
         cwd: session.cwd,
@@ -102,7 +106,12 @@ export function useTerminal(): UseTerminalReturn {
       // Null means MAX_TABS reached — silently do nothing (TabBar shows hint)
       if (!tabId) return;
 
-      await spawnPty(tabId, session, cols, rows);
+      await spawnPty(
+        tabId,
+        { kind: "omp", sessionId: session.id, cwd: session.cwd },
+        cols,
+        rows
+      );
     },
     [tabs, openTab, setActiveTab, setActive, spawnPty]
   );
@@ -112,15 +121,7 @@ export function useTerminal(): UseTerminalReturn {
       const tab = useTerminalStore.getState().tabs.find((t) => t.id === tabId);
       if (!tab) return;
       markRetry(tabId); // isLoading = true, error = null
-      const session: OmpSession = {
-        id: tab.sessionId,
-        path: "",
-        title: tab.title,
-        cwd: tab.cwd,
-        modified: 0,
-        firstMessage: "",
-      };
-      await spawnPty(tabId, session, cols, rows);
+      await spawnPty(tabId, tab, cols, rows);
     },
     [markRetry, spawnPty]
   );

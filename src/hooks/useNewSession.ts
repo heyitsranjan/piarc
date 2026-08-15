@@ -8,10 +8,13 @@
  * 3. omp creates a JSONL file; the FS watcher fires and updates the sidebar.
  */
 import { homeDir } from "@tauri-apps/api/path";
-import { useCallback,useState } from "react";
+import { useCallback, useState } from "react";
 
-import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "@/components/Terminal/constants";
-import { newSessionPty } from "@/lib/ipc";
+import {
+  TERMINAL_DEFAULT_COLS,
+  TERMINAL_DEFAULT_ROWS,
+} from "@/components/Terminal/constants";
+import { newSessionPty, shellPty } from "@/lib/ipc";
 import { log } from "@/lib/logger";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
@@ -19,6 +22,8 @@ import { useTerminalStore } from "@/store/terminal";
 export interface UseNewSessionReturn {
   /** Start a new omp session — opens a terminal running `omp`. */
   startNewSession: () => Promise<void>;
+  /** Open a plain login shell without starting omp. */
+  startTerminal: () => Promise<void>;
   /** True while the PTY is being spawned. */
   isStarting: boolean;
 }
@@ -35,37 +40,53 @@ export function useNewSession(): UseNewSessionReturn {
   const { openTab, setTabReady, setTabError } = useTerminalStore();
   const setActive = useSessionStore((s) => s.setActive);
 
-  const startNewSession = useCallback(async () => {
-    setIsStarting(true);
+  const start = useCallback(
+    async (kind: "omp" | "terminal") => {
+      setIsStarting(true);
+      const cwd = await homeDir().catch(() => "~");
+      const isTerminal = kind === "terminal";
+      const title = isTerminal ? "Terminal" : "New session";
+      const tabId = openTab({
+        kind,
+        sessionId: isTerminal ? `__terminal__${Date.now()}` : `__new__${Date.now()}`,
+        title,
+        cwd,
+      });
 
-    const cwd = await homeDir().catch(() => "~");
+      if (!tabId) {
+        log.warn("useNewSession: MAX_TABS reached");
+        setIsStarting(false);
+        return;
+      }
 
-    const tabId = openTab({
-      sessionId: `__new__${Date.now()}`,
-      title:     "New session",
-      cwd,
-    });
+      setActive(
+        isTerminal
+          ? null
+          : { id: "", path: "", title, cwd, modified: 0, firstMessage: "" }
+      );
 
-    if (!tabId) {
-      log.warn("useNewSession: MAX_TABS reached, cannot open new session");
-      setIsStarting(false);
-      return;
-    }
+      try {
+        const params = {
+          tabId,
+          cwd,
+          cols: TERMINAL_DEFAULT_COLS,
+          rows: TERMINAL_DEFAULT_ROWS,
+        };
+        await (isTerminal ? shellPty(params) : newSessionPty(params));
+        setTabReady(tabId);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("useNewSession: PTY spawn failed", { err: msg });
+        setTabError(tabId, msg);
+      } finally {
+        setIsStarting(false);
+      }
+    },
+    [openTab, setTabReady, setTabError, setActive]
+  );
 
-    // No existing session to set active — clear it so the right panel is blank
-    setActive({ id: "", path: "", title: "New session", cwd, modified: 0, firstMessage: "" });
+  const startNewSession = useCallback(() => start("omp"), [start]);
+  const startTerminal = useCallback(() => start("terminal"), [start]);
 
-    try {
-      await newSessionPty({ tabId, cwd, cols: TERMINAL_DEFAULT_COLS, rows: TERMINAL_DEFAULT_ROWS });
-      setTabReady(tabId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.error("useNewSession: PTY spawn failed", { err: msg });
-      setTabError(tabId, msg);
-    } finally {
-      setIsStarting(false);
-    }
-  }, [openTab, setTabReady, setTabError, setActive]);
-
-  return { startNewSession, isStarting };
+  return { startNewSession, startTerminal, isStarting };
 }

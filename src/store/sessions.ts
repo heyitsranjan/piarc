@@ -35,7 +35,7 @@ interface SessionsState {
   /** Fetch sessions from the Rust backend and update `sessions`. */
   loadSessions: () => Promise<void>;
   /** Set the active session (shown in the terminal area). */
-  setActive: (session: OmpSession) => void;
+  setActive: (session: OmpSession | null) => void;
   /** Update the filter query used by `filtered()`. */
   setSearch: (q: string) => void;
   /** Toggle pin state for a session by ID. */

@@ -16,11 +16,15 @@ import { killPty } from "@/lib/ipc";
 import { shortId } from "@/lib/utils";
 
 /** A single terminal tab and its lifecycle state. */
+export type TabKind = "omp" | "terminal";
+
 export interface Tab {
   /** Unique tab ID — also the PTY cache key in Rust `AppState`. */
   id: string;
   /** omp session UUID being resumed in this tab. */
   sessionId: string;
+  /** Whether this tab runs omp or a plain login shell. */
+  kind: TabKind;
   /** Human-readable label shown in the tab strip. */
   title: string;
   /** Working directory; passed to `createPty`. */
@@ -54,7 +58,7 @@ interface TerminalState {
    * Open a new terminal tab.
    * Returns the new tab's ID, or null if MAX_TABS is reached.
    */
-  openTab: (session: Pick<Tab, "sessionId" | "title" | "cwd">) => string | null;
+  openTab: (session: Pick<Tab, "sessionId" | "title" | "cwd" | "kind">) => string | null;
 
   /**
    * Kill the PTY and remove the tab.

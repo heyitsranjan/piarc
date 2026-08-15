@@ -2,6 +2,7 @@
  * @module components/Sidebar
  * Left panel — session browser with all async states.
  */
+import { Loader2, TerminalSquare, X } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
 import {
@@ -12,6 +13,8 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 import type { OmpSession } from "@/lib/session";
+import { useSessionStore } from "@/store/sessions";
+import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import SearchBar from "./SearchBar";
@@ -23,6 +26,12 @@ export default function Sidebar() {
   const { openSession } = useTerminal();
   const openCmdPalette = useUiStore((s) => s.openCommandPalette);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const tabs = useTerminalStore((s) => s.tabs);
+  const activeTabId = useTerminalStore((s) => s.activeTabId);
+  const setActiveTab = useTerminalStore((s) => s.setActiveTab);
+  const closeTab = useTerminalStore((s) => s.closeTab);
+  const setActiveSession = useSessionStore((s) => s.setActive);
+  const terminals = tabs.filter((tab) => tab.kind === "terminal");
 
   useKeyboard([
     { key: "k", meta: true, handler: openCmdPalette },
@@ -76,6 +85,53 @@ export default function Sidebar() {
               </li>
             )}
           </ul>
+        )}
+        {terminals.length > 0 && (
+          <section className="border-t border-[var(--color-border)] pb-2 pt-2">
+            <h2 className="px-3 pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-9)]">
+              Terminals
+            </h2>
+            <ul role="list">
+              {terminals.map((tab) => (
+                <li
+                  key={tab.id}
+                  className="group mx-1.5 flex items-center rounded-[var(--radius-sm)]"
+                  data-active={activeTabId === tab.id || undefined}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSession(null);
+                      setActiveTab(tab.id);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2
+                      text-left text-[var(--color-ink-5)] hover:bg-[var(--color-bg-hover)]
+                      group-data-[active=true]:bg-[var(--color-bg-active)] group-data-[active=true]:text-[var(--color-ink-1)]"
+                  >
+                    {tab.isLoading ? (
+                      <Loader2 size={13} className="shrink-0 animate-spin" />
+                    ) : (
+                      <TerminalSquare size={13} className="shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[11.5px]">
+                      {tab.title}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    title={`Close ${tab.title}`}
+                    aria-label={`Close ${tab.title}`}
+                    onClick={() => void closeTab(tab.id)}
+                    className="mr-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded-[var(--radius-sm)]
+                      text-[var(--color-ink-9)] hover:bg-[var(--color-bg-hi)] hover:text-[var(--color-ink-1)]
+                      group-hover:flex group-focus-within:flex"
+                  >
+                    <X size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
     </div>

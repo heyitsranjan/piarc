@@ -27,6 +27,24 @@ pub struct PtySession {
     pub master: Box<dyn MasterPty + Send>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum PtyProgram<'a> {
+    NewSession,
+    Resume(&'a str),
+    Shell,
+}
+
+fn shell_command(program: PtyProgram<'_>, cwd: &str, shell: &str) -> String {
+    let safe_cwd = cwd.replace('\'', "'\\''");
+    match program {
+        PtyProgram::NewSession => format!("cd '{safe_cwd}' 2>/dev/null; omp; exec {shell}"),
+        PtyProgram::Resume(session_id) => {
+            format!("cd '{safe_cwd}' 2>/dev/null; omp --resume {session_id}; exec {shell}")
+        }
+        PtyProgram::Shell => format!("cd '{safe_cwd}' 2>/dev/null; exec {shell} -l"),
+    }
+}
+
 // ─── Manager ──────────────────────────────────────────────────────────────
 
 /// Thread-safe PTY cache: `tab_id → PtySession`.
@@ -46,20 +64,15 @@ impl PtyManager {
 
     // ── Spawn ──────────────────────────────────────────────────────────────
 
-    /// Spawn a new PTY process for `tab_id`.
-    ///
-    /// The shell command is:
-    /// ```sh
-    /// cd '<cwd>' 2>/dev/null; omp --resume <session_id>; exec <shell>
-    /// ```
-    /// `exec <shell>` keeps the window interactive after omp exits.
+    /// Spawn a new PTY process for `tab_id`, running the selected program in
+    /// the requested working directory.
     ///
     /// `on_output(tab_id, base64_chunk)` is called from a background thread
     /// with each output chunk. An **empty chunk** signals process exit.
     pub fn spawn<F>(
         &self,
         tab_id: String,
-        session_id: &str,
+        program: PtyProgram<'_>,
         cwd: &str,
         cols: u16,
         rows: u16,
@@ -69,7 +82,7 @@ impl PtyManager {
     where
         F: Fn(String, String) + Send + 'static,
     {
-        info!("spawn PTY tab={tab_id} session={session_id} cwd={cwd}");
+        info!("spawn PTY tab={tab_id} program={program:?} cwd={cwd}");
 
         let pty_system = native_pty_system();
         let size = PtySize {
@@ -80,13 +93,7 @@ impl PtyManager {
         };
         let pair = pty_system.openpty(size).context("openpty")?;
 
-        let safe_cwd = cwd.replace('\'', "'\\''");
-        // Empty session_id → start a fresh `omp` session (no --resume).
-        let cmd_str = if session_id.is_empty() {
-            format!("cd '{safe_cwd}' 2>/dev/null; omp; exec {shell}")
-        } else {
-            format!("cd '{safe_cwd}' 2>/dev/null; omp --resume {session_id}; exec {shell}")
-        };
+        let cmd_str = shell_command(program, cwd, shell);
         debug!("PTY command: {cmd_str}");
 
         let mut cmd = CommandBuilder::new(shell);
@@ -208,5 +215,20 @@ impl PtyManager {
 impl Default for PtyManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{shell_command, PtyProgram};
+
+    #[test]
+    fn shell_program_opens_login_shell_without_omp() {
+        let command = shell_command(PtyProgram::Shell, "/tmp/my project", "/bin/zsh");
+        assert_eq!(
+            command,
+            "cd '/tmp/my project' 2>/dev/null; exec /bin/zsh -l"
+        );
+        assert!(!command.contains("omp"));
     }
 }

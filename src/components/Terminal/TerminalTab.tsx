@@ -98,7 +98,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const fitRef = useRef<FitAddon | null>(null);
   const outputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
-  const richInputEnabled = FEATURE_RICH_INPUT && richInputPreference;
+  const richInputEnabled =
+    FEATURE_RICH_INPUT && richInputPreference && tab.kind === "omp";
   const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();

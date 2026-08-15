@@ -25,7 +25,8 @@ export default function TerminalArea() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
   const toggleRichInput = useUiStore((state) => state.toggleRichInput);
-  const richInputEnabled = FEATURE_RICH_INPUT && richInputPreference;
+  const richInputEnabled =
+    FEATURE_RICH_INPUT && richInputPreference && activeTab?.kind === "omp";
   const lastEscapeAt = useRef(0);
 
   useEffect(() => {
@@ -57,9 +58,10 @@ export default function TerminalArea() {
 
   if (tabs.length === 0) return <TerminalEmpty />;
 
-  const bottomControls = FEATURE_RICH_INPUT ? (
-    <RichInputToggle enabled={richInputEnabled} onToggle={toggleRichInput} />
-  ) : null;
+  const bottomControls =
+    FEATURE_RICH_INPUT && activeTab?.kind === "omp" ? (
+      <RichInputToggle enabled={richInputEnabled} onToggle={toggleRichInput} />
+    ) : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]">
@@ -83,7 +85,10 @@ export default function TerminalArea() {
         (richInputEnabled ? (
           <RichInput key={activeTab.id} tab={activeTab} bottomControls={bottomControls} />
         ) : (
-          <TerminalBottomBar left="Direct terminal input" right={bottomControls} />
+          <TerminalBottomBar
+            left={activeTab.kind === "terminal" ? "Terminal" : "Direct terminal input"}
+            right={bottomControls}
+          />
         ))}
     </div>
   );

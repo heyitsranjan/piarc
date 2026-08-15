@@ -169,3 +169,7 @@ export interface NewSessionPtyParams {
  */
 export const newSessionPty = (params: NewSessionPtyParams): Promise<void> =>
   invoke("new_session_pty", params);
+
+/** Spawn a PTY running the user's login shell without starting omp. */
+export const shellPty = (params: NewSessionPtyParams): Promise<void> =>
+  invoke("shell_pty", params);

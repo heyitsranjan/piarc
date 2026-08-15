@@ -121,6 +121,7 @@ pub fn run() {
             terminal::kill_pty,
             terminal::prewarm_pty,
             terminal::new_session_pty,
+            terminal::shell_pty,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Oh My Pi");
