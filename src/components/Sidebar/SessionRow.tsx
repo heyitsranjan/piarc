@@ -3,7 +3,7 @@
  * Single session row. Dropdown rendered as a portal to escape
  * overflow:hidden on the sidebar and sit above all other layers.
  */
-import { confirm, message } from "@tauri-apps/plugin-dialog";
+import { message } from "@tauri-apps/plugin-dialog";
 import {
   Copy,
   Loader2,
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 
+import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
 interface SessionRowProps {
@@ -51,6 +52,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos>({ top: 0, left: 0 });
   const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const isPinned = pinnedIds.includes(session.id);
@@ -96,17 +98,7 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
   };
 
   const deleteSession = async () => {
-    setMenuOpen(false);
-    const approved = await confirm(
-      `Delete "${session.title}" from Oh My Pi? This cannot be undone.`,
-      {
-        title: "Delete session",
-        kind: "warning",
-        okLabel: "Delete",
-        cancelLabel: "Cancel",
-      }
-    );
-    if (!approved) return;
+    setDeleteOpen(false);
 
     try {
       if (tab) await closeTab(tab.id);
@@ -272,13 +264,25 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             <DropdownItem
               danger
               icon={<Trash2 size={15} strokeWidth={1.8} />}
-              onClick={() => void deleteSession()}
+              onClick={() => {
+                setMenuOpen(false);
+                setDeleteOpen(true);
+              }}
             >
               Delete session
             </DropdownItem>
           </ul>,
           document.body
         )}
+
+      {deleteOpen && (
+        <ConfirmDeleteDialog
+          title="Delete session"
+          message={`Delete "${session.title}" from Oh My Pi? This cannot be undone.`}
+          onConfirm={() => void deleteSession()}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
 
       {renameOpen && (
         <RenameDialog

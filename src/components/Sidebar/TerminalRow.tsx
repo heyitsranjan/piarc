@@ -1,4 +1,3 @@
-import { confirm } from "@tauri-apps/plugin-dialog";
 import {
   Loader2,
   MoreVertical,
@@ -16,6 +15,7 @@ import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import type { Tab } from "@/store/terminal";
 
+import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
 interface TerminalRowProps {
@@ -37,6 +37,7 @@ export default function TerminalRow({
 }: TerminalRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
@@ -71,18 +72,9 @@ export default function TerminalRow({
     setMenuOpen(true);
   };
 
-  const deleteTerminal = async () => {
-    setMenuOpen(false);
-    const approved = await confirm(
-      `Delete "${tab.title}"? Any running process in this terminal will be stopped.`,
-      {
-        title: "Delete terminal",
-        kind: "warning",
-        okLabel: "Delete",
-        cancelLabel: "Cancel",
-      }
-    );
-    if (approved) onDelete();
+  const deleteTerminal = () => {
+    setDeleteOpen(false);
+    onDelete();
   };
 
   const isBusy = tab.isLoading || tab.isOutputting;
@@ -219,13 +211,25 @@ export default function TerminalRow({
             <MenuItem
               danger
               icon={<Trash2 size={15} strokeWidth={1.8} />}
-              onClick={() => void deleteTerminal()}
+              onClick={() => {
+                setMenuOpen(false);
+                setDeleteOpen(true);
+              }}
             >
               Delete terminal
             </MenuItem>
           </ul>,
           document.body
         )}
+
+      {deleteOpen && (
+        <ConfirmDeleteDialog
+          title="Delete terminal"
+          message={`Delete "${tab.title}"? Any running process in this terminal will be stopped.`}
+          onConfirm={deleteTerminal}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
 
       {renameOpen && (
         <RenameDialog
