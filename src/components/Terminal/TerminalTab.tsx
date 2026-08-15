@@ -154,7 +154,7 @@ export default function TerminalTab({ tab, isVisible }: TerminalTabProps) {
       termRef.current = null;
       fitRef.current  = null;
     };
-  }, [tab.id, tab.isLoading, tab.error]);
+  }, [setTabOutputting, tab.id, tab.isLoading, tab.error]);
 
   // Refit + focus when tab becomes visible
   useEffect(() => {

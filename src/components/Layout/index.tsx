@@ -1,9 +1,7 @@
 /**
- * @module components/Layout
- * App shell with a pixel-precise draggable sidebar.
- *
- * Custom resize handle — no library needed. Width persisted to localStorage.
+ * Application workbench: global title bar, resizable session sidebar, terminal.
  */
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import CommandPalette from "@/components/CommandPalette";
@@ -12,124 +10,137 @@ import TerminalArea from "@/components/Terminal";
 import { useSessionStore } from "@/store/sessions";
 import { useUiStore } from "@/store/ui";
 
-const SIDEBAR_MIN  = 200;
-const SIDEBAR_MAX  = 520;
-const SIDEBAR_DEFAULT = 300;
-const STORAGE_KEY  = "omp-sidebar-width";
+import TitleBar from "./TitleBar";
 
-function getSavedWidth(): number {
+const SIDEBAR_MIN = 240;
+const SIDEBAR_MAX = 480;
+const SIDEBAR_DEFAULT = 300;
+const TERMINAL_MIN = 480;
+const RESIZE_HANDLE_WIDTH = 6;
+const STORAGE_KEY = "omp-sidebar-width";
+
+function availableSidebarMax() {
+  if (window.innerWidth < 800) return Math.min(SIDEBAR_MAX, window.innerWidth);
+  return Math.max(
+    SIDEBAR_MIN,
+    Math.min(SIDEBAR_MAX, window.innerWidth - TERMINAL_MIN - RESIZE_HANDLE_WIDTH)
+  );
+}
+
+function clampSidebarWidth(width: number) {
+  const minimum = Math.min(SIDEBAR_MIN, window.innerWidth);
+  return Math.max(minimum, Math.min(availableSidebarMax(), width));
+}
+
+function getSavedWidth() {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v) {
-      const n = parseInt(v, 10);
-      if (n >= SIDEBAR_MIN && n <= SIDEBAR_MAX) return n;
-    }
-  } catch { /* storage unavailable */ }
-  return SIDEBAR_DEFAULT;
+    const saved = Number.parseInt(localStorage.getItem(STORAGE_KEY) ?? "", 10);
+    return clampSidebarWidth(Number.isFinite(saved) ? saved : SIDEBAR_DEFAULT);
+  } catch {
+    return SIDEBAR_DEFAULT;
+  }
 }
 
 export default function Layout() {
-  const activeSession    = useSessionStore((s) => s.activeSession);
-  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
-  const cmdOpen          = useUiStore((s) => s.commandPaletteOpen);
-
+  const activeSession = useSessionStore((state) => state.activeSession);
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const [width, setWidth] = useState(getSavedWidth);
-  const dragging  = useRef(false);
-  const startX    = useRef(0);
-  const startW    = useRef(0);
-  const isDragging = useRef(false);
+  const widthRef = useRef(width);
+  const dragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
 
-  // Global mouse listeners — attached once, active only while dragging
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const onMouseMove = (event: MouseEvent) => {
       if (!dragging.current) return;
-      const delta  = e.clientX - startX.current;
-      const next   = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW.current + delta));
+      const next = clampSidebarWidth(
+        dragStartWidth.current + event.clientX - dragStartX.current
+      );
+      widthRef.current = next;
       setWidth(next);
     };
 
-    const onUp = () => {
+    const onMouseUp = () => {
       if (!dragging.current) return;
       dragging.current = false;
-      isDragging.current = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      // Persist width
-      try { localStorage.setItem(STORAGE_KEY, String(Math.round(startW.current + 0))); } catch { /* */ }
-      // Persist the actual current width on mouseup via a closure trick
+      localStorage.setItem(STORAGE_KEY, String(Math.round(widthRef.current)));
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup",   onUp);
+    const onWindowResize = () => {
+      setWidth(clampSidebarWidth(widthRef.current));
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("resize", onWindowResize);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("resize", onWindowResize);
     };
   }, []);
 
-  // Persist width on change (debounced via mouseup above)
-  useEffect(() => {
-    if (!dragging.current) {
-      try { localStorage.setItem(STORAGE_KEY, String(width)); } catch { /* */ }
-    }
-  }, [width]);
-
-  const onHandleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current   = true;
-    isDragging.current = true;
-    startX.current     = e.clientX;
-    startW.current     = width;
-    document.body.style.cursor     = "col-resize";
+  const startResize = (event: ReactMouseEvent) => {
+    event.preventDefault();
+    dragging.current = true;
+    dragStartX.current = event.clientX;
+    dragStartWidth.current = width;
+    document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[var(--color-bg)]">
-      {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      {!sidebarCollapsed && (
-        <>
-          <aside
-            style={{ width, minWidth: width, maxWidth: width }}
-            className="flex flex-col h-full overflow-hidden bg-[var(--color-bg-elev)]"
-          >
-            <Sidebar />
-          </aside>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--color-bg)]">
+      <TitleBar />
 
-          {/* Resize handle — 4px transparent grab area, 1px visual line */}
-          <div
-            role="separator"
-            aria-label="Resize sidebar"
-            onMouseDown={onHandleMouseDown}
-            className="resize-handle group relative flex-shrink-0 w-1 cursor-col-resize z-10"
-          >
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px
-              bg-[var(--color-border)]
-              group-hover:bg-[var(--color-accent)]
-              transition-colors duration-[var(--duration-fast)]" />
-          </div>
-        </>
-      )}
+      <div className="workbench relative flex min-h-0 flex-1 overflow-hidden">
+        {!sidebarCollapsed && (
+          <>
+            <aside
+              style={{ width, minWidth: width, maxWidth: width }}
+              className="sidebar-panel flex h-full flex-col overflow-hidden
+                bg-[var(--color-sidebar)]"
+            >
+              <Sidebar />
+            </aside>
 
-      {/* ── Terminal ─────────────────────────────────────────────────── */}
-      <main
-        key={activeSession?.id ?? "empty"}
-        className="flex-1 flex flex-col overflow-hidden min-w-0 session-enter
-          bg-[var(--color-bg)]"
-      >
-        {activeSession?.id ? <TerminalArea /> : <EmptyState />}
-      </main>
+            <div
+              role="separator"
+              aria-label="Resize sidebar"
+              aria-orientation="vertical"
+              onMouseDown={startResize}
+              className="resize-handle group relative z-10 w-1.5 shrink-0 cursor-col-resize"
+            >
+              <div
+                className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2
+                  bg-[var(--color-border)] transition-colors
+                  duration-[var(--duration-fast)] group-hover:bg-[var(--color-accent)]"
+              />
+            </div>
+          </>
+        )}
 
-      {cmdOpen && <CommandPalette />}
+        <main
+          key={activeSession?.id ?? "empty"}
+          className="session-enter flex min-w-0 flex-1 flex-col overflow-hidden
+            bg-[var(--color-bg)]"
+        >
+          {activeSession?.id ? <TerminalArea /> : <EmptyState />}
+        </main>
+      </div>
+
+      {commandPaletteOpen && <CommandPalette />}
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-3
-      select-none">
-      <span className="text-[28px] leading-none text-[var(--color-ink-9)]">π</span>
+    <div className="flex h-full select-none flex-col items-center justify-center gap-2.5">
+      <span className="text-[30px] leading-none text-[var(--color-ink-9)]">π</span>
       <p className="text-[13px] text-[var(--color-ink-7)]">Select a session to resume</p>
       <p className="text-[11px] text-[var(--color-ink-9)]">⌘K — command palette</p>
     </div>

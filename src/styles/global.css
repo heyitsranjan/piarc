@@ -1,174 +1,251 @@
 @import "tailwindcss";
 
-/* ─── Design System — Oh My Pi ────────────────────────────────────────────────
-   Sources: HackerRank Pair, Warp, Linear, Vercel Geist, Raycast.
-   Font: Inter (opsz axis for sharp rendering at 12-13px UI sizes).
-   Principles:
-     1. Depth via surface stepping — no box-shadows for layout.
-     2. Accent (#3ddc84) used ≤3 places: active indicator, focus, CTA.
-     3. Sidebar border-right is the only structural separator.
-     4. 4px base spacing unit. 32px rows.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* ─── Workbench design system ──────────────────────────────────────────────
+   VS Code-inspired region discipline; native macOS typography; 4px grid. */
 @theme {
-  /* ── Surfaces ──────────────────────────────────────────────────────────── */
-  --color-bg:           #0a0b0e;   /* canvas — terminal background */
-  --color-bg-elev:      #0f0a14;   /* sidebar + chrome — OMP identity */
-  --color-bg-2:         #141519;   /* raised panels, menus */
-  --color-bg-hover:     #1c1e26;   /* hover */
-  --color-bg-active:    #22253000; /* active/selected — will use below */
-  --color-bg-active:    #21242c;
-  --color-bg-hi:        #2a2d38;   /* badges */
+  /* Surfaces */
+  --color-titlebar: #181818;
+  --color-sidebar: #181818;
+  --color-bg: #0f1012;
+  --color-bg-elev: #181818;
+  --color-bg-2: #242424;
+  --color-input: #202124;
+  --color-bg-hover: #2a2d2e;
+  --color-bg-active: #323436;
+  --color-bg-hi: #36393a;
 
-  /* ── Borders ────────────────────────────────────────────────────────────── */
-  --color-border:        #1d2030;
-  --color-border-2:      rgba(255, 255, 255, 0.05);
-  --color-border-strong: #2c3050;
+  /* Borders */
+  --color-border: #2b2b2b;
+  --color-border-2: rgba(255, 255, 255, 0.05);
+  --color-border-strong: #464646;
 
-  /* ── Text ───────────────────────────────────────────────────────────────── */
-  --color-ink-0: #eef0f6;   /* primary */
-  --color-ink-1: #9ba4b8;   /* secondary */
-  --color-ink-5: #888ea0;   /* tertiary */
-  --color-ink-7: #5e6475;   /* muted */
-  --color-ink-9: #3e4252;   /* disabled */
+  /* Text */
+  --color-ink-0: #f0f0f0;
+  --color-ink-1: #cccccc;
+  --color-ink-5: #a3a3a3;
+  --color-ink-7: #797979;
+  --color-ink-9: #565656;
 
-  /* ── Accent — HackerRank / Warp green ──────────────────────────────────── */
-  --color-accent:        #3ddc84;
-  --color-accent-hover:  #5ae898;
-  --color-accent-dim:    rgba(61, 220, 132, 0.10);
+  /* Accent and semantics */
+  --color-accent: #3ddc84;
+  --color-accent-hover: #5ae898;
+  --color-accent-dim: rgba(61, 220, 132, 0.1);
   --color-accent-border: rgba(61, 220, 132, 0.22);
-
-  /* ── Semantic ───────────────────────────────────────────────────────────── */
+  --color-focus: #3ddc84;
   --color-success: #3ddc84;
-  --color-warn:    #f2c94c;
-  --color-danger:  #f15b5b;
-  --color-info:    #4ea1ff;
-  --color-cyan:    #89ddff;
+  --color-warn: #f2c94c;
+  --color-danger: #f15b5b;
+  --color-info: #4ea1ff;
+  --color-cyan: #89ddff;
 
-  /* ── Typography — Inter ─────────────────────────────────────────────────── */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 
-  /* ── Layout ─────────────────────────────────────────────────────────────── */
-  --sidebar-width:       240px;   /* default; overridden by PanelGroup % */
-  --titlebar-height:     38px;
-  --row-height:          32px;
+  /* Stable workbench geometry */
+  --titlebar-height: 40px;
+  --sidebar-width: 300px;
+  --row-height: 44px;
 
-  /* ── Radius ─────────────────────────────────────────────────────────────── */
-  --radius-xs:  2px;   /* inline badges */
-  --radius-sm:  5px;   /* sidebar rows, compact buttons */
-  --radius-md:  7px;   /* inputs, standard buttons */
-  --radius-lg:  10px;  /* dialogs, command palette */
-  --radius-xl:  14px;  /* large overlays */
+  /* Radius */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
-  /* ── Spacing (4px base unit) ─────────────────────────────────────────────── */
-  --sp-1:  4px;
-  --sp-2:  8px;
-  --sp-3:  12px;
-  --sp-4:  16px;
-  --sp-5:  20px;
-  --sp-6:  24px;
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
 
-  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  /* Motion */
   --duration-fast: 80ms;
   --duration-base: 130ms;
   --duration-slow: 220ms;
-  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Light mode ──────────────────────────────────────────────────────────── */
 html.light {
-  --color-bg:        #f4f5f7;
-  --color-bg-elev:   #ecedf0;
-  --color-bg-2:      #e3e5ea;
-  --color-bg-hover:  #dbdde4;
-  --color-bg-active: #d0d3dd;
-  --color-border:    rgba(0,0,0,0.08);
-  --color-border-2:  rgba(0,0,0,0.04);
-  --color-ink-0:     #0d0f14;
-  --color-ink-1:     #383d4c;
-  --color-ink-5:     #666a7a;
-  --color-ink-7:     #878c9e;
-  --color-ink-9:     #b0b4c4;
+  --color-titlebar: #f3f3f3;
+  --color-sidebar: #f3f3f3;
+  --color-bg: #ffffff;
+  --color-bg-elev: #f3f3f3;
+  --color-bg-2: #ffffff;
+  --color-input: #ffffff;
+  --color-bg-hover: #e8e8e8;
+  --color-bg-active: #dddddd;
+  --color-bg-hi: #d8d8d8;
+  --color-border: #d4d4d4;
+  --color-border-2: rgba(0, 0, 0, 0.04);
+  --color-ink-0: #1e1e1e;
+  --color-ink-1: #3b3b3b;
+  --color-ink-5: #606060;
+  --color-ink-7: #858585;
+  --color-ink-9: #ababab;
 }
 
 /* ─── Reset ───────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
 
 body {
-  background-color:        var(--color-bg);
-  color:                   var(--color-ink-0);
-  font-family:             var(--font-sans);
-  font-size:               13px;
-  line-height:             1.5;
-  -webkit-font-smoothing:  antialiased;
+  background-color: var(--color-bg);
+  color: var(--color-ink-0);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings:   "cv02", "cv03", "cv04", "cv11"; /* Inter alternates */
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
 html {
-  transition: background-color var(--duration-slow) var(--ease-out),
-              color            var(--duration-slow) var(--ease-out);
+  transition:
+    background-color var(--duration-slow) var(--ease-out),
+    color var(--duration-slow) var(--ease-out);
 }
 .session-enter {
   animation: sessionFadeIn var(--duration-base) var(--ease-out) both;
 }
 @keyframes sessionFadeIn {
-  from { opacity: 0; transform: translateY(2px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.palette-backdrop { animation: backdropIn var(--duration-fast) ease both; }
-.palette-panel    { animation: paletteSlide var(--duration-base) var(--ease-out) both; }
-@keyframes backdropIn    { from { opacity: 0; }  to { opacity: 1; } }
-@keyframes paletteSlide  {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+.palette-backdrop {
+  animation: backdropIn var(--duration-fast) ease both;
+}
+.palette-panel {
+  animation: paletteSlide var(--duration-base) var(--ease-out) both;
+}
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes paletteSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-/* ─── Resize separator (react-resizable-panels v4) ──────────────────────── */
-/* 4px wide grab area — easy to hit with mouse.                              */
-/* Visual 1px line sits in the centre via ::before pseudo-element.           */
-.separator-handle[data-separator] {
-  position: relative;
-  width: 4px;
-  background: transparent;   /* hit area transparent */
-  cursor: col-resize;
-  flex-shrink: 0;
-  z-index: 1;
+/* ─── Workbench chrome ───────────────────────────────────────────────────── */
+.app-titlebar {
+  height: var(--titlebar-height);
 }
-.separator-handle[data-separator]::before {
-  content: "";
-  position: absolute;
-  top: 0; bottom: 0;
-  left: 50%; transform: translateX(-50%);
-  width: 1px;
-  background: var(--color-border);
-  transition: background var(--duration-fast) ease,
-              box-shadow  var(--duration-fast) ease;
+.titlebar-leading {
+  padding-left: 76px;
 }
-.separator-handle[data-separator]:hover::before,
-.separator-handle[data-separator][data-state="drag"]::before {
-  background: var(--color-accent);
-  box-shadow: 0 0 8px rgba(61, 220, 132, 0.4);
+.app-titlebar[data-fullscreen] .titlebar-leading {
+  padding-left: 8px;
+}
+
+.titlebar-button,
+.sidebar-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-7);
+  transition:
+    color var(--duration-fast),
+    background-color var(--duration-fast);
+}
+.sidebar-toolbar-button {
+  width: 28px;
+  height: 28px;
+}
+.titlebar-button:hover,
+.sidebar-toolbar-button:hover {
+  color: var(--color-ink-0);
+  background: var(--color-bg-hover);
+}
+.titlebar-button:disabled,
+.sidebar-toolbar-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+@media (max-width: 959px) {
+  .app-wordmark {
+    display: none;
+  }
+}
+
+/* Fallback below the native window minimum: sidebar overlays the terminal. */
+@media (max-width: 799px) {
+  .sidebar-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.35);
+  }
+  .resize-handle {
+    display: none;
+  }
 }
 
 /* ─── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: var(--color-ink-9);
   border-radius: 99px;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--color-ink-7); }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-7);
+}
 
 /* ─── Focus ring ──────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline:        1.5px solid var(--color-accent);
+  outline: 1.5px solid var(--color-accent);
   outline-offset: 2px;
-  border-radius:  var(--radius-xs);
+  border-radius: var(--radius-xs);
 }
 
 /* ─── macOS drag ──────────────────────────────────────────────────────────── */
-[data-tauri-drag-region] { -webkit-app-region: drag; user-select: none; }
-button, a, input          { -webkit-app-region: no-drag; }
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+button,
+a,
+input {
+  -webkit-app-region: no-drag;
+}

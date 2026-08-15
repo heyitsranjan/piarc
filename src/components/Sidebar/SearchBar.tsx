@@ -12,40 +12,46 @@ export default function SearchBar() {
   const { searchQuery, setSearch } = useSessionStore();
   const ref = useRef<HTMLInputElement>(null);
 
-  useKeyboard([{
-    key: "f", meta: true,
-    handler: () => { ref.current?.focus(); ref.current?.select(); },
-  }]);
+  useKeyboard([
+    {
+      key: "f",
+      meta: true,
+      handler: () => {
+        ref.current?.focus();
+        ref.current?.select();
+      },
+    },
+  ]);
 
   return (
     <div className="relative px-2 pb-2">
-      <span className="absolute left-4 top-1/2 -translate-y-[calc(50%+4px)]
-        text-[var(--color-ink-9)] pointer-events-none">
-        <Search size={11} strokeWidth={2} />
+      <span
+        className="pointer-events-none absolute left-[18px] top-[8px]
+        text-[var(--color-ink-7)]"
+      >
+        <Search size={14} strokeWidth={1.8} />
       </span>
       <input
         ref={ref}
         type="search"
         value={searchQuery}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search…"
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search sessions"
         aria-label="Search sessions (⌘F)"
-        className="w-full h-[28px] pl-[26px] pr-6 text-[12px]
-          bg-[var(--color-bg-hover)] text-[var(--color-ink-1)]
-          placeholder:text-[var(--color-ink-9)]
-          border border-[var(--color-border)] rounded-[var(--radius-sm)]
-          focus:outline-none focus:border-[var(--color-accent)]
-          transition-colors duration-[var(--duration-fast)]"
+        className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-border)]
+          bg-[var(--color-input)] pl-8 pr-8 text-[13px] text-[var(--color-ink-1)]
+          placeholder:text-[var(--color-ink-7)] focus:border-[var(--color-focus)]
+          focus:outline-none"
       />
       {searchQuery && (
         <button
+          type="button"
           onClick={() => setSearch("")}
           aria-label="Clear search"
-          className="absolute right-4 top-1/2 -translate-y-[calc(50%+4px)]
-            text-[var(--color-ink-9)] hover:text-[var(--color-ink-5)]
-            transition-colors"
+          className="absolute right-3 top-0 flex size-8 items-center justify-center
+            text-[var(--color-ink-7)] transition-colors hover:text-[var(--color-ink-1)]"
         >
-          <X size={11} strokeWidth={2.5} />
+          <X size={14} strokeWidth={2} />
         </button>
       )}
     </div>
