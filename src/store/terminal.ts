@@ -129,8 +129,7 @@ export const useTerminalStore = create<TerminalState>()(
         }
         set((s) => {
           const tabs = s.tabs.filter((t) => t.id !== tabId);
-          const activeTabId =
-            s.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.activeTabId;
+          const activeTabId = s.activeTabId === tabId ? null : s.activeTabId;
           const interactiveTabId =
             s.interactiveTabId === tabId ? null : s.interactiveTabId;
           return { tabs, activeTabId, interactiveTabId };
