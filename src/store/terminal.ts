@@ -191,7 +191,11 @@ export const useTerminalStore = create<TerminalState>()(
           isOutputting: false,
           error: "Disconnected — select to reconnect",
         })),
-        activeTabId: state.activeTabId,
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<TerminalState>),
+        activeTabId: null,
         interactiveTabId: null,
       }),
     }
