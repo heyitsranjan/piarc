@@ -3,9 +3,18 @@ import { useEffect, useState } from "react";
 
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { FileDiff, Files, Loader2, PanelLeft, Plus, ShieldCheck } from "lucide-react";
+import {
+  FileDiff,
+  Files,
+  Loader2,
+  PanelLeft,
+  Plus,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
+import SettingsDialog from "@/components/SettingsDialog";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useNewSession } from "@/hooks/useNewSession";
@@ -23,6 +32,7 @@ export default function TitleBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const loadSessions = useSessionStore((state) => state.loadSessions);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const activeSession = useSessionStore((state) => state.activeSession);
@@ -184,6 +194,15 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+            aria-label="Open settings"
+            className="titlebar-button"
+          >
+            <Settings size={16} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
             onClick={() => setPermissionsOpen(true)}
             title="Privacy & Permissions"
             aria-label="Privacy and permissions"
@@ -208,6 +227,7 @@ export default function TitleBar() {
         </div>
       </header>
       {permissionsOpen && <PermissionsDialog onClose={() => setPermissionsOpen(false)} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {newDialogOpen && (
         <NewSessionDialog
           ompAvailable={ompAvailable}

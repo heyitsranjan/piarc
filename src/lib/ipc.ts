@@ -38,6 +38,51 @@ export const getMachinePermissions = (): Promise<MachinePermission[]> =>
 
 export const openPermissionSettings = (kind: PermissionKind): Promise<void> =>
   invoke("open_permission_settings", { kind });
+// ─── Custom models ────────────────────────────────────────────────────────
+
+export type CustomModelApi =
+  "openai-completions" | "openai-responses" | "anthropic-messages";
+
+export interface CustomModelDraft {
+  name: string;
+  providerName: string;
+  baseUrl: string;
+  apiKey: string;
+  modelId: string;
+  api: CustomModelApi;
+  supportsTools: boolean;
+  reasoning: boolean;
+  imageInput: boolean;
+  contextWindow: number;
+  maxTokens: number;
+}
+
+export interface CustomModel {
+  providerId: string;
+  providerName: string;
+  name: string;
+  modelId: string;
+  baseUrl: string;
+  api: CustomModelApi;
+}
+
+export interface ConnectionReport {
+  success: boolean;
+  message: string;
+}
+
+/** Test authentication and the selected model with a minimal provider request. */
+export const testCustomModel = (draft: CustomModelDraft): Promise<ConnectionReport> =>
+  invoke("test_custom_model", { draft });
+
+/** Store the credential in Keychain and merge the model into OMP configuration. */
+export const saveCustomModel = (draft: CustomModelDraft): Promise<CustomModel> =>
+  invoke("save_custom_model", { draft });
+
+/** Return custom models currently configured in OMP's global models file. */
+export const listCustomModels = (): Promise<CustomModel[]> =>
+  invoke("list_custom_models");
+
 // ─── Sessions ──────────────────────────────────────────────────────────────
 
 /**
