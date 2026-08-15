@@ -3,6 +3,7 @@ use std::{
     fs,
     io::Write,
     path::{Path, PathBuf},
+    process::{Command, Stdio},
     time::Duration,
 };
 
@@ -22,111 +23,6 @@ const MODEL_ROLES: [&str; 11] = [
     "default", "smol", "slow", "vision", "plan", "designer", "commit", "tiny", "task", "advisor",
     "fallback",
 ];
-
-#[cfg(target_os = "macos")]
-mod keychain_acl {
-    use std::{
-        ffi::{c_char, c_void, CString},
-        os::unix::ffi::OsStrExt,
-        ptr,
-    };
-
-    use anyhow::{bail, Context, Result};
-    use core_foundation::{
-        array::CFArray,
-        base::{CFTypeID, TCFType},
-        declare_TCFType, impl_TCFType,
-        string::{CFString, CFStringRef},
-    };
-    use security_framework::{
-        os::macos::access::SecAccess,
-        passwords::{set_generic_password_options, PasswordOptions},
-    };
-    use security_framework_sys::base::SecAccessRef;
-
-    type SecTrustedApplicationRef = *mut c_void;
-
-    declare_TCFType! {
-        SecTrustedApplication, SecTrustedApplicationRef
-    }
-    impl_TCFType!(
-        SecTrustedApplication,
-        SecTrustedApplicationRef,
-        SecTrustedApplicationGetTypeID
-    );
-
-    unsafe impl Send for SecTrustedApplication {}
-    unsafe impl Sync for SecTrustedApplication {}
-
-    #[allow(non_upper_case_globals)]
-    #[link(name = "Security", kind = "framework")]
-    extern "C" {
-        static kSecAttrAccess: CFStringRef;
-        fn SecTrustedApplicationGetTypeID() -> CFTypeID;
-        fn SecTrustedApplicationCreateFromPath(
-            path: *const c_char,
-            application: *mut SecTrustedApplicationRef,
-        ) -> i32;
-        fn SecAccessCreate(
-            descriptor: CFStringRef,
-            trusted_list: core_foundation::array::CFArrayRef,
-            access: *mut SecAccessRef,
-        ) -> i32;
-    }
-
-    pub fn set_password(service: &str, account: &str, secret: &[u8]) -> Result<()> {
-        let access = create_access()?;
-        let mut options = PasswordOptions::new_generic_password(service, account);
-        #[allow(deprecated)]
-        options.query.push((
-            unsafe { CFString::wrap_under_get_rule(kSecAttrAccess) },
-            access.into_CFType(),
-        ));
-        set_generic_password_options(secret, options)
-            .context("failed to store API key in macOS Keychain")
-    }
-
-    fn create_access() -> Result<SecAccess> {
-        let executable = std::env::current_exe().context("failed to locate OMPX executable")?;
-        let executable_path = CString::new(executable.as_os_str().as_bytes())
-            .context("invalid OMPX executable path")?;
-        let current = trusted_application(Some(&executable_path))?;
-        let security_path = CString::new("/usr/bin/security").unwrap();
-        let security = trusted_application(Some(&security_path))?;
-        let trusted = CFArray::from_CFTypes(&[current, security]);
-        let descriptor = CFString::new("OMPX custom model credential");
-        let mut access_ref = ptr::null_mut();
-        status(unsafe {
-            SecAccessCreate(
-                descriptor.as_concrete_TypeRef(),
-                trusted.as_concrete_TypeRef(),
-                &mut access_ref,
-            )
-        })
-        .context("failed to create Keychain access policy")?;
-        Ok(unsafe { SecAccess::wrap_under_create_rule(access_ref) })
-    }
-
-    fn trusted_application(path: Option<&CString>) -> Result<SecTrustedApplication> {
-        let mut application = ptr::null_mut();
-        status(unsafe {
-            SecTrustedApplicationCreateFromPath(
-                path.map_or(ptr::null(), |value| value.as_ptr()),
-                &mut application,
-            )
-        })
-        .context("failed to create trusted Keychain application")?;
-        Ok(unsafe { SecTrustedApplication::wrap_under_create_rule(application) })
-    }
-
-    fn status(value: i32) -> Result<()> {
-        if value == 0 {
-            Ok(())
-        } else {
-            bail!("macOS Security error {value}")
-        }
-    }
-}
 
 pub async fn test(draft: &CustomModelDraft) -> Result<ConnectionReport> {
     validate_draft(draft, false)?;
@@ -193,16 +89,11 @@ pub fn save(draft: &CustomModelDraft) -> Result<CustomModel> {
     validate(draft)?;
     let provider_id = provider_id(&draft.provider_name)?;
     let service = keychain_service(&provider_id);
-    let previous_key = get_secret(&service).ok();
     set_secret(&service, draft.api_key.trim().as_bytes())?;
 
     let result = save_config(draft, &provider_id, None);
     if result.is_err() {
-        if let Some(secret) = previous_key {
-            let _ = set_secret(&service, &secret);
-        } else {
-            let _ = delete_secret(&service);
-        }
+        let _ = delete_secret(&service);
     }
     result
 }
@@ -272,13 +163,16 @@ pub fn update(
     let new_provider_id = provider_id(&draft.provider_name)?;
     let old_service = keychain_service(original_provider_id);
     let new_service = keychain_service(&new_provider_id);
-    let old_secret = get_secret(&old_service)?;
     let new_secret = if draft.api_key.trim().is_empty() {
-        old_secret.clone()
+        get_secret(&old_service)?
     } else {
         draft.api_key.trim().as_bytes().to_vec()
     };
-    let previous_new_secret = get_secret(&new_service).ok();
+    let previous_new_secret = if new_service == old_service {
+        None
+    } else {
+        get_secret(&new_service).ok()
+    };
     set_secret(&new_service, &new_secret)?;
 
     let result = save_config(
@@ -663,24 +557,95 @@ fn keychain_service(provider_id: &str) -> String {
 
 #[cfg(target_os = "macos")]
 fn set_secret(service: &str, secret: &[u8]) -> Result<()> {
-    match security_framework::passwords::delete_generic_password(service, KEYCHAIN_ACCOUNT) {
-        Ok(()) => {}
-        Err(error) if error.code() == security_framework_sys::base::errSecItemNotFound => {}
-        Err(error) => return Err(error).context("failed to replace API key in macOS Keychain"),
+    if secret.contains(&b'\n') || secret.contains(&b'\r') {
+        bail!("API key cannot contain line breaks");
     }
-    keychain_acl::set_password(service, KEYCHAIN_ACCOUNT, secret)
+    delete_secret(service)?;
+
+    let mut child = Command::new("/usr/bin/security")
+        .args([
+            "add-generic-password",
+            "-a",
+            KEYCHAIN_ACCOUNT,
+            "-s",
+            service,
+            "-T",
+            "/usr/bin/security",
+            "-w",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to start macOS Keychain")?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .context("failed to open Keychain input")?;
+    stdin.write_all(secret)?;
+    stdin.write_all(b"\n")?;
+    stdin.write_all(secret)?;
+    stdin.write_all(b"\n")?;
+    drop(stdin);
+    let output = child
+        .wait_with_output()
+        .context("failed to store API key in macOS Keychain")?;
+    security_result("store", output)?;
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn get_secret(service: &str) -> Result<Vec<u8>> {
-    security_framework::passwords::get_generic_password(service, KEYCHAIN_ACCOUNT)
-        .context("failed to read API key from macOS Keychain")
+    let output = Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-a",
+            KEYCHAIN_ACCOUNT,
+            "-s",
+            service,
+            "-w",
+        ])
+        .output()
+        .context("failed to read API key from macOS Keychain")?;
+    let mut secret = security_result("read", output)?;
+    if secret.last() == Some(&b'\n') {
+        secret.pop();
+    }
+    if secret.last() == Some(&b'\r') {
+        secret.pop();
+    }
+    Ok(secret)
 }
 
 #[cfg(target_os = "macos")]
 fn delete_secret(service: &str) -> Result<()> {
-    security_framework::passwords::delete_generic_password(service, KEYCHAIN_ACCOUNT)
-        .context("failed to delete API key from macOS Keychain")
+    let output = Command::new("/usr/bin/security")
+        .args([
+            "delete-generic-password",
+            "-a",
+            KEYCHAIN_ACCOUNT,
+            "-s",
+            service,
+        ])
+        .output()
+        .context("failed to delete API key from macOS Keychain")?;
+    if output.status.success() || output.status.code() == Some(44) {
+        Ok(())
+    } else {
+        security_result("delete", output).map(|_| ())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn security_result(action: &str, output: std::process::Output) -> Result<Vec<u8>> {
+    if output.status.success() {
+        return Ok(output.stdout);
+    }
+    let detail = String::from_utf8_lossy(&output.stderr);
+    bail!(
+        "failed to {action} API key in macOS Keychain: {}",
+        detail.trim()
+    )
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -768,6 +733,8 @@ mod tests {
         thread,
     };
 
+    #[cfg(target_os = "macos")]
+    use super::{delete_secret, get_secret, set_secret};
     use super::{provider_id, set_role_at, test, validate};
     use crate::models::{CustomModel, CustomModelApi, CustomModelDraft};
 
@@ -827,6 +794,16 @@ mod tests {
         let report = tauri::async_runtime::block_on(test(&value)).unwrap();
         assert!(report.success);
         server.join().unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn keychain_cli_round_trip() {
+        let service = format!("com.heyitsranjan.ompx.test.{}", uuid::Uuid::new_v4());
+        set_secret(&service, b"temporary-secret").unwrap();
+        assert_eq!(get_secret(&service).unwrap(), b"temporary-secret");
+        delete_secret(&service).unwrap();
+        assert!(get_secret(&service).is_err());
     }
 
     #[test]
