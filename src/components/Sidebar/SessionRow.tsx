@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Pin,
   PinOff,
+  RotateCcw,
   SquarePen,
   Trash2,
 } from "lucide-react";
@@ -36,6 +37,7 @@ interface SessionRowProps {
   session: OmpSession;
   isActive: boolean;
   onSelect: () => void;
+  onRefresh: () => void;
 }
 
 interface MenuPos {
@@ -43,7 +45,12 @@ interface MenuPos {
   left: number;
 }
 
-export default function SessionRow({ session, isActive, onSelect }: SessionRowProps) {
+export default function SessionRow({
+  session,
+  isActive,
+  onSelect,
+  onRefresh,
+}: SessionRowProps) {
   const { pinnedIds, togglePin, renameSession, removeSession } = useSessionStore();
   const tabs = useTerminalStore((s) => s.tabs);
   const closeTab = useTerminalStore((state) => state.closeTab);
@@ -236,6 +243,15 @@ export default function SessionRow({ session, isActive, onSelect }: SessionRowPr
             shadow-[0_8px_32px_rgba(0,0,0,0.6)]
             py-0.5 overflow-hidden"
           >
+            <DropdownItem
+              icon={<RotateCcw size={15} strokeWidth={1.8} />}
+              onClick={() => {
+                setMenuOpen(false);
+                onRefresh();
+              }}
+            >
+              Refresh terminal
+            </DropdownItem>
             <DropdownItem
               icon={<SquarePen size={15} strokeWidth={1.8} />}
               onClick={() => {

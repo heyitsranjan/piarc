@@ -36,7 +36,7 @@ export default function Sidebar() {
     pinnedIds,
     searchQuery,
   } = useSessions();
-  const { openSession, retryTab } = useTerminal();
+  const { openSession, refreshSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
@@ -61,6 +61,9 @@ export default function Sidebar() {
     if (window.innerWidth < 800) toggleSidebar();
     await opening;
   };
+
+  const handleRefresh = (session: OmpSession) =>
+    refreshSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -100,7 +103,7 @@ export default function Sidebar() {
             )}
             {state.type === "empty" && <EmptyList />}
             {state.type === "data" && (
-              <ul role="list" className="pb-3 pt-1">
+              <ul role="list" className="space-y-1 pb-3 pt-1">
                 {filtered.map((session, idx) => {
                   const isPinned = pinnedIds.includes(session.id);
                   const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
@@ -120,6 +123,7 @@ export default function Sidebar() {
                         session={session}
                         isActive={activeSession?.id === session.id}
                         onSelect={() => handleSelect(session)}
+                        onRefresh={() => void handleRefresh(session)}
                       />
                     </Fragment>
                   );
@@ -134,7 +138,7 @@ export default function Sidebar() {
           </>
         )}
         {sidebarMode === "terminals" && (
-          <ul role="list" className="pb-3 pt-1">
+          <ul role="list" className="space-y-1 pb-3 pt-1">
             {terminals.map((tab) => (
               <TerminalRow
                 key={tab.id}

@@ -9,15 +9,21 @@ import {
   Loader2,
   PanelLeft,
   Plus,
+  RotateCcw,
   Settings,
   ShieldCheck,
 } from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
 import SettingsDialog from "@/components/SettingsDialog";
+import {
+  TERMINAL_DEFAULT_COLS,
+  TERMINAL_DEFAULT_ROWS,
+} from "@/components/Terminal/constants";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useNewSession } from "@/hooks/useNewSession";
+import { useTerminal } from "@/hooks/useTerminal";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
@@ -33,7 +39,6 @@ export default function TitleBar() {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const loadSessions = useSessionStore((state) => state.loadSessions);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const activeSession = useSessionStore((state) => state.activeSession);
   const activeTab = useTerminalStore((state) =>
@@ -50,6 +55,12 @@ export default function TitleBar() {
   const workspaceMode = useUiStore((state) => state.workspaceMode);
   const toggleWorkspace = useUiStore((state) => state.toggleWorkspace);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
+  const { refreshSession } = useTerminal();
+
+  const refreshActiveSession = () => {
+    if (!activeSession) return;
+    void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+  };
 
   const create = (action: () => Promise<void>) => {
     if (isStarting) return;
@@ -100,7 +111,7 @@ export default function TitleBar() {
       },
     },
     { key: "k", meta: true, handler: openCommandPalette },
-    { key: "r", meta: true, handler: () => void loadSessions() },
+    { key: "r", meta: true, handler: refreshActiveSession },
   ]);
 
   useEffect(() => {
@@ -162,6 +173,24 @@ export default function TitleBar() {
         )}
 
         <div className="ml-auto flex items-center gap-0.5 pr-2" data-tauri-drag-region>
+          <button
+            type="button"
+            onClick={refreshActiveSession}
+            disabled={!activeSession || activeTab?.isLoading}
+            title={
+              activeSession
+                ? `Restart terminal for ${activeSession.title} (⌘R)`
+                : "Select a session to refresh"
+            }
+            aria-label="Refresh active session terminal"
+            className="titlebar-button"
+          >
+            <RotateCcw
+              size={16}
+              strokeWidth={1.8}
+              className={activeTab?.isLoading ? "animate-spin" : undefined}
+            />
+          </button>
           <button
             type="button"
             onClick={() => toggleWorkspace("explorer")}
