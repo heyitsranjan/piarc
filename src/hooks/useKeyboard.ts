@@ -10,7 +10,7 @@ import { useEffect } from "react";
 
 /** A keyboard shortcut descriptor. */
 export interface Shortcut {
-  /** Key name as reported by `KeyboardEvent.key`. */
+  /** Key name, matched against `KeyboardEvent.key` and physical letter/digit codes. */
   key: string;
   /** Require ⌘ (macOS) or Ctrl (Win/Linux). Defaults to false. */
   meta?: boolean;
@@ -40,13 +40,15 @@ export function useKeyboard(shortcuts: Shortcut[]): void {
       for (const s of shortcuts) {
         const metaMatch = s.meta ? e.metaKey || e.ctrlKey : !e.metaKey && !e.ctrlKey;
         const altMatch = s.alt ? e.altKey : !e.altKey;
-        const shiftMatch = s.shift ? e.shiftKey : true; // shift is optional unless specified
-        if (
-          e.key === s.key &&
-          metaMatch &&
-          altMatch &&
-          (s.shift === undefined || shiftMatch)
-        ) {
+        const shiftMatch = s.shift ? e.shiftKey : !e.shiftKey;
+        const code =
+          s.key.length === 1
+            ? /^\d$/.test(s.key)
+              ? `Digit${s.key}`
+              : `Key${s.key.toUpperCase()}`
+            : "";
+        const keyMatch = e.key.toLowerCase() === s.key.toLowerCase() || e.code === code;
+        if (keyMatch && metaMatch && altMatch && shiftMatch) {
           e.preventDefault();
           s.handler(e);
           return; // first match wins

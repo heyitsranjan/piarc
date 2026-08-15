@@ -3,8 +3,7 @@
  * Horizontal tab strip above the terminal area.
  *
  * Each tab shows the session title and a close button.
- * Keyboard shortcuts: ⌘T new tab (triggers session select), ⌘W close active,
- * ⌘1-9 switch by index.
+ * Keyboard shortcuts: ⌘W closes the active tab; ⌘1-9 switches by index.
  */
 import Button from "@/components/ui/Button";
 import { useKeyboard } from "@/hooks/useKeyboard";
@@ -15,13 +14,11 @@ import { useUiStore } from "@/store/ui";
 /** The tab bar rendered above the terminal pane. */
 export default function TabBar() {
   const { tabs, activeTabId, closeTab, setActiveTab } = useTerminalStore();
-  const openCmdPalette = useUiStore((s) => s.openCommandPalette);
+  const openCmdPalette = useUiStore((state) => state.openCommandPalette);
 
-  // ⌘T → open command palette to pick a new session
   // ⌘W → close active tab
   // ⌘1-9 → switch to tab by index
   useKeyboard([
-    { key: "t", meta: true, handler: openCmdPalette },
     {
       key: "w",
       meta: true,
@@ -107,8 +104,8 @@ export default function TabBar() {
       {/* New tab button */}
       <Button
         variant="ghost"
-        title="New tab (⌘T)"
-        aria-label="New terminal tab"
+        title="New tab"
+        aria-label="New tab"
         onClick={openCmdPalette}
         className="px-3 h-full shrink-0"
       >

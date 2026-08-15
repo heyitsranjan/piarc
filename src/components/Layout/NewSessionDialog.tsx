@@ -51,6 +51,7 @@ export default function NewSessionDialog({
             icon={<Bot size={18} strokeWidth={1.7} />}
             title="Oh My Pi session"
             description="Start a new omp session"
+            shortcut="⌘⇧N"
             disabled={busy}
             onClick={() => choose(onNewSession)}
           />
@@ -58,6 +59,7 @@ export default function NewSessionDialog({
             icon={<TerminalSquare size={18} strokeWidth={1.7} />}
             title="Terminal"
             description="Open your login shell"
+            shortcut="⌘T"
             disabled={busy}
             onClick={() => choose(onTerminal)}
           />
@@ -72,6 +74,7 @@ function Choice({
   icon,
   title,
   description,
+  shortcut,
   disabled,
   onClick,
 }: {
@@ -79,6 +82,7 @@ function Choice({
   icon: ReactNode;
   title: string;
   description: string;
+  shortcut: string;
   disabled: boolean;
   onClick: () => void;
 }) {
@@ -93,7 +97,7 @@ function Choice({
         hover:bg-[var(--color-bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
     >
       <span className="text-[var(--color-accent)]">{icon}</span>
-      <span>
+      <span className="min-w-0 flex-1">
         <span className="block text-[12px] font-medium text-[var(--color-ink-1)]">
           {title}
         </span>
@@ -101,6 +105,7 @@ function Choice({
           {description}
         </span>
       </span>
+      <kbd className="ml-auto text-[10px] text-[var(--color-ink-9)]">{shortcut}</kbd>
     </button>
   );
 }

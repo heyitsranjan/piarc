@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FileDiff, Files, Loader2, PanelLeft, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { useNewSession } from "@/hooks/useNewSession";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/store/sessions";
@@ -14,15 +15,74 @@ import NewSessionDialog from "./NewSessionDialog";
 export default function TitleBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const loadSessions = useSessionStore((state) => state.loadSessions);
   const activeSession = useSessionStore((state) => state.activeSession);
   const activeTab = useTerminalStore((state) =>
     state.tabs.find((tab) => tab.id === state.activeTabId)
   );
+  const hasTerminals = useTerminalStore((state) =>
+    state.tabs.some((tab) => tab.kind === "terminal")
+  );
   const title = activeSession?.title ?? activeTab?.title;
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const setSidebarMode = useUiStore((state) => state.setSidebarMode);
+  const openCommandPalette = useUiStore((state) => state.openCommandPalette);
   const workspaceMode = useUiStore((state) => state.workspaceMode);
   const toggleWorkspace = useUiStore((state) => state.toggleWorkspace);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
+
+  const create = (action: () => Promise<void>) => {
+    if (isStarting) return;
+    setNewDialogOpen(false);
+    void action();
+  };
+
+  const showSidebar = (mode: "sessions" | "terminals") => {
+    if (mode === "terminals" && !hasTerminals) return;
+    setSidebarMode(mode);
+    if (sidebarCollapsed) toggleSidebar();
+  };
+
+  useKeyboard([
+    { key: "n", meta: true, handler: () => setNewDialogOpen(true) },
+    {
+      key: "n",
+      meta: true,
+      shift: true,
+      handler: () => create(startNewSession),
+    },
+    { key: "t", meta: true, handler: () => create(startTerminal) },
+    {
+      key: "1",
+      meta: true,
+      shift: true,
+      handler: () => showSidebar("sessions"),
+    },
+    {
+      key: "2",
+      meta: true,
+      shift: true,
+      handler: () => showSidebar("terminals"),
+    },
+    { key: "b", meta: true, handler: toggleSidebar },
+    {
+      key: "e",
+      meta: true,
+      handler: () => {
+        if (activeSession) toggleWorkspace("explorer");
+      },
+    },
+    {
+      key: "g",
+      meta: true,
+      handler: () => {
+        if (activeSession) toggleWorkspace("git");
+      },
+    },
+    { key: "k", meta: true, handler: openCommandPalette },
+    { key: "r", meta: true, handler: () => void loadSessions() },
+  ]);
 
   useEffect(() => {
     let appWindow: ReturnType<typeof getCurrentWindow>;
@@ -87,7 +147,7 @@ export default function TitleBar() {
             type="button"
             onClick={() => toggleWorkspace("explorer")}
             disabled={!activeSession}
-            title="Open project explorer"
+            title="Open project explorer (⌘E)"
             aria-label="Open project explorer"
             aria-pressed={workspaceMode === "explorer"}
             className={cn(
@@ -102,7 +162,7 @@ export default function TitleBar() {
             type="button"
             onClick={() => toggleWorkspace("git")}
             disabled={!activeSession}
-            title="Review Git changes"
+            title="Review Git changes (⌘G)"
             aria-label="Review Git changes"
             aria-pressed={workspaceMode === "git"}
             className={cn(
@@ -117,7 +177,7 @@ export default function TitleBar() {
             type="button"
             onClick={() => setNewDialogOpen(true)}
             disabled={isStarting}
-            title="Create"
+            title="Create (⌘N)"
             aria-label="Create session or terminal"
             className="titlebar-button"
           >

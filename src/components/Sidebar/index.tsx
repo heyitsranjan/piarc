@@ -8,7 +8,6 @@ import {
   TERMINAL_DEFAULT_COLS,
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
-import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 import type { OmpSession } from "@/lib/session";
@@ -26,7 +25,6 @@ export default function Sidebar() {
   const { state, filtered, activeSession, loadSessions, pinnedIds, searchQuery } =
     useSessions();
   const { openSession } = useTerminal();
-  const openCmdPalette = useUiStore((s) => s.openCommandPalette);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
@@ -51,12 +49,6 @@ export default function Sidebar() {
       setSidebarMode("sessions");
     }
   }, [allTerminals.length, sidebarMode, setSidebarMode]);
-
-  useKeyboard([
-    { key: "k", meta: true, handler: openCmdPalette },
-    { key: "r", meta: true, handler: () => loadSessions() },
-    { key: "b", meta: true, handler: toggleSidebar },
-  ]);
 
   const handleSelect = async (session: OmpSession) => {
     const opening = openSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
@@ -144,6 +136,7 @@ export default function Sidebar() {
               <button
                 key={mode}
                 type="button"
+                title={mode === "sessions" ? "Sessions (⌘⇧1)" : "Terminals (⌘⇧2)"}
                 aria-pressed={sidebarMode === mode}
                 onClick={() => setSidebarMode(mode)}
                 className={cn(
