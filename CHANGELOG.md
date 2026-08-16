@@ -4,6 +4,10 @@ All notable changes to OMPX are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- Made the bottom default-session location open a directory picker and persist the selected folder for new sessions and terminals.
+
 ## [0.1.0] - 2026-08-15
 
 ### Added

@@ -11,11 +11,21 @@ interface TerminalBottomBarProps {
   cwd?: string;
   left?: ReactNode;
   right?: ReactNode;
+  onChooseFolder?: () => void;
 }
 
-export default function TerminalBottomBar({ cwd, left, right }: TerminalBottomBarProps) {
-  const openInFinder = () => {
+export default function TerminalBottomBar({
+  cwd,
+  left,
+  right,
+  onChooseFolder,
+}: TerminalBottomBarProps) {
+  const handleFolderClick = () => {
     if (!cwd) return;
+    if (onChooseFolder) {
+      onChooseFolder();
+      return;
+    }
     void openFolderInFinder(cwd).catch((reason) =>
       message(reason instanceof Error ? reason.message : String(reason), {
         title: "Could not open folder",
@@ -35,9 +45,15 @@ export default function TerminalBottomBar({ cwd, left, right }: TerminalBottomBa
         {cwd && (
           <button
             type="button"
-            onClick={openInFinder}
-            title={`Open ${cwd} in Finder`}
-            aria-label={`Open ${cwd} in Finder`}
+            onClick={handleFolderClick}
+            title={
+              onChooseFolder
+                ? `Choose default session folder · ${cwd}`
+                : `Open ${cwd} in Finder`
+            }
+            aria-label={
+              onChooseFolder ? "Choose default session folder" : `Open ${cwd} in Finder`
+            }
             className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5
               text-[var(--color-ink-7)] hover:bg-[var(--color-bg-hover)]
               hover:text-[var(--color-ink-1)]"

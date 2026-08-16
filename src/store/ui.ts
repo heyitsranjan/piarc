@@ -25,6 +25,8 @@ interface UiState {
   theme: Theme;
   /** Whether the rich composer owns text input instead of the active terminal. */
   richInputEnabled: boolean;
+  /** Directory used when creating a new session or terminal. Null means home. */
+  defaultSessionCwd: string | null;
 
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
@@ -34,6 +36,7 @@ interface UiState {
   closeWorkspace: () => void;
   setTheme: (t: Theme) => void;
   toggleRichInput: () => void;
+  setDefaultSessionCwd: (cwd: string) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -45,6 +48,7 @@ export const useUiStore = create<UiState>()(
       workspaceMode: null,
       theme: "system",
       richInputEnabled: true,
+      defaultSessionCwd: null,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
@@ -55,6 +59,7 @@ export const useUiStore = create<UiState>()(
       closeWorkspace: () => set({ workspaceMode: null }),
       setTheme: (theme) => set({ theme }),
       toggleRichInput: () => set((s) => ({ richInputEnabled: !s.richInputEnabled })),
+      setDefaultSessionCwd: (defaultSessionCwd) => set({ defaultSessionCwd }),
     }),
     {
       name: "omp-ui-settings",
@@ -62,6 +67,7 @@ export const useUiStore = create<UiState>()(
         theme: s.theme,
         sidebarCollapsed: s.sidebarCollapsed,
         richInputEnabled: s.richInputEnabled,
+        defaultSessionCwd: s.defaultSessionCwd,
       }),
     }
   )

@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { homeDir } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
@@ -28,6 +29,8 @@ export default function TerminalArea() {
   const activeTabId = useTerminalStore((state) => state.activeTabId);
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
+  const defaultSessionCwd = useUiStore((state) => state.defaultSessionCwd);
+  const setDefaultSessionCwd = useUiStore((state) => state.setDefaultSessionCwd);
   const richInputEnabled =
     FEATURE_RICH_INPUT && richInputPreference && activeTab?.kind === "omp";
   const [defaultCwd, setDefaultCwd] = useState<string>();
@@ -38,6 +41,16 @@ export default function TerminalArea() {
       .then(setDefaultCwd)
       .catch(() => undefined);
   }, []);
+
+  const chooseDefaultSessionFolder = async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: defaultSessionCwd ?? defaultCwd,
+      title: "Choose default session folder",
+    });
+    if (typeof selected === "string") setDefaultSessionCwd(selected);
+  };
 
   useEffect(() => {
     if (!richInputEnabled) return;
@@ -92,7 +105,7 @@ export default function TerminalArea() {
         <RichInput key={activeTab.id} tab={activeTab} />
       ) : (
         <TerminalBottomBar
-          cwd={activeTab?.cwd ?? defaultCwd}
+          cwd={activeTab?.cwd ?? defaultSessionCwd ?? defaultCwd}
           left={
             activeTab
               ? activeTab.kind === "terminal"
@@ -100,6 +113,7 @@ export default function TerminalArea() {
                 : "Direct terminal input"
               : "No session selected"
           }
+          onChooseFolder={activeTab ? undefined : () => void chooseDefaultSessionFolder()}
         />
       )}
     </div>

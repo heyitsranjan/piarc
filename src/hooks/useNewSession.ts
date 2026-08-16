@@ -4,7 +4,7 @@
  *
  * Flow:
  * 1. Open a new tab titled "New session".
- * 2. Spawn PTY running `omp` in the user's home directory.
+ * 2. Spawn PTY in the locally selected default directory.
  * 3. omp creates a JSONL file; the FS watcher fires and updates the sidebar.
  */
 import { useCallback, useState } from "react";
@@ -46,6 +46,7 @@ export function useNewSession(): UseNewSessionReturn {
   const { openTab, setTabReady, setTabError } = useTerminalStore();
   const setActive = useSessionStore((s) => s.setActive);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
+  const defaultSessionCwd = useUiStore((state) => state.defaultSessionCwd);
 
   const start = useCallback(
     async (kind: "omp" | "terminal") => {
@@ -54,7 +55,7 @@ export function useNewSession(): UseNewSessionReturn {
         return;
       }
       setIsStarting(true);
-      const cwd = await homeDir().catch(() => "~");
+      const cwd = defaultSessionCwd ?? (await homeDir().catch(() => "~"));
       const isTerminal = kind === "terminal";
       const title = isTerminal ? "Terminal" : "New session";
       const tabId = openTab({
@@ -94,7 +95,15 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [ompAvailable, openTab, setTabReady, setTabError, setActive, setSidebarMode]
+    [
+      defaultSessionCwd,
+      ompAvailable,
+      openTab,
+      setTabReady,
+      setTabError,
+      setActive,
+      setSidebarMode,
+    ]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);
