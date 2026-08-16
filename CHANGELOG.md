@@ -4,6 +4,10 @@ All notable changes to OMPX are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- First-run OMP setup screen with the official Homebrew installation command.
+
 ### Fixed
 
 - Prompt for a working directory during creation instead of exposing a persistent bottom-bar folder control.

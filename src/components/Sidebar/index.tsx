@@ -12,7 +12,6 @@ import {
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
-import { useOmpStore } from "@/store/omp";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
@@ -24,8 +23,6 @@ import SidebarHeader from "./SidebarHeader";
 import TerminalRow from "./TerminalRow";
 
 export default function Sidebar() {
-  const ompStatus = useOmpStore((state) => state.status);
-  const refreshOmp = useOmpStore((state) => state.refresh);
   const {
     state,
     sessions,
@@ -72,23 +69,6 @@ export default function Sidebar() {
         onModeChange={setSidebarMode}
       />
       <SearchBar />
-      {ompStatus && !ompStatus.installed && (
-        <div className="mx-2 mb-2 rounded-[var(--radius-md)] border border-[var(--color-danger)]/20 bg-[var(--color-danger)]/8 p-2.5">
-          <p className="text-[11px] font-medium text-[var(--color-danger)]">
-            OMP required
-          </p>
-          <p className="mt-1 text-[10px] leading-4 text-[var(--color-ink-7)]">
-            Install OMP from omp.sh, then refresh.
-          </p>
-          <button
-            type="button"
-            onClick={() => void refreshOmp()}
-            className="mt-1.5 text-[10px] text-[var(--color-accent)] hover:underline"
-          >
-            Check again
-          </button>
-        </div>
-      )}
 
       {/* ── State machine ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
