@@ -11,7 +11,6 @@
  */
 import { useCallback } from "react";
 
-import { useSessionStore } from "@/store/sessions";
 import { type Tab, useTerminalStore } from "@/store/terminal";
 
 import { createPty, shellPty } from "@/lib/ipc";
@@ -63,7 +62,6 @@ export function useTerminal(): UseTerminalReturn {
     setTabError,
     retryTab: markRetry,
   } = useTerminalStore();
-  const setActive = useSessionStore((s) => s.setActive);
 
   /** Internal: spawn PTY for an already-opened tab. */
   const spawnPty = useCallback(
@@ -95,8 +93,6 @@ export function useTerminal(): UseTerminalReturn {
 
   const openSession = useCallback(
     async (session: OmpSession, cols: number, rows: number) => {
-      setActive(session);
-
       // Reuse an existing tab for this session rather than opening a duplicate
       const existing = tabs.find((t) => t.sessionId === session.id);
       if (existing) {
@@ -125,7 +121,7 @@ export function useTerminal(): UseTerminalReturn {
         rows
       );
     },
-    [tabs, openTab, setActiveTab, setActive, markRetry, spawnPty]
+    [tabs, openTab, setActiveTab, markRetry, spawnPty]
   );
 
   const retryTab = useCallback(
@@ -144,7 +140,6 @@ export function useTerminal(): UseTerminalReturn {
       refreshingSessionIds.add(session.id);
 
       try {
-        setActive(session);
         const existing = useTerminalStore
           .getState()
           .tabs.find((tab) => tab.sessionId === session.id);
@@ -169,7 +164,7 @@ export function useTerminal(): UseTerminalReturn {
         refreshingSessionIds.delete(session.id);
       }
     },
-    [closeTab, openTab, setActive, spawnPty]
+    [closeTab, openTab, spawnPty]
   );
   return { openSession, closeTab, switchTab: setActiveTab, retryTab, refreshSession };
 }

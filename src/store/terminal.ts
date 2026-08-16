@@ -74,6 +74,8 @@ interface TerminalState {
   enableTerminalInteraction: (tabId: string) => void;
   /** Return xterm to passive output-only mode. */
   disableTerminalInteraction: (tabId: string) => void;
+  /** Replace a temporary new-session identifier with the ID reported by OMP. */
+  bindTabSession: (tabId: string, sessionId: string) => void;
 
   /** Mark a tab's PTY as ready (loading = false, error = null). */
   setTabReady: (tabId: string) => void;
@@ -181,6 +183,13 @@ export const useTerminalStore = create<TerminalState>()(
             t.id === tabId
               ? { ...t, isLoading: true, error: null, activity: { state: "starting" } }
               : t
+          ),
+        })),
+
+      bindTabSession: (tabId, sessionId) =>
+        set((s) => ({
+          tabs: s.tabs.map((tab) =>
+            tab.id === tabId && tab.kind === "omp" ? { ...tab, sessionId } : tab
           ),
         })),
 

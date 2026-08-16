@@ -26,7 +26,6 @@ export interface UseSessionsReturn {
   pinnedIds: string[];
 
   loadSessions: () => Promise<void>;
-  setActive: (s: OmpSession) => void;
   setSearch: (q: string) => void;
   togglePin: (id: string) => void;
   removeSession: (path: string) => Promise<void>;
@@ -56,7 +55,6 @@ export function useSessions(): UseSessionsReturn {
     searchQuery: store.searchQuery,
     pinnedIds: store.pinnedIds,
     loadSessions: store.loadSessions,
-    setActive: store.setActive,
     setSearch: store.setSearch,
     togglePin: store.togglePin,
     removeSession: store.removeSession,

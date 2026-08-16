@@ -23,7 +23,11 @@ export interface AgentActivity {
   detail?: string;
 }
 
-export function parseAgentActivity(data: string): AgentActivity | null {
+export interface AgentActivityFrame extends AgentActivity {
+  sessionId?: string;
+}
+
+export function parseAgentActivity(data: string): AgentActivityFrame | null {
   if (!data.startsWith(PREFIX)) return null;
 
   try {
@@ -31,9 +35,12 @@ export function parseAgentActivity(data: string): AgentActivity | null {
     if (message.v !== 1 || !STATES.includes(message.state as AgentActivityState))
       return null;
     if (message.detail !== undefined && typeof message.detail !== "string") return null;
+    if (message.sessionId !== undefined && typeof message.sessionId !== "string")
+      return null;
     return {
       state: message.state as AgentActivityState,
       detail: message.detail as string,
+      sessionId: message.sessionId as string,
     };
   } catch {
     return null;

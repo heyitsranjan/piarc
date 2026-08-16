@@ -17,7 +17,6 @@ import {
 } from "@/components/Terminal/constants";
 
 import { useOmpStore } from "@/store/omp";
-import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
@@ -44,7 +43,6 @@ export function useNewSession(): UseNewSessionReturn {
   const [isStarting, setIsStarting] = useState(false);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const { openTab, setTabReady, setTabError } = useTerminalStore();
-  const setActive = useSessionStore((s) => s.setActive);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
   const defaultSessionCwd = useUiStore((state) => state.defaultSessionCwd);
 
@@ -72,12 +70,6 @@ export function useNewSession(): UseNewSessionReturn {
       }
       setSidebarMode(isTerminal ? "terminals" : "sessions");
 
-      setActive(
-        isTerminal
-          ? null
-          : { id: "", path: "", title, cwd, modified: 0, firstMessage: "" }
-      );
-
       try {
         const params = {
           tabId,
@@ -95,15 +87,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [
-      defaultSessionCwd,
-      ompAvailable,
-      openTab,
-      setTabReady,
-      setTabError,
-      setActive,
-      setSidebarMode,
-    ]
+    [defaultSessionCwd, ompAvailable, openTab, setTabReady, setTabError, setSidebarMode]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);

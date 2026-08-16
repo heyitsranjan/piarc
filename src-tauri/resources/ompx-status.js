@@ -7,6 +7,7 @@ export default function ompxStatus(pi) {
   let retrying = false;
   let compacting = false;
   let lastPayload = "";
+  let sessionId;
   const tools = new Map();
   const approvals = new Map();
 
@@ -23,13 +24,18 @@ export default function ompxStatus(pi) {
   }
 
   function emit(activity = currentActivity()) {
-    const payload = JSON.stringify({ v: 1, ...activity });
+    const payload = JSON.stringify({ v: 1, ...activity, sessionId });
     if (payload === lastPayload) return;
     lastPayload = payload;
     process.stdout.write(`${OSC}${payload}${BEL}`);
   }
 
-  pi.on("session_start", () => emit());
+  const syncSession = (_event, ctx) => {
+    sessionId = ctx.sessionManager.getSessionId();
+    emit();
+  };
+  pi.on("session_start", syncSession);
+  pi.on("session_switch", syncSession);
   pi.on("agent_start", () => {
     agentActive = true;
     generationState = "thinking";

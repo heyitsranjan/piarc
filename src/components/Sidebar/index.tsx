@@ -13,7 +13,6 @@ import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useOmpStore } from "@/store/omp";
-import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
@@ -46,7 +45,6 @@ export default function Sidebar() {
   const closeTab = useTerminalStore((s) => s.closeTab);
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
-  const setActiveSession = useSessionStore((s) => s.setActive);
   const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
   const q = searchQuery.toLowerCase().trim();
   const terminals = allTerminals
@@ -145,7 +143,6 @@ export default function Sidebar() {
                 tab={tab}
                 isActive={activeTabId === tab.id}
                 onSelect={() => {
-                  setActiveSession(null);
                   setActiveTab(tab.id);
                   if (tab.error) {
                     void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);

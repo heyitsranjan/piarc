@@ -107,6 +107,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const { retryTab, closeTab } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
+  const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -153,7 +154,11 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       if (tab.kind !== "omp") return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
-      setTabActivity(tab.id, activity);
+      if (activity.sessionId) bindTabSession(tab.id, activity.sessionId);
+      setTabActivity(tab.id, {
+        state: activity.state,
+        detail: activity.detail,
+      });
       return true;
     });
 
@@ -205,6 +210,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       fitRef.current = null;
     };
   }, [
+    bindTabSession,
     disableTerminalInteraction,
     setTabActivity,
     tab.id,
