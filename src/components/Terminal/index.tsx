@@ -83,7 +83,6 @@ export default function TerminalArea() {
         <RichInput key={activeTab.id} tab={activeTab} />
       ) : (
         <TerminalBottomBar
-          cwd={activeTab?.cwd}
           left={
             activeTab
               ? activeTab.kind === "terminal"

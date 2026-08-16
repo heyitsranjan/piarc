@@ -554,7 +554,6 @@ export default function RichInput({ tab }: RichInputProps) {
         </div>
       </div>
       <TerminalBottomBar
-        cwd={tab.cwd}
         left={error ?? (completionError ? "Completion unavailable" : "Ready")}
         right={
           <span>

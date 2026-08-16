@@ -6,7 +6,7 @@ All notable changes to OMPX are documented here. The format follows [Keep a Chan
 
 ### Fixed
 
-- Prompt for a working directory before creating every new session or terminal.
+- Prompt for a working directory during creation instead of exposing a persistent bottom-bar folder control.
 
 ## [0.1.0] - 2026-08-15
 
