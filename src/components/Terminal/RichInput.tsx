@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
@@ -25,7 +24,6 @@ interface CompletionContext {
 
 interface RichInputProps {
   tab: Tab;
-  bottomControls?: ReactNode;
 }
 
 interface CompletionItem {
@@ -197,7 +195,7 @@ function needsTerminalInteraction(value: string, commands: OmpCommand[]): boolea
   return true;
 }
 
-export default function RichInput({ tab, bottomControls }: RichInputProps) {
+export default function RichInput({ tab }: RichInputProps) {
   const [value, setValue] = useState("");
   const [cursor, setCursor] = useState(0);
   const [sending, setSending] = useState(false);
@@ -559,14 +557,11 @@ export default function RichInput({ tab, bottomControls }: RichInputProps) {
         cwd={tab.cwd}
         left={error ?? (completionError ? "Completion unavailable" : "Ready")}
         right={
-          <>
-            <span>
-              {loadingCommands
-                ? "Reading active OMP commands…"
-                : "OMP completions · ↑↓ choose · Tab accept"}
-            </span>
-            {bottomControls}
-          </>
+          <span>
+            {loadingCommands
+              ? "Reading active OMP commands…"
+              : "OMP completions · ↑↓ choose · Tab accept"}
+          </span>
         }
       />
     </>

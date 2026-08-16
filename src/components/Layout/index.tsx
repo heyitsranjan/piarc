@@ -10,7 +10,6 @@ import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import TitleBar from "./TitleBar";
@@ -47,7 +46,6 @@ function getSavedWidth() {
 
 export default function Layout() {
   const activeSession = useSessionStore((state) => state.activeSession);
-  const activeTabId = useTerminalStore((state) => state.activeTabId);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const workspaceMode = useUiStore((state) => state.workspaceMode);
@@ -134,7 +132,7 @@ export default function Layout() {
           className="session-enter flex min-w-0 flex-1 flex-col overflow-hidden
             bg-[var(--color-bg)]"
         >
-          {activeTabId ? <TerminalArea /> : <EmptyState />}
+          <TerminalArea />
         </main>
         {workspaceMode && activeSession?.cwd && (
           <WorkspacePanel
@@ -149,16 +147,6 @@ export default function Layout() {
       </div>
 
       {commandPaletteOpen && <CommandPalette />}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex h-full select-none flex-col items-center justify-center gap-2.5">
-      <span className="text-[30px] leading-none text-[var(--color-ink-9)]">π</span>
-      <p className="text-[13px] text-[var(--color-ink-7)]">Select a session to resume</p>
-      <p className="text-[11px] text-[var(--color-ink-9)]">⌘K — command palette</p>
     </div>
   );
 }
