@@ -9,15 +9,20 @@ import WorkspacePanel from "@/components/GitReview";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 
+import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import type { GitChangesSnapshot } from "@/lib/git";
+import { getGitChanges } from "@/lib/ipc";
+import { cwdShort } from "@/lib/session";
+
+import packageInfo from "../../../package.json";
 import TitleBar from "./TitleBar";
 
 const SIDEBAR_MIN = 240;
 const SIDEBAR_MAX = 480;
-const SIDEBAR_DEFAULT = 300;
+const SIDEBAR_DEFAULT = 280;
 const TERMINAL_MIN = 480;
 const RESIZE_HANDLE_WIDTH = 6;
 const STORAGE_KEY = "omp-sidebar-width";
@@ -47,11 +52,12 @@ function getSavedWidth() {
 
 export default function Layout() {
   const activeSession = useSessionStore((state) => state.activeSession);
-  const activeTabId = useTerminalStore((state) => state.activeTabId);
+  const ompStatus = useOmpStore((state) => state.status);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const workspaceMode = useUiStore((state) => state.workspaceMode);
   const closeWorkspace = useUiStore((state) => state.closeWorkspace);
+  const [gitStatus, setGitStatus] = useState<GitChangesSnapshot | null>(null);
   const [width, setWidth] = useState(getSavedWidth);
   const widthRef = useRef(width);
   const dragging = useRef(false);
@@ -90,6 +96,29 @@ export default function Layout() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeSession?.cwd) {
+      setGitStatus(null);
+      return;
+    }
+    let current = true;
+    const refresh = () => {
+      void getGitChanges(activeSession.cwd)
+        .then((snapshot) => {
+          if (current) setGitStatus(snapshot);
+        })
+        .catch(() => {
+          if (current) setGitStatus(null);
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 3000);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+    };
+  }, [activeSession?.cwd]);
+
   const startResize = (event: ReactMouseEvent) => {
     event.preventDefault();
     dragging.current = true;
@@ -119,12 +148,12 @@ export default function Layout() {
               aria-label="Resize sidebar"
               aria-orientation="vertical"
               onMouseDown={startResize}
-              className="resize-handle group relative z-10 w-1.5 shrink-0 cursor-col-resize"
+              className="resize-handle group relative z-10 -ml-1.5 w-1.5 shrink-0 cursor-col-resize"
             >
               <div
-                className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2
-                  bg-[var(--color-border)] transition-colors
-                  duration-[var(--duration-fast)] group-hover:bg-[var(--color-accent)]"
+                className="absolute inset-y-0 right-0 w-px bg-[var(--color-border)]
+                  transition-colors duration-[var(--duration-fast)]
+                  group-hover:bg-[var(--color-accent)]"
               />
             </div>
           </>
@@ -132,33 +161,32 @@ export default function Layout() {
 
         <main
           className="session-enter flex min-w-0 flex-1 flex-col overflow-hidden
-            bg-[var(--color-bg)]"
+            bg-[#0a0b0e]"
         >
-          {activeTabId ? <TerminalArea /> : <EmptyState />}
+          <TerminalArea />
         </main>
         {workspaceMode && activeSession?.cwd && (
           <WorkspacePanel
             cwd={activeSession.cwd}
-            leftInset={
-              sidebarCollapsed ? 0 : width + RESIZE_HANDLE_WIDTH + REVIEW_SIDEBAR_GAP
-            }
+            leftInset={sidebarCollapsed ? 0 : width + REVIEW_SIDEBAR_GAP}
             mode={workspaceMode}
             onClose={closeWorkspace}
           />
         )}
       </div>
 
-      {commandPaletteOpen && <CommandPalette />}
-    </div>
-  );
-}
+      <footer className="arc-statusbar">
+        <span className={ompStatus?.installed ? "arc-status-ok" : undefined}>
+          {ompStatus?.installed ? "● OMP connected" : "○ OMP unavailable"}
+        </span>
+        <span>{activeSession ? cwdShort(activeSession.cwd) : "No session selected"}</span>
+        {gitStatus && (
+          <span>{`${gitStatus.branch} · ${gitStatus.files.length} changes`}</span>
+        )}
+        <span className="ml-auto">{`PiArc ${packageInfo.version}`}</span>
+      </footer>
 
-function EmptyState() {
-  return (
-    <div className="flex h-full select-none flex-col items-center justify-center gap-2.5">
-      <span className="text-[30px] leading-none text-[var(--color-ink-9)]">π</span>
-      <p className="text-[13px] text-[var(--color-ink-7)]">Select a session to resume</p>
-      <p className="text-[11px] text-[var(--color-ink-9)]">⌘K — command palette</p>
+      {commandPaletteOpen && <CommandPalette />}
     </div>
   );
 }

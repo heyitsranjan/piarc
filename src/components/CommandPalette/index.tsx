@@ -3,7 +3,7 @@
  * ⌘K overlay — search and open any session. All async states handled.
  */
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Loader2, Search, TerminalSquare } from "lucide-react";
 
@@ -34,6 +34,7 @@ export default function CommandPalette() {
 
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelected] = useState(0);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const q = query.toLowerCase().trim();
   const { sessionResults, terminalResults, results } = useMemo(() => {
@@ -65,6 +66,16 @@ export default function CommandPalette() {
     setSelected(0);
   }, [query]);
 
+  useEffect(() => {
+    setSelected((index) => Math.min(index, Math.max(0, results.length - 1)));
+  }, [results.length]);
+
+  useEffect(() => {
+    resultsRef.current
+      ?.querySelector<HTMLElement>(`[data-result-index="${selectedIdx}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [results, selectedIdx]);
+
   const confirm = useCallback(
     async (index = selectedIdx) => {
       const result = results[index];
@@ -91,7 +102,13 @@ export default function CommandPalette() {
   );
 
   useKeyboard([
-    { key: "Escape", handler: close },
+    {
+      key: "Escape",
+      handler: (event) => {
+        event.stopImmediatePropagation();
+        close();
+      },
+    },
     { key: "ArrowUp", handler: () => setSelected((i) => Math.max(0, i - 1)) },
     {
       key: "ArrowDown",
@@ -103,7 +120,7 @@ export default function CommandPalette() {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] palette-backdrop"
+        className="arc-dialog-backdrop fixed inset-0 z-50 palette-backdrop"
         onClick={close}
         aria-hidden
       />
@@ -112,18 +129,10 @@ export default function CommandPalette() {
         role="dialog"
         aria-label="Command palette"
         aria-modal
-        className="fixed z-50 top-[15%] left-1/2 -translate-x-1/2
-          w-full max-w-lg palette-panel
-          bg-[var(--color-bg-2)] border border-[var(--color-border)]
-          rounded-[var(--radius-lg)]
-          shadow-[0_24px_64px_rgba(0,0,0,0.7)]
-          overflow-hidden"
+        className="arc-dialog-panel palette-panel fixed left-1/2 top-[15%] z-50 w-[520px] max-w-[calc(100vw-40px)] -translate-x-1/2 overflow-hidden border"
       >
         {/* Search row */}
-        <div
-          className="flex items-center gap-3 px-4 border-b border-[var(--color-border)]"
-          style={{ height: 48 }}
-        >
+        <div className="flex h-12 items-center gap-3 border-b border-[var(--color-border)] px-[15px]">
           <Search
             size={14}
             strokeWidth={1.8}
@@ -135,20 +144,16 @@ export default function CommandPalette() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search sessions and terminals…"
             autoFocus
-            className="flex-1 text-[13px] bg-transparent text-[var(--color-ink-0)]
+            className="flex-1 bg-transparent font-mono text-[10px] text-[var(--color-ink-0)]
               placeholder:text-[var(--color-ink-9)] outline-none"
           />
-          <kbd
-            className="text-[10px] text-[var(--color-ink-9)] shrink-0
-            border border-[var(--color-border)] rounded-[var(--radius-xs)]
-            px-1.5 py-0.5"
-          >
+          <kbd className="shrink-0 border border-[var(--color-border)] px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-ink-9)]">
             esc
           </kbd>
         </div>
 
         {/* Results */}
-        <div className="max-h-[288px] overflow-y-auto">
+        <div ref={resultsRef} className="max-h-[288px] overflow-y-auto">
           {state.type === "initial" && terminalResults.length === 0 && (
             <Status>Starting…</Status>
           )}
@@ -162,12 +167,12 @@ export default function CommandPalette() {
 
           {state.type === "error" && (
             <div className="space-y-2 px-4 py-4 text-center">
-              <p className="text-[12px] text-[var(--color-danger)]">
+              <p className="font-mono text-[9px] text-[var(--color-danger)]">
                 Failed to load sessions
               </p>
               <button
                 onClick={loadSessions}
-                className="text-[11px] text-[var(--color-accent)] hover:underline"
+                className="arc-dialog-button text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
               >
                 Retry
               </button>
@@ -185,6 +190,7 @@ export default function CommandPalette() {
                   trailing={timeAgo(session.modified)}
                   onSelect={() => void confirm(index)}
                   onHover={() => setSelected(index)}
+                  index={index}
                 />
               ))}
             </ResultSection>
@@ -204,6 +210,7 @@ export default function CommandPalette() {
                     trailing={timeAgo(tab.createdAt)}
                     onSelect={() => void confirm(index)}
                     onHover={() => setSelected(index)}
+                    index={index}
                   />
                 );
               })}
@@ -218,11 +225,7 @@ export default function CommandPalette() {
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center gap-4 px-4 h-8
-          border-t border-[var(--color-border)]
-          text-[10px] text-[var(--color-ink-9)]"
-        >
+        <div className="flex h-8 items-center gap-4 border-t border-[var(--color-border)] px-[15px] font-mono text-[8px] text-[var(--color-ink-7)]">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc close</span>
@@ -235,7 +238,7 @@ export default function CommandPalette() {
 function ResultSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="px-4 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-9)]">
+      <h2 className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-9)]">
         {title}
       </h2>
       <ul role="listbox">{children}</ul>
@@ -251,6 +254,7 @@ function ResultRow({
   trailing,
   onSelect,
   onHover,
+  index,
 }: {
   icon?: ReactNode;
   selected: boolean;
@@ -259,31 +263,37 @@ function ResultRow({
   trailing: string;
   onSelect: () => void;
   onHover: () => void;
+  index: number;
 }) {
   return (
     <li
       role="option"
       aria-selected={selected}
+      data-result-index={index}
       onClick={onSelect}
       onMouseEnter={onHover}
       className={cn(
-        "flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5",
-        "transition-colors duration-[var(--duration-fast)]",
-        selected ? "bg-[var(--color-bg-active)]" : "hover:bg-[var(--color-bg-hover)]"
+        "group relative mx-1.5 flex h-12 cursor-pointer select-none items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
+        selected ? "arc-row-active" : "hover:text-[var(--color-ink-0)]"
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
         {icon && <span className="shrink-0 text-[var(--color-ink-7)]">{icon}</span>}
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[13px] font-medium text-[var(--color-ink-0)]">
+        <div className="flex min-w-0 flex-col justify-center">
+          <span
+            className={cn(
+              "block truncate font-mono text-[10px] font-semibold leading-[12px]",
+              selected ? "text-[var(--color-accent)]" : "text-[var(--color-ink-1)]"
+            )}
+          >
             {title}
           </span>
-          <span className="truncate font-mono text-[10.5px] text-[var(--color-ink-9)]">
+          <span className="mt-1 block truncate font-mono text-[8px] leading-[9px] text-[var(--color-ink-7)]">
             {subtitle}
           </span>
         </div>
       </div>
-      <span className="shrink-0 text-[10.5px] tabular-nums text-[var(--color-ink-9)]">
+      <span className="block w-[18px] shrink-0 text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
         {trailing}
       </span>
     </li>
@@ -292,7 +302,7 @@ function ResultRow({
 
 function Status({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center justify-center h-16 text-[12px] text-[var(--color-ink-7)]">
+    <div className="flex h-16 items-center justify-center font-mono text-[9px] text-[var(--color-ink-7)]">
       {children}
     </div>
   );

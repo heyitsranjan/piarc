@@ -38,6 +38,75 @@ export const getMachinePermissions = (): Promise<MachinePermission[]> =>
 
 export const openPermissionSettings = (kind: PermissionKind): Promise<void> =>
   invoke("open_permission_settings", { kind });
+// ─── Custom models ────────────────────────────────────────────────────────
+
+export type CustomModelApi =
+  "openai-completions" | "openai-responses" | "anthropic-messages";
+
+export interface CustomModelCost {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
+export interface CustomModelDraft {
+  name: string;
+  providerName: string;
+  baseUrl: string;
+  apiKey: string;
+  modelId: string;
+  api: CustomModelApi;
+  reasoning: boolean;
+  imageInput: boolean;
+  contextWindow: number;
+  maxTokens: number;
+  cost: CustomModelCost;
+}
+
+export interface CustomModel {
+  providerId: string;
+  providerName: string;
+  name: string;
+  modelId: string;
+  baseUrl: string;
+  api: CustomModelApi;
+  reasoning: boolean;
+  imageInput: boolean;
+  contextWindow: number;
+  maxTokens: number;
+  cost: CustomModelCost;
+}
+
+export interface ConnectionReport {
+  success: boolean;
+  message: string;
+}
+
+/** Test authentication and the selected model with a minimal provider request. */
+export const testCustomModel = (draft: CustomModelDraft): Promise<ConnectionReport> =>
+  invoke("test_custom_model", { draft });
+
+/** Store the credential in Keychain and merge the model into OMP configuration. */
+export const saveCustomModel = (draft: CustomModelDraft): Promise<CustomModel> =>
+  invoke("save_custom_model", { draft });
+
+/** Return custom models currently configured in OMP's global models file. */
+export const listCustomModels = (): Promise<CustomModel[]> =>
+  invoke("list_custom_models");
+
+/** Update an existing custom model without exposing its stored credential. */
+export const updateCustomModel = (
+  originalProviderId: string,
+  originalModelId: string,
+  draft: CustomModelDraft
+): Promise<CustomModel> =>
+  invoke("update_custom_model", { originalProviderId, originalModelId, draft });
+
+/** Delete a custom model, its unused credential, and its OMP role assignments. */
+export const deleteCustomModel = (providerId: string, modelId: string): Promise<void> =>
+  invoke("delete_custom_model", { providerId, modelId });
+
 // ─── Sessions ──────────────────────────────────────────────────────────────
 
 /**
@@ -113,6 +182,10 @@ export const listInstalledEditors = (): Promise<InstalledEditor[]> =>
 /** Open a project folder in an installed editor selected by its allowlisted ID. */
 export const openFolderInEditor = (editorId: string, path: string): Promise<void> =>
   invoke("open_folder_in_editor", { editorId, path });
+
+/** Open a project folder in Finder. */
+export const openFolderInFinder = (path: string): Promise<void> =>
+  invoke("open_folder_in_finder", { path });
 
 // ─── Git review ───────────────────────────────────────────────────────────
 

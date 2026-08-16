@@ -1,4 +1,4 @@
-# OMPX
+# PiArc
 
 A lightweight, local-first macOS desktop companion for [OMP](https://omp.sh). Browse recent sessions, resume them in embedded terminals, inspect project files and Git changes, and explicitly manage macOS permissions used by approved automation actions.
 
@@ -8,7 +8,7 @@ A lightweight, local-first macOS desktop companion for [OMP](https://omp.sh). Br
 - Apple Silicon or Intel Mac
 - [OMP](https://omp.sh) installed in the login-shell `PATH`
 
-OMPX stores no cloud account and sends no telemetry. Session data remains in OMP's existing `~/.omp/agent/sessions/` directory. OMPX persists only interface preferences and disconnected terminal metadata in the local WebView profile.
+PiArc stores no cloud account and sends no telemetry. Session data remains in OMP's existing `~/.omp/agent/sessions/` directory. PiArc persists only interface preferences and disconnected terminal metadata in the local WebView profile.
 
 ## Features
 
@@ -24,7 +24,7 @@ OMPX stores no cloud account and sends no telemetry. Session data remains in OMP
 
 ## Install
 
-Download the signed and notarized DMG from [GitHub Releases](https://github.com/ranjan-hackerrank/ompx/releases), open it, and drag **OMPX** into Applications.
+Download the signed and notarized DMG from [GitHub Releases](https://github.com/ranjan-hackerrank/ompx/releases), open it, and drag **PiArc** into Applications.
 
 Release builds are not published until Apple signing and notarization checks pass. Until the first public release, build from source.
 
@@ -59,9 +59,9 @@ bun run tauri build --bundles app
 
 ## Privacy and permissions
 
-Launching an application normally requires no privacy permission. Controlling another application may require Automation or Accessibility; inspecting screen pixels requires Screen Recording. OMPX explains the requested capability before opening the macOS prompt or System Settings. Permissions remain revocable under **System Settings → Privacy & Security**.
+Launching an application normally requires no privacy permission. Controlling another application may require Automation or Accessibility; inspecting screen pixels requires Screen Recording. PiArc explains the requested capability before opening the macOS prompt or System Settings. Permissions remain revocable under **System Settings → Privacy & Security**.
 
-OMPX does not request Input Monitoring, Full Disk Access, camera, or microphone access. If a future feature needs one, that change requires a separate security review and purpose-specific consent.
+PiArc does not request Input Monitoring, Full Disk Access, camera, or microphone access. If a future feature needs one, that change requires a separate security review and purpose-specific consent.
 
 ## Architecture
 
@@ -83,7 +83,7 @@ Trust-boundary rules:
 macOS logs are stored under:
 
 ```text
-~/Library/Logs/com.heyitsranjan.ompx/ompx.log
+~/Library/Logs/com.heyitsranjan.piarc/piarc.log
 ```
 
 Logs contain operational metadata only. Do not attach logs publicly without reviewing them.

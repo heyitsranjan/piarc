@@ -14,3 +14,9 @@ pub fn list_installed_editors() -> Vec<InstalledEditor> {
 pub fn open_folder_in_editor(editor_id: String, path: String) -> Result<(), String> {
     editors::open_folder(&editor_id, Path::new(&path)).map_err(|error| error.to_string())
 }
+
+/// Open a project folder in Finder.
+#[tauri::command]
+pub fn open_folder_in_finder(path: String) -> Result<(), String> {
+    editors::open_in_finder(Path::new(&path)).map_err(|error| error.to_string())
+}

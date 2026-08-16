@@ -1,7 +1,8 @@
 {
-  "productName": "OMPX",
-  "version": "0.1.0",
-  "identifier": "com.heyitsranjan.ompx",
+  "productName": "PiArc",
+  "mainBinaryName": "PiArc",
+  "version": "0.1.1",
+  "identifier": "com.heyitsranjan.piarc",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -11,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "OMPX",
+        "title": "PiArc",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -28,6 +29,9 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
+    "resources": {
+      "resources/piarc-status.js": "piarc-status.js"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

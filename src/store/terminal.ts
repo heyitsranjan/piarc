@@ -12,6 +12,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { AgentActivity } from "@/lib/agent-activity";
 import { MAX_TABS } from "@/lib/constants";
 import { killPty } from "@/lib/ipc";
 import { shortId } from "@/lib/utils";
@@ -45,12 +46,8 @@ export interface Tab {
    * null means no error (either loading or live).
    */
   error: string | null;
-  /**
-   * True while PTY bytes are actively flowing (omp is thinking/running).
-   * Set by TerminalTab on each output chunk; cleared after 500ms of silence.
-   * Used by SessionRow to show spinner vs idle green dot.
-   */
-  isOutputting: boolean;
+  /** Semantic OMP lifecycle state emitted by the bundled status extension. */
+  activity: AgentActivity;
 }
 
 interface TerminalState {
@@ -77,6 +74,8 @@ interface TerminalState {
   enableTerminalInteraction: (tabId: string) => void;
   /** Return xterm to passive output-only mode. */
   disableTerminalInteraction: (tabId: string) => void;
+  /** Replace a temporary new-session identifier with the ID reported by OMP. */
+  bindTabSession: (tabId: string, sessionId: string) => void;
 
   /** Mark a tab's PTY as ready (loading = false, error = null). */
   setTabReady: (tabId: string) => void;
@@ -94,8 +93,8 @@ interface TerminalState {
 
   /** Retry: reset a failed tab back to loading so the caller can re-spawn. */
   retryTab: (tabId: string) => void;
-  /** Set output-activity flag; called from TerminalTab on each PTY chunk. */
-  setTabOutputting: (tabId: string, outputting: boolean) => void;
+  /** Apply a structured lifecycle update emitted by the OMP status extension. */
+  setTabActivity: (tabId: string, activity: AgentActivity) => void;
 }
 
 export const useTerminalStore = create<TerminalState>()(
@@ -112,7 +111,7 @@ export const useTerminalStore = create<TerminalState>()(
           id,
           isLoading: true,
           error: null,
-          isOutputting: false,
+          activity: { state: "starting" },
           createdAt: Date.now() / 1000,
           isPinned: false,
           ...session,
@@ -129,8 +128,7 @@ export const useTerminalStore = create<TerminalState>()(
         }
         set((s) => {
           const tabs = s.tabs.filter((t) => t.id !== tabId);
-          const activeTabId =
-            s.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.activeTabId;
+          const activeTabId = s.activeTabId === tabId ? null : s.activeTabId;
           const interactiveTabId =
             s.interactiveTabId === tabId ? null : s.interactiveTabId;
           return { tabs, activeTabId, interactiveTabId };
@@ -149,14 +147,23 @@ export const useTerminalStore = create<TerminalState>()(
       setTabReady: (tabId) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId ? { ...t, isLoading: false, error: null } : t
+            t.id === tabId
+              ? {
+                  ...t,
+                  isLoading: false,
+                  error: null,
+                  activity: { state: "waiting_input" },
+                }
+              : t
           ),
         })),
 
       setTabError: (tabId, message) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId ? { ...t, isLoading: false, error: message } : t
+            t.id === tabId
+              ? { ...t, isLoading: false, error: message, activity: { state: "error" } }
+              : t
           ),
         })),
 
@@ -173,27 +180,47 @@ export const useTerminalStore = create<TerminalState>()(
       retryTab: (tabId) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId ? { ...t, isLoading: true, error: null } : t
+            t.id === tabId
+              ? { ...t, isLoading: true, error: null, activity: { state: "starting" } }
+              : t
           ),
         })),
 
-      setTabOutputting: (tabId, isOutputting) =>
+      bindTabSession: (tabId, sessionId) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isOutputting } : t)),
+          tabs: s.tabs.map((tab) =>
+            tab.id === tabId && tab.kind === "omp" ? { ...tab, sessionId } : tab
+          ),
+        })),
+
+      setTabActivity: (tabId, activity) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, activity } : t)),
         })),
     }),
     {
-      name: "ompx-terminal-tabs",
+      name: "piarc-terminal-tabs",
       partialize: (state) => ({
         tabs: state.tabs.map((tab) => ({
           ...tab,
           isLoading: false,
-          isOutputting: false,
+          activity: { state: "disconnected" },
           error: "Disconnected — select to reconnect",
         })),
-        activeTabId: state.activeTabId,
-        interactiveTabId: null,
       }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<TerminalState>;
+        return {
+          ...current,
+          ...saved,
+          tabs: (saved.tabs ?? []).map((tab) => ({
+            ...tab,
+            activity: { state: "disconnected" },
+          })),
+          activeTabId: null,
+          interactiveTabId: null,
+        };
+      },
     }
   )
 );

@@ -35,7 +35,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           "bg-[var(--color-bg-2)] text-[var(--color-ink-1)]",
           "placeholder:text-[var(--color-ink-7)]",
           "border border-[var(--color-border-2)]",
-          "focus:outline-none focus:border-[var(--color-accent)]",
+          "focus:outline-none",
           "transition-colors duration-[var(--duration-fast)]",
           leftIcon ? "pl-7" : "pl-2.5",
           rightSlot ? "pr-7" : "pr-2.5",

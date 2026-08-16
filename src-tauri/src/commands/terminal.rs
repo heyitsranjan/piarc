@@ -6,9 +6,9 @@
 //! - `pty_output:<tab_id>`  payload: base64-encoded output chunk (String)
 //! - `pty_exit:<tab_id>`    payload: exit code (i32)
 
-use std::env;
+use std::{env, path::PathBuf};
 
-use tauri::{Emitter, State};
+use tauri::{path::BaseDirectory, Emitter, Manager, State};
 use tracing::{error, info};
 
 use crate::services::pty_manager::PtyProgram;
@@ -19,6 +19,20 @@ use crate::state::AppState;
 /// Detect the user's login shell, falling back to `/bin/zsh`.
 fn login_shell() -> String {
     env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+}
+
+fn status_extension(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let path = app
+        .path()
+        .resolve("piarc-status.js", BaseDirectory::Resource)
+        .map_err(|error| format!("failed to resolve PiArc status extension: {error}"))?;
+    if !path.is_file() {
+        return Err(format!(
+            "PiArc status extension is missing: {}",
+            path.display()
+        ));
+    }
+    Ok(path)
 }
 
 /// Emit a PTY output event; log on failure.
@@ -37,10 +51,10 @@ fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
 
 // ─── Commands ─────────────────────────────────────────────────────────────
 
-/// Spawn a new PTY for `tab_id`, running `omp --resume <session_id>`.
+/// Spawn a new PTY for `tab_id`, loading the PiArc lifecycle extension and
+/// resuming `session_id`.
 ///
-/// Shell command: `cd '<cwd>'; omp --resume <id>; exec <shell>`
-/// The `exec <shell>` keeps the window interactive after omp exits.
+/// The login shell remains interactive after omp exits.
 ///
 /// If a PTY already exists for `tab_id`, this is a no-op.
 #[tauri::command]
@@ -61,11 +75,15 @@ pub async fn create_pty(
     }
 
     let shell = login_shell();
+    let extension = status_extension(&app)?;
     let pm = state.pty_manager.clone();
 
     pm.spawn(
         tab_id.clone(),
-        PtyProgram::Resume(&session_id),
+        PtyProgram::Resume {
+            session_id: &session_id,
+            extension: &extension,
+        },
         &cwd,
         (cols, rows),
         &shell,
@@ -132,11 +150,12 @@ pub async fn new_session_pty(
     info!("new OMP PTY requested");
 
     let shell = login_shell();
+    let extension = status_extension(&app)?;
     let pm = state.pty_manager.clone();
 
     pm.spawn(
         tab_id.clone(),
-        PtyProgram::NewSession,
+        PtyProgram::NewSession(&extension),
         &cwd,
         (cols, rows),
         &shell,

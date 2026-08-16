@@ -11,12 +11,19 @@ import { useTheme } from "@/hooks/useTheme";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
+import { useTerminalStore } from "@/store/terminal";
 
 import { EVENT_SESSIONS_UPDATED } from "@/lib/constants";
 import { log } from "@/lib/logger";
 
 export default function App() {
-  const loadSessions = useSessionStore((s) => s.loadSessions);
+  const sessions = useSessionStore((state) => state.sessions);
+  const loadSessions = useSessionStore((state) => state.loadSessions);
+  const setActiveSession = useSessionStore((state) => state.setActive);
+  const activeSessionId = useTerminalStore((state) => {
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
+    return activeTab?.kind === "omp" ? activeTab.sessionId : null;
+  });
   const refreshOmp = useOmpStore((state) => state.refresh);
 
   useTheme();
@@ -24,6 +31,11 @@ export default function App() {
   useEffect(() => {
     void refreshOmp();
   }, [refreshOmp]);
+
+  // The visible PTY is authoritative; sidebar selection follows its OMP session ID.
+  useEffect(() => {
+    setActiveSession(sessions.find((session) => session.id === activeSessionId) ?? null);
+  }, [activeSessionId, sessions, setActiveSession]);
 
   // Initial load + FS-watcher live refresh
   useEffect(() => {

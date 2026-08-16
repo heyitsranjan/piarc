@@ -1,33 +1,52 @@
-/** Sidebar view title and session-specific actions. */
-import { Loader2, RotateCcw } from "lucide-react";
+/** Compact collection switcher for sessions and plain terminals. */
+import type { SidebarMode } from "@/store/ui";
 
-import { useSessionStore } from "@/store/sessions";
+import { cn } from "@/lib/utils";
 
-export default function SidebarHeader() {
-  const isLoading = useSessionStore((state) => state.isLoading);
-  const loadSessions = useSessionStore((state) => state.loadSessions);
+interface SidebarHeaderProps {
+  mode: SidebarMode;
+  sessionCount: number;
+  terminalCount: number;
+  onModeChange: (mode: SidebarMode) => void;
+}
 
+export default function SidebarHeader({
+  mode,
+  sessionCount,
+  terminalCount,
+  onModeChange,
+}: SidebarHeaderProps) {
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between px-3">
-      <span
-        className="text-[11px] font-semibold uppercase tracking-[0.06em]
-        text-[var(--color-ink-5)]"
-      >
-        Sessions
-      </span>
-      <button
-        type="button"
-        onClick={() => loadSessions()}
-        title="Refresh sessions (⌘R)"
-        aria-label="Refresh sessions"
-        className="sidebar-toolbar-button"
-      >
-        {isLoading ? (
-          <Loader2 size={16} strokeWidth={1.8} className="animate-spin" />
-        ) : (
-          <RotateCcw size={16} strokeWidth={1.8} />
-        )}
-      </button>
+    <div
+      role="tablist"
+      aria-label="Sidebar view"
+      className="mx-2 mb-[5px] mt-2 grid shrink-0 grid-cols-2 gap-0.5 rounded-[2px] border
+        border-[var(--color-border)] bg-[#0a0b0d] p-0.5"
+    >
+      {(
+        [
+          ["sessions", "Sessions", sessionCount],
+          ["terminals", "Terminals", terminalCount],
+        ] as const
+      ).map(([value, label, count]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={mode === value}
+          onClick={() => onModeChange(value)}
+          className={cn(
+            "arc-side-tab h-[25px] rounded-[2px] border-0 px-[6px] py-px font-mono text-[8px]",
+            "uppercase tracking-[0.08em] transition-colors hover:text-[var(--color-ink-1)]",
+            mode === value && "arc-side-tab-active"
+          )}
+        >
+          <span>{label}</span>
+          <span className="ml-[5px] font-medium tabular-nums text-[var(--color-accent)]">
+            {count}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -4,38 +4,39 @@
    VS Code-inspired region discipline; native macOS typography; 4px grid. */
 @theme {
   /* Surfaces */
-  --color-titlebar: #181818;
-  --color-sidebar: #181818;
-  --color-bg: #0a0b0e;
-  --color-bg-elev: #181818;
-  --color-bg-2: #242424;
-  --color-input: #202124;
-  --color-bg-hover: #2a2d2e;
-  --color-bg-active: #323436;
-  --color-bg-hi: #36393a;
+  /* PiArc's dark terminal shell. */
+  --color-titlebar: #0b0c0f;
+  --color-sidebar: #0d0f12;
+  --color-bg: #090a0c;
+  --color-bg-elev: #121419;
+  --color-bg-2: #181b20;
+  --color-input: #121419;
+  --color-bg-hover: #181b20;
+  --color-bg-active: #24272d;
+  --color-bg-hi: #24272d;
 
   /* Borders */
-  --color-border: #2b2b2b;
+  --color-border: #24272d;
   --color-border-2: rgba(255, 255, 255, 0.05);
-  --color-border-strong: #464646;
+  --color-border-strong: #353940;
 
   /* Text */
-  --color-ink-0: #f0f0f0;
-  --color-ink-1: #cccccc;
-  --color-ink-5: #a3a3a3;
-  --color-ink-7: #797979;
-  --color-ink-9: #565656;
+  --color-ink-0: #e9eaec;
+  --color-ink-1: #c7c9cd;
+  --color-ink-5: #a0a4ac;
+  --color-ink-7: #858a93;
+  --color-ink-9: #50545c;
 
   /* Accent and semantics */
-  --color-accent: #3ddc84;
-  --color-accent-hover: #5ae898;
-  --color-accent-dim: rgba(61, 220, 132, 0.1);
-  --color-accent-border: rgba(61, 220, 132, 0.22);
-  --color-focus: #3ddc84;
-  --color-success: #3ddc84;
-  --color-warn: #f2c94c;
-  --color-danger: #f15b5b;
-  --color-info: #4ea1ff;
+  --color-accent: #d7ff64;
+  --color-accent-hover: #e2ff93;
+  --color-accent-dim: rgba(215, 255, 100, 0.1);
+  --color-accent-border: rgba(215, 255, 100, 0.22);
+  --color-focus: #d7ff64;
+  --color-success: #76d69c;
+  --color-warn: #e4c36d;
+  --color-danger: #e87079;
+  --color-info: #86baff;
   --color-cyan: #89ddff;
   --syntax-keyword: #c792ea;
   --syntax-string: #c3e88d;
@@ -46,19 +47,19 @@
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
 
   /* Stable workbench geometry */
   --titlebar-height: 40px;
-  --sidebar-width: 300px;
+  --sidebar-width: 280px;
   --row-height: 44px;
 
   /* Radius */
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
 
   /* Spacing */
   --sp-1: 4px;
@@ -120,10 +121,20 @@ body {
   background-color: var(--color-bg);
   color: var(--color-ink-0);
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.4;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-size: 12px;
+  line-height: normal;
+}
+
+/* Clickable controls must advertise their action consistently. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -175,10 +186,209 @@ html {
   height: var(--titlebar-height);
 }
 .titlebar-leading {
-  padding-left: 76px;
+  position: relative;
+  width: 300px;
+  height: 30px;
+  padding-left: 114px;
 }
 .app-titlebar[data-fullscreen] .titlebar-leading {
-  padding-left: 8px;
+  padding-left: 48px;
+}
+.app-titlebar > .ml-auto {
+  width: 430px;
+}
+
+.titlebar-leading > .titlebar-button {
+  position: absolute;
+  top: 1.5px;
+  left: 76px;
+  border: 1px solid var(--color-border);
+  background: var(--color-sidebar);
+}
+.app-titlebar[data-fullscreen] .titlebar-leading > .titlebar-button {
+  left: 10px;
+}
+
+.sidebar-panel {
+  border-right: 1px solid var(--color-border);
+}
+
+.arc-row-active {
+  border-color: transparent;
+  border-radius: 0;
+  background: #13161a;
+}
+
+.arc-row-active::before {
+  position: absolute;
+  inset-block: 0;
+  left: -1px;
+  width: 1px;
+  background: var(--color-accent);
+  content: "";
+}
+
+/* Dialogs follow the prototype's square, compact macOS workbench chrome. */
+.arc-dialog-backdrop {
+  background: rgb(0 0 0 / 60%);
+  backdrop-filter: none;
+}
+
+.arc-dialog-panel {
+  border-color: var(--color-border-strong);
+  border-radius: 0;
+  background: var(--color-bg-elev);
+  box-shadow: 0 28px 80px #000b;
+}
+
+.arc-dialog-header {
+  min-height: 48px;
+  padding: 0 15px;
+}
+
+.arc-dialog-title {
+  font: 600 11px var(--font-mono);
+}
+
+.arc-dialog-subtitle {
+  margin-top: 5px;
+  color: var(--color-ink-9);
+  font: 8px var(--font-mono);
+}
+
+.arc-dialog-body {
+  padding: 14px;
+}
+
+.arc-dialog-button {
+  font: 8px var(--font-mono);
+}
+
+.arc-dialog-panel input,
+.arc-dialog-panel select {
+  font-family: var(--font-mono);
+}
+
+.arc-side-tab {
+  color: #50545c;
+}
+
+.arc-side-tab-active {
+  background: #181b20;
+  color: #e9eaec;
+}
+
+.arc-brand {
+  display: grid;
+  gap: 5px;
+  padding-top: 1px;
+  line-height: 1;
+}
+.arc-brand strong {
+  color: var(--color-ink-0);
+  font: 600 11px/1 var(--font-mono);
+}
+.arc-brand small {
+  color: var(--color-ink-9);
+  font: 7px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.titlebar-action {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-ink-0);
+  transition:
+    color var(--duration-fast),
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+.titlebar-action:hover,
+.titlebar-action-active {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-ink-0);
+}
+.titlebar-action:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.titlebar-action-primary {
+  border-color: #444a3c;
+  background: #171b14;
+  color: var(--color-accent);
+  font-weight: 400;
+}
+.titlebar-action-primary:hover {
+  border-color: var(--color-accent);
+  background: #1d2417;
+  color: var(--color-accent-hover);
+}
+
+.arc-statusbar {
+  display: flex;
+  min-height: 23px;
+  align-items: center;
+  gap: 15px;
+  border-top: 1px solid var(--color-border);
+  padding: 0 9px;
+  background: var(--color-titlebar);
+  color: var(--color-ink-9);
+  font: 7px/1 var(--font-mono);
+}
+.arc-status-ok {
+  color: var(--color-success);
+}
+
+.arc-sidebar-footer {
+  flex: none;
+  border-top: 1px solid var(--color-border);
+  padding: 9px;
+}
+.arc-sidebar-create {
+  display: flex;
+  width: 100%;
+  height: 31px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #444a3c;
+  border-radius: 0;
+  padding: 1px 8px;
+  background: #171b14;
+  color: var(--color-accent);
+  font: 8px var(--font-mono);
+  text-align: left;
+}
+.arc-sidebar-create-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+.arc-sidebar-create:hover {
+  border-color: var(--color-accent);
+  background: #1d2417;
+  color: var(--color-accent-hover);
+}
+.arc-sidebar-create-shortcut {
+  color: var(--color-ink-1);
+  font: 8px/1 var(--font-mono);
+}
+.arc-sidebar-create.arc-dialog-action {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 1px 10px;
 }
 
 .titlebar-button,
@@ -186,9 +396,9 @@ html {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
   color: var(--color-ink-7);
   transition:
     color var(--duration-fast),
@@ -223,6 +433,7 @@ html {
     z-index: 30;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.35);
   }
+
   .resize-handle {
     display: none;
   }
@@ -234,6 +445,61 @@ html {
     var(--git-review-width, 860px),
     calc(100vw - var(--git-review-left-inset, 0px))
   );
+}
+.arc-workspace-header {
+  display: flex;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 10px;
+  background: var(--color-titlebar);
+}
+.arc-workspace-icon {
+  flex: none;
+  color: var(--color-accent);
+}
+.arc-workspace-heading {
+  min-width: 0;
+  flex: 1;
+}
+.arc-workspace-title {
+  overflow: hidden;
+  color: var(--color-ink-1);
+  font: 600 10px/1.15 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arc-workspace-path {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--color-ink-9);
+  font: 8px/1 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arc-workspace-count {
+  min-width: 16px;
+  color: var(--color-ink-7);
+  font: 8px/1 var(--font-mono);
+  text-align: right;
+}
+.arc-workspace-action {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--color-ink-7);
+}
+.arc-workspace-action:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-ink-1);
 }
 
 .git-review-tree {
@@ -482,8 +748,10 @@ html {
   border-radius: var(--radius-xs);
 }
 
-.rich-input-control:focus,
-.rich-input-control:focus-visible {
+input:not([type="checkbox"]):not([type="radio"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+textarea:focus,
+textarea:focus-visible {
   outline: none;
 }
 

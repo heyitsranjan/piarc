@@ -25,16 +25,16 @@ export interface OmpSession {
  * Format a Unix timestamp as a human-readable relative duration.
  *
  * @example
- * timeAgo(Date.now() / 1000 - 300)   // → "5m ago"
- * timeAgo(Date.now() / 1000 - 7200)  // → "2h ago"
- * timeAgo(Date.now() / 1000 - 90000) // → "1d ago"
+ * timeAgo(Date.now() / 1000 - 300)   // → "5m"
+ * timeAgo(Date.now() / 1000 - 7200)  // → "2h"
+ * timeAgo(Date.now() / 1000 - 90000) // → "1d"
  */
 export function timeAgo(ts: number): string {
   const diff = Math.floor(Date.now() / 1000) - ts;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
   return new Date(ts * 1000).toLocaleDateString();
 }
 

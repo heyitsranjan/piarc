@@ -4,7 +4,7 @@
  */
 import { useRef } from "react";
 
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 
@@ -29,13 +29,7 @@ export default function SearchBar() {
   ]);
 
   return (
-    <div className="relative px-2 pb-2">
-      <span
-        className="pointer-events-none absolute left-[18px] top-[8px]
-        text-[var(--color-ink-7)]"
-      >
-        <Search size={14} strokeWidth={1.8} />
-      </span>
+    <div className="relative px-2 pb-[7px]">
       <input
         ref={ref}
         type="search"
@@ -43,11 +37,15 @@ export default function SearchBar() {
         onChange={(event) => setSearch(event.target.value)}
         placeholder={`Search ${label}`}
         aria-label={`Search ${label} (⌘F)`}
-        className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-border)]
-          bg-[var(--color-input)] pl-8 pr-8 text-[13px] text-[var(--color-ink-1)]
-          placeholder:text-[var(--color-ink-7)] focus:border-[var(--color-focus)]
-          focus:outline-none"
+        className="h-[31px] w-full rounded-[4px] border border-[var(--color-border)]
+          bg-[var(--color-bg)] px-[9px] pr-10 font-mono text-[9px] text-[var(--color-ink-1)]
+          placeholder:text-[var(--color-ink-7)] focus:outline-none"
       />
+      {!searchQuery && (
+        <kbd className="pointer-events-none absolute right-4 top-[15.5px] -translate-y-1/2 font-mono text-[8px] text-[var(--color-ink-5)]">
+          ⌘ F
+        </kbd>
+      )}
       {searchQuery && (
         <button
           type="button"

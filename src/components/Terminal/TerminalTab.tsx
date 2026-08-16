@@ -22,15 +22,24 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
+import { ArrowDownToLine } from "lucide-react";
+
 import { useTerminal } from "@/hooks/useTerminal";
 
 import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { AGENT_ACTIVITY_OSC, parseAgentActivity } from "@/lib/agent-activity";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
+import { isShiftedEnter, shiftedEnterSequence } from "@/lib/terminal-keys";
+import {
+  SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX,
+  animateTerminalToBottom,
+  shouldShowScrollToBottom,
+} from "@/lib/terminal-scroll";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 
@@ -41,10 +50,10 @@ interface TerminalTabProps {
 
 /** xterm.js theme — ANSI palette from Warp dark + HackerRank Pair. */
 const XTERM_THEME = {
-  background: "#0a0b0e", // canvas bg
+  background: "#090a0c", // canvas matches the application body
   foreground: "#f0f1f5", // primary text
   cursor: "#3ddc84", // accent green cursor
-  cursorAccent: "#0a0b0e",
+  cursorAccent: "#090a0c",
   selectionBackground: "#2a2d36",
   black: "#1e2028",
   red: "#f15b5b",
@@ -99,14 +108,17 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const outputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
   const richInputEnabled =
     FEATURE_RICH_INPUT && richInputPreference && tab.kind === "omp";
   const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const isScrolledUpRef = useRef(false);
+  const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
   const { retryTab, closeTab } = useTerminal();
-  const setTabOutputting = useTerminalStore((s) => s.setTabOutputting);
+  const setTabActivity = useTerminalStore((s) => s.setTabActivity);
+  const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -126,11 +138,13 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
     const container = containerRef.current;
     if (!container) return;
+    isScrolledUpRef.current = false;
+    setIsScrolledUp(false);
 
     const term = new Terminal({
       theme: PASSIVE_XTERM_THEME,
       fontFamily: "'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace",
-      fontSize: 11.5,
+      fontSize: 11,
       lineHeight: 1.4,
       cursorStyle: "bar",
       cursorBlink: false,
@@ -145,9 +159,59 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     term.loadAddon(links);
     term.open(container);
 
+    term.attachCustomKeyEventHandler((event) => {
+      if (!isShiftedEnter(event)) return true;
+      const sequence = shiftedEnterSequence(event);
+      if (sequence) writePty(tab.id, sequence).catch(() => {});
+      return false;
+    });
+
     fit.fit();
     termRef.current = term;
     fitRef.current = fit;
+
+    const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
+      if (tab.kind !== "omp") return false;
+      const activity = parseAgentActivity(data);
+      if (!activity) return false;
+      if (activity.sessionId) bindTabSession(tab.id, activity.sessionId);
+      setTabActivity(tab.id, {
+        state: activity.state,
+        detail: activity.detail,
+      });
+      return true;
+    });
+
+    let upwardWheelDistance = 0;
+    const setScrollControlVisible = (visible: boolean) => {
+      if (visible === isScrolledUpRef.current) return;
+      isScrolledUpRef.current = visible;
+      setIsScrolledUp(visible);
+    };
+
+    const scrollDispose = term.onScroll((viewportY) => {
+      const shouldShow = shouldShowScrollToBottom(viewportY, term.buffer.active.baseY);
+      if (!shouldShow) upwardWheelDistance = 0;
+      setScrollControlVisible(shouldShow);
+    });
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      if (
+        shouldShowScrollToBottom(term.buffer.active.viewportY, term.buffer.active.baseY)
+      ) {
+        setScrollControlVisible(true);
+        return;
+      }
+      if (event.deltaY > 0) {
+        upwardWheelDistance = 0;
+        setScrollControlVisible(false);
+        return;
+      }
+      upwardWheelDistance += -event.deltaY;
+      setScrollControlVisible(upwardWheelDistance >= SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX);
+    };
+    container.addEventListener("wheel", onWheel, { passive: true });
 
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
@@ -157,17 +221,15 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const binary = atob(ev.payload);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
-
-      // Mark session as actively outputting → sidebar shows spinner
-      setTabOutputting(tab.id, true);
-      // Revert to idle green dot after 500ms of silence
-      clearTimeout(outputTimer.current ?? undefined);
-      outputTimer.current = setTimeout(() => setTabOutputting(tab.id, false), 500);
     });
 
     const unlistenExit = listen<number>(exitKey, (ev) => {
       setExited({ code: ev.payload });
       term.write(`\r\n\x1b[2m[process exited with code ${ev.payload}]\x1b[0m\r\n`);
+      setTabActivity(tab.id, {
+        state: ev.payload === 0 ? "done" : "error",
+        detail: `Process exited with code ${ev.payload}`,
+      });
     });
 
     // Direct mode forwards all input. Rich mode limits xterm to OMP menu controls.
@@ -192,14 +254,25 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       unlistenOutput.then((fn) => fn());
       unlistenExit.then((fn) => fn());
       onDataDispose.dispose();
+      statusDispose.dispose();
+      cancelScrollAnimationRef.current?.();
+      cancelScrollAnimationRef.current = null;
+      scrollDispose.dispose();
+      container.removeEventListener("wheel", onWheel);
       ro.disconnect();
       term.dispose();
-      clearTimeout(outputTimer.current ?? undefined);
-      setTabOutputting(tab.id, false);
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [disableTerminalInteraction, setTabOutputting, tab.id, tab.isLoading, tab.error]);
+  }, [
+    bindTabSession,
+    disableTerminalInteraction,
+    setTabActivity,
+    tab.id,
+    tab.isLoading,
+    tab.error,
+    tab.kind,
+  ]);
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables
   // xterm only while an OMP command owns an interactive terminal menu.
@@ -292,12 +365,30 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
       {/* ── Live terminal ───────────────────────────────────────────────── */}
       {!tab.isLoading && tab.error === null && (
-        // Reserve border space around the fitted xterm viewport without
-        // changing its font size or line height.
-        <div className="flex-1 w-full flex flex-col bg-[var(--color-bg)] overflow-hidden min-h-0 px-4">
-          <div ref={containerRef} className="flex-1 w-full min-h-0" />
-          <div className="h-4 shrink-0 bg-[var(--color-bg)]" />
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[var(--color-bg)] p-2">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div ref={containerRef} className="min-h-0 w-full flex-1" />
+          </div>
         </div>
+      )}
+
+      {isScrolledUp && !tab.isLoading && tab.error === null && (
+        <button
+          type="button"
+          onClick={() => {
+            const term = termRef.current;
+            if (!term) return;
+            isScrolledUpRef.current = false;
+            setIsScrolledUp(false);
+            cancelScrollAnimationRef.current?.();
+            cancelScrollAnimationRef.current = animateTerminalToBottom(term);
+          }}
+          className="absolute bottom-5 right-5 z-10 grid size-8 place-items-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-bg-elev)] text-[var(--color-ink-3)] shadow-lg transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+          title="Scroll terminal to bottom"
+          aria-label="Scroll terminal to bottom"
+        >
+          <ArrowDownToLine size={14} strokeWidth={1.8} aria-hidden />
+        </button>
       )}
 
       {/* ── Exited banner (overlaid on terminal, non-blocking) ─────────── */}

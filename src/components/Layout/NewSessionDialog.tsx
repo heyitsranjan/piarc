@@ -19,7 +19,10 @@ export default function NewSessionDialog({
 }: NewSessionDialogProps) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -32,27 +35,27 @@ export default function NewSessionDialog({
 
   return (
     <div
-      className="palette-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
+      className="arc-dialog-backdrop palette-backdrop fixed inset-0 z-50 flex items-center justify-center"
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal
         aria-label="Create"
-        className="palette-panel mx-4 w-full max-w-sm overflow-hidden rounded-[var(--radius-lg)] border
-          border-[var(--color-border)] bg-[var(--color-bg-2)] shadow-[0_24px_64px_rgba(0,0,0,0.65)]"
+        className="arc-dialog-panel palette-panel mx-5 w-[390px] max-w-[calc(100vw-40px)] overflow-hidden border"
       >
-        <div className="border-b border-[var(--color-border)] px-4 py-3.5">
-          <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">Create</h2>
-          <p className="mt-0.5 text-[11px] text-[var(--color-ink-7)]">
-            Start OMPX or open a plain terminal.
-          </p>
+        <div className="arc-dialog-header relative flex flex-col justify-center border-b border-[var(--color-border)]">
+          <h2 className="arc-dialog-title text-[var(--color-ink-0)]">Create</h2>
+          <p className="arc-dialog-subtitle">Start PiArc or open a plain terminal.</p>
+          <kbd className="absolute right-[15px] top-1/2 -translate-y-1/2 border border-[var(--color-border)] px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-ink-9)]">
+            esc
+          </kbd>
         </div>
-        <div className="grid gap-2 p-3">
+        <div className="arc-dialog-body grid">
           <Choice
             autoFocus
             icon={<Bot size={18} strokeWidth={1.7} />}
-            title="OMPX session"
+            title="PiArc session"
             description={
               ompAvailable ? "Start a new omp session" : "Install omp to create sessions"
             }
@@ -97,20 +100,24 @@ function Choice({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)]
-        bg-[var(--color-bg)] px-3 py-3 text-left transition-colors hover:border-[var(--color-border-strong)]
-        hover:bg-[var(--color-bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+      className="mb-2 flex h-[58px] items-center gap-2.5 rounded-[4px] border border-[var(--color-border)]
+        bg-[#101217] p-[11px] text-left transition-colors hover:border-[#4a5041]
+        hover:bg-[#151913] disabled:cursor-not-allowed disabled:opacity-40"
     >
-      <span className="text-[var(--color-accent)]">{icon}</span>
+      <span className="grid size-[34px] shrink-0 place-items-center rounded-[4px] border border-[#444a3d] text-[var(--color-accent)]">
+        {icon}
+      </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[12px] font-medium text-[var(--color-ink-1)]">
+        <span className="block text-[10px] font-semibold text-[var(--color-ink-0)]">
           {title}
         </span>
-        <span className="mt-0.5 block text-[10.5px] text-[var(--color-ink-7)]">
+        <span className="mt-1 block font-mono text-[8px] text-[var(--color-ink-9)]">
           {description}
         </span>
       </span>
-      <kbd className="ml-auto text-[10px] text-[var(--color-ink-9)]">{shortcut}</kbd>
+      <kbd className="ml-auto font-mono text-[8px] text-[var(--color-ink-9)]">
+        {shortcut}
+      </kbd>
     </button>
   );
 }

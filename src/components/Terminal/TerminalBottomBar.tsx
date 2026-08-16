@@ -12,7 +12,7 @@ export default function TerminalBottomBar({ left, right }: TerminalBottomBarProp
         border-[var(--color-border)] bg-[var(--color-bg-raised)] px-2 py-1
         text-[9px] text-[var(--color-ink-9)]"
     >
-      <div className="min-w-0 truncate">{left}</div>
+      <span className="shrink-0">{left}</span>
       <div className="flex shrink-0 items-center gap-2">{right}</div>
     </div>
   );

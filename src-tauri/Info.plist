@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
   <key>NSAppleEventsUsageDescription</key>
-  <string>OMPX uses Automation only when you approve an action that controls another application.</string>
+  <string>PiArc uses Automation only when you approve an action that controls another application.</string>
   <key>NSScreenCaptureUsageDescription</key>
-  <string>OMPX inspects screen content only when you approve an action that requires it.</string>
+  <string>PiArc inspects screen content only when you approve an action that requires it.</string>
 </dict>
 </plist>

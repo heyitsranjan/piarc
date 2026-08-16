@@ -3,13 +3,13 @@
  * Opens a terminal running `omp` (no --resume) to start a fresh session.
  *
  * Flow:
- * 1. Open a new tab titled "New session".
- * 2. Spawn PTY running `omp` in the user's home directory.
- * 3. omp creates a JSONL file; the FS watcher fires and updates the sidebar.
+ * 1. Ask the user to choose the working directory.
+ * 2. Open a new tab and spawn its PTY in that directory.
+ * 3. omp creates a JSONL file; the FS watcher updates the sidebar.
  */
 import { useCallback, useState } from "react";
 
-import { homeDir } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   TERMINAL_DEFAULT_COLS,
@@ -17,7 +17,6 @@ import {
 } from "@/components/Terminal/constants";
 
 import { useOmpStore } from "@/store/omp";
-import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
@@ -44,7 +43,6 @@ export function useNewSession(): UseNewSessionReturn {
   const [isStarting, setIsStarting] = useState(false);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const { openTab, setTabReady, setTabError } = useTerminalStore();
-  const setActive = useSessionStore((s) => s.setActive);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
 
   const start = useCallback(
@@ -54,8 +52,23 @@ export function useNewSession(): UseNewSessionReturn {
         return;
       }
       setIsStarting(true);
-      const cwd = await homeDir().catch(() => "~");
       const isTerminal = kind === "terminal";
+      const cwd = await open({
+        directory: true,
+        multiple: false,
+        title: isTerminal
+          ? "Choose location for new terminal"
+          : "Choose location for new PiArc session",
+      }).catch((reason) => {
+        log.error("useNewSession: folder selection failed", {
+          err: reason instanceof Error ? reason.message : String(reason),
+        });
+        return null;
+      });
+      if (typeof cwd !== "string") {
+        setIsStarting(false);
+        return;
+      }
       const title = isTerminal ? "Terminal" : "New session";
       const tabId = openTab({
         kind,
@@ -70,12 +83,6 @@ export function useNewSession(): UseNewSessionReturn {
         return;
       }
       setSidebarMode(isTerminal ? "terminals" : "sessions");
-
-      setActive(
-        isTerminal
-          ? null
-          : { id: "", path: "", title, cwd, modified: 0, firstMessage: "" }
-      );
 
       try {
         const params = {
@@ -94,7 +101,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [ompAvailable, openTab, setTabReady, setTabError, setActive, setSidebarMode]
+    [ompAvailable, openTab, setTabReady, setTabError, setSidebarMode]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);

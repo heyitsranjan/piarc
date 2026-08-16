@@ -1,20 +1,13 @@
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { useState } from "react";
 
-import { createPortal } from "react-dom";
+import { Menu } from "@tauri-apps/api/menu";
 
-import {
-  Loader2,
-  MoreVertical,
-  Pin,
-  PinOff,
-  SquarePen,
-  TerminalSquare,
-  Trash2,
-} from "lucide-react";
+import { CircleAlert, Loader2 } from "lucide-react";
 
 import type { Tab } from "@/store/terminal";
 
+import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -38,41 +31,23 @@ export default function TerminalRow({
   onRename,
   onTogglePin,
 }: TerminalRowProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLUListElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: Event) => {
-      if (
-        !menuRef.current?.contains(event.target as Node) &&
-        !buttonRef.current?.contains(event.target as Node)
-      ) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    window.addEventListener("scroll", close, true);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      window.removeEventListener("scroll", close, true);
-    };
-  }, [menuOpen]);
-
-  const openMenu = (event: ReactMouseEvent) => {
+  const openMenu = async (event: ReactMouseEvent) => {
+    event.preventDefault();
     event.stopPropagation();
-    if (menuOpen) {
-      setMenuOpen(false);
-      return;
-    }
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
-    setMenuOpen(true);
+    const menu = await Menu.new({
+      items: [
+        { text: "Rename", action: () => setRenameOpen(true) },
+        {
+          text: tab.isPinned ? "Unpin" : "Pin to top",
+          action: onTogglePin,
+        },
+        { text: "Delete terminal", action: () => setDeleteOpen(true) },
+      ],
+    });
+    await menu.popup();
   };
 
   const deleteTerminal = () => {
@@ -80,150 +55,81 @@ export default function TerminalRow({
     onDelete();
   };
 
-  const isBusy = tab.isLoading || tab.isOutputting;
-  const isIdle = !isBusy && tab.error === null;
+  const isWorking = tab.isLoading || isAgentWorking(tab.activity);
+  const needsAttention =
+    tab.activity.state === "waiting_approval" || tab.activity.state === "error";
+  const activityLabel = agentActivityLabel(tab.activity);
 
+  const showActivity = isWorking || needsAttention;
   return (
     <>
       <li
         role="button"
         tabIndex={0}
         aria-selected={isActive}
+        onContextMenu={(event) => void openMenu(event)}
         onClick={onSelect}
         onKeyDown={(event) => event.key === "Enter" && onSelect()}
         className={cn(
-          "group relative mx-1.5 flex h-11 cursor-pointer select-none items-center gap-2",
-          "rounded-[var(--radius-sm)] px-2 transition-colors duration-[var(--duration-fast)]",
+          "group relative mx-1.5 h-12 cursor-pointer select-none",
+          "rounded-[4px] border border-transparent transition-colors duration-[var(--duration-fast)]",
           isActive
-            ? "bg-[var(--color-bg-active)] text-[var(--color-ink-0)]"
-            : "text-[var(--color-ink-1)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-0)]"
+            ? "arc-row-active text-[var(--color-ink-1)]"
+            : "text-[var(--color-ink-1)] hover:text-[var(--color-ink-0)]"
         )}
       >
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--color-accent)]" />
-        )}
-
-        <span className="flex size-4 shrink-0 items-center justify-center">
-          {isBusy ? (
-            <Loader2
-              size={14}
-              strokeWidth={2}
-              className="animate-spin text-[var(--color-accent)]"
-              aria-label={tab.isLoading ? "Starting terminal" : "Terminal active"}
-            />
-          ) : isIdle ? (
-            <span
-              title="Terminal open"
-              className="size-2 rounded-full bg-[var(--color-accent)] opacity-80"
-            />
-          ) : tab.isPinned ? (
-            <Pin
-              size={12}
-              fill="currentColor"
-              strokeWidth={0}
-              className="text-[var(--color-accent)] opacity-70"
-              aria-label="Pinned"
-            />
-          ) : (
-            <TerminalSquare size={13} className="text-[var(--color-ink-7)]" />
-          )}
-        </span>
-
-        <div className="min-w-0 flex-1">
+        <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 flex-col justify-center">
           <span
-            className="block truncate text-[13px] font-medium leading-[18px]"
+            className={cn(
+              "block truncate font-mono text-[10px] font-semibold leading-[12px]",
+              isActive && "text-[var(--color-accent)]"
+            )}
             title={tab.title}
           >
             {tab.title}
           </span>
           <span
-            className="block truncate font-mono text-[11px] leading-4 text-[var(--color-ink-7)]"
-            title={tab.cwd}
+            className={cn(
+              "mt-1 block truncate font-mono text-[8px] leading-[9px]",
+              showActivity
+                ? tab.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : tab.activity.state === "waiting_approval"
+                    ? "text-[var(--color-warn)]"
+                    : "text-[var(--color-accent)]"
+                : "text-[var(--color-ink-7)]"
+            )}
+            title={showActivity ? activityLabel : tab.cwd}
           >
-            {cwdShort(tab.cwd)}
+            {showActivity ? activityLabel : cwdShort(tab.cwd)}
           </span>
         </div>
 
-        <div className="relative flex h-7 w-14 shrink-0 items-center justify-end">
-          <span
-            className={cn(
-              "text-[11px] tabular-nums leading-4 text-[var(--color-ink-7)]",
-              "transition-opacity duration-[var(--duration-fast)]",
-              menuOpen ? "opacity-0" : "group-hover:opacity-0"
-            )}
-          >
-            {timeAgo(tab.createdAt)}
-          </span>
-          <button
-            ref={buttonRef}
-            type="button"
-            aria-label="Terminal options"
-            aria-expanded={menuOpen}
-            onClick={openMenu}
-            className={cn(
-              "absolute right-0 flex size-7 items-center justify-center rounded-[var(--radius-sm)]",
-              "text-[var(--color-ink-7)] transition-colors hover:bg-[var(--color-bg-hi)] hover:text-[var(--color-ink-0)]",
-              menuOpen
-                ? "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)] opacity-100"
-                : "opacity-0 group-hover:opacity-100"
-            )}
-          >
-            <MoreVertical size={16} strokeWidth={1.8} />
-          </button>
+        <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
+          {isWorking ? (
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              className="animate-spin text-[var(--color-accent)]"
+              aria-label={tab.isLoading ? "Starting terminal" : activityLabel}
+            />
+          ) : needsAttention ? (
+            <CircleAlert
+              size={13}
+              className={
+                tab.activity.state === "error"
+                  ? "text-[var(--color-danger)]"
+                  : "text-[var(--color-warn)]"
+              }
+              aria-label={activityLabel}
+            />
+          ) : (
+            <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
+              {timeAgo(tab.createdAt)}
+            </span>
+          )}
         </div>
       </li>
-
-      {menuOpen &&
-        createPortal(
-          <ul
-            ref={menuRef}
-            role="menu"
-            style={{
-              position: "fixed",
-              top: menuPos.top,
-              left: menuPos.left,
-              zIndex: 9999,
-            }}
-            className="w-44 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)]
-              bg-[var(--color-bg-2)] py-0.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
-          >
-            <MenuItem
-              icon={<SquarePen size={15} strokeWidth={1.8} />}
-              onClick={() => {
-                setMenuOpen(false);
-                setRenameOpen(true);
-              }}
-            >
-              Rename
-            </MenuItem>
-            <MenuItem
-              icon={
-                tab.isPinned ? (
-                  <PinOff size={15} strokeWidth={1.8} />
-                ) : (
-                  <Pin size={15} strokeWidth={1.8} />
-                )
-              }
-              onClick={() => {
-                onTogglePin();
-                setMenuOpen(false);
-              }}
-            >
-              {tab.isPinned ? "Unpin" : "Pin to top"}
-            </MenuItem>
-            <MenuItem
-              danger
-              icon={<Trash2 size={15} strokeWidth={1.8} />}
-              onClick={() => {
-                setMenuOpen(false);
-                setDeleteOpen(true);
-              }}
-            >
-              Delete terminal
-            </MenuItem>
-          </ul>,
-          document.body
-        )}
 
       {deleteOpen && (
         <ConfirmDeleteDialog
@@ -243,37 +149,5 @@ export default function TerminalRow({
         />
       )}
     </>
-  );
-}
-
-function MenuItem({
-  icon,
-  children,
-  danger = false,
-  onClick,
-}: {
-  icon: ReactNode;
-  children: ReactNode;
-  danger?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <li
-      role="menuitem"
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      className={cn(
-        "mx-0.5 flex h-8 cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-3",
-        "text-[13px] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)]",
-        danger
-          ? "text-[var(--color-danger)]"
-          : "text-[var(--color-ink-1)] hover:text-[var(--color-ink-0)]"
-      )}
-    >
-      <span className={danger ? undefined : "text-[var(--color-ink-7)]"}>{icon}</span>
-      {children}
-    </li>
   );
 }

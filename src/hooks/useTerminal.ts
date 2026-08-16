@@ -6,16 +6,17 @@
  * - opening → loading → ready (PTY live)
  * - opening → loading → error (PTY spawn failed)
  * - retry   → loading → ready | error
- *
+ * - refresh → kill current PTY → loading → ready | error
  * Components call these instead of wiring store + IPC manually.
  */
 import { useCallback } from "react";
 
-import { useSessionStore } from "@/store/sessions";
 import { type Tab, useTerminalStore } from "@/store/terminal";
 
 import { createPty, shellPty } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
+
+const refreshingSessionIds = new Set<string>();
 
 export interface UseTerminalReturn {
   /**
@@ -36,6 +37,12 @@ export interface UseTerminalReturn {
    * Resets the tab to `isLoading = true` and re-attempts PTY spawn.
    */
   retryTab: (tabId: string, cols: number, rows: number) => Promise<void>;
+
+  /**
+   * Restart one OMP session in a fresh tab and PTY.
+   * Any running command, unsent input, and transient shell state are discarded.
+   */
+  refreshSession: (session: OmpSession, cols: number, rows: number) => Promise<void>;
 }
 
 /**
@@ -55,7 +62,6 @@ export function useTerminal(): UseTerminalReturn {
     setTabError,
     retryTab: markRetry,
   } = useTerminalStore();
-  const setActive = useSessionStore((s) => s.setActive);
 
   /** Internal: spawn PTY for an already-opened tab. */
   const spawnPty = useCallback(
@@ -87,8 +93,6 @@ export function useTerminal(): UseTerminalReturn {
 
   const openSession = useCallback(
     async (session: OmpSession, cols: number, rows: number) => {
-      setActive(session);
-
       // Reuse an existing tab for this session rather than opening a duplicate
       const existing = tabs.find((t) => t.sessionId === session.id);
       if (existing) {
@@ -117,7 +121,7 @@ export function useTerminal(): UseTerminalReturn {
         rows
       );
     },
-    [tabs, openTab, setActiveTab, setActive, markRetry, spawnPty]
+    [tabs, openTab, setActiveTab, markRetry, spawnPty]
   );
 
   const retryTab = useCallback(
@@ -130,5 +134,37 @@ export function useTerminal(): UseTerminalReturn {
     [markRetry, spawnPty]
   );
 
-  return { openSession, closeTab, switchTab: setActiveTab, retryTab };
+  const refreshSession = useCallback(
+    async (session: OmpSession, cols: number, rows: number) => {
+      if (refreshingSessionIds.has(session.id)) return;
+      refreshingSessionIds.add(session.id);
+
+      try {
+        const existing = useTerminalStore
+          .getState()
+          .tabs.find((tab) => tab.sessionId === session.id);
+
+        if (existing) await closeTab(existing.id);
+
+        const tabId = openTab({
+          kind: "omp",
+          sessionId: session.id,
+          title: session.title,
+          cwd: session.cwd,
+        });
+        if (!tabId) return;
+
+        await spawnPty(
+          tabId,
+          { kind: "omp", sessionId: session.id, cwd: session.cwd },
+          cols,
+          rows
+        );
+      } finally {
+        refreshingSessionIds.delete(session.id);
+      }
+    },
+    [closeTab, openTab, spawnPty]
+  );
+  return { openSession, closeTab, switchTab: setActiveTab, retryTab, refreshSession };
 }

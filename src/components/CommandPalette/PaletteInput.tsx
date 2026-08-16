@@ -44,7 +44,7 @@ export default function PaletteInput({ value, onChange }: PaletteInputProps) {
       placeholder="Search sessions…"
       aria-label="Command palette search"
       leftIcon={<SearchIcon />}
-      className="text-sm py-3 border-transparent bg-transparent focus:border-transparent rounded-none"
+      className="bg-transparent py-3 text-sm border-transparent rounded-none"
     />
   );
 }

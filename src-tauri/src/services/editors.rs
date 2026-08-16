@@ -122,6 +122,12 @@ pub fn open_folder(editor_id: &str, folder: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn open_in_finder(folder: &Path) -> anyhow::Result<()> {
+    anyhow::ensure!(folder.is_dir(), "project folder does not exist");
+    Command::new("/usr/bin/open").arg(folder).spawn()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +136,11 @@ mod tests {
     fn unknown_editor_is_rejected() {
         let error = open_folder("not-an-editor", Path::new("/")).unwrap_err();
         assert_eq!(error.to_string(), "editor is not installed");
+    }
+
+    #[test]
+    fn finder_rejects_missing_folder() {
+        let error = open_in_finder(Path::new("/piarc-folder-that-does-not-exist")).unwrap_err();
+        assert_eq!(error.to_string(), "project folder does not exist");
     }
 }

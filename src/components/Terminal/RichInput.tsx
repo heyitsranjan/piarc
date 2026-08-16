@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CornerDownLeft, File, Loader2, Square, TerminalSquare } from "lucide-react";
 
 import { type Tab, useTerminalStore } from "@/store/terminal";
 
+import { isAgentWorking } from "@/lib/agent-activity";
 import {
   type OmpCommand,
   type OmpPathSuggestion,
@@ -24,7 +24,6 @@ interface CompletionContext {
 
 interface RichInputProps {
   tab: Tab;
-  bottomControls?: ReactNode;
 }
 
 interface CompletionItem {
@@ -196,7 +195,7 @@ function needsTerminalInteraction(value: string, commands: OmpCommand[]): boolea
   return true;
 }
 
-export default function RichInput({ tab, bottomControls }: RichInputProps) {
+export default function RichInput({ tab }: RichInputProps) {
   const [value, setValue] = useState("");
   const [cursor, setCursor] = useState(0);
   const [sending, setSending] = useState(false);
@@ -478,6 +477,10 @@ export default function RichInput({ tab, bottomControls }: RichInputProps) {
               onClick={(event) => updateCursor(event.currentTarget)}
               onSelect={(event) => setCursor(event.currentTarget.selectionStart)}
               onKeyDown={(event) => {
+                if (event.key === "Enter" && event.shiftKey) {
+                  event.stopPropagation();
+                  return;
+                }
                 if (
                   completionOpen &&
                   completions.length > 0 &&
@@ -522,7 +525,7 @@ export default function RichInput({ tab, bottomControls }: RichInputProps) {
               bg-transparent px-1.5 py-1 font-mono text-[12px] leading-5 text-[var(--color-ink-1)]
               placeholder:text-[var(--color-ink-9)] disabled:cursor-not-allowed disabled:opacity-50"
             />
-            {tab.isOutputting && (
+            {isAgentWorking(tab.activity) && (
               <button
                 type="button"
                 onClick={() => void interrupt()}
@@ -557,14 +560,11 @@ export default function RichInput({ tab, bottomControls }: RichInputProps) {
       <TerminalBottomBar
         left={error ?? (completionError ? "Completion unavailable" : "Ready")}
         right={
-          <>
-            <span>
-              {loadingCommands
-                ? "Reading active OMP commands…"
-                : "OMP completions · ↑↓ choose · Tab accept"}
-            </span>
-            {bottomControls}
-          </>
+          <span>
+            {loadingCommands
+              ? "Reading active OMP commands…"
+              : "OMP completions · ↑↓ choose · Tab accept"}
+          </span>
         }
       />
     </>
