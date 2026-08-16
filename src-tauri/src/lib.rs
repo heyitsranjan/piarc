@@ -127,6 +127,8 @@ pub fn run() {
             git::get_git_file_diff,
             sessions::list_sessions,
             system::get_omp_status,
+            system::check_omp_update,
+            system::install_omp_update,
             sessions::delete_session,
             system::get_machine_permissions,
             system::open_permission_settings,

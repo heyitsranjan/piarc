@@ -23,6 +23,14 @@ export interface OmpStatus {
 /** Resolve OMP using the user's login-shell environment. */
 export const getOmpStatus = (): Promise<OmpStatus> => invoke("get_omp_status");
 
+export interface OmpUpdate {
+  currentVersion: string | null;
+  availableVersion: string | null;
+}
+
+export const checkOmpUpdate = (): Promise<OmpUpdate> => invoke("check_omp_update");
+export const installOmpUpdate = (): Promise<OmpStatus> => invoke("install_omp_update");
+
 export type PermissionKind = "automation" | "accessibility" | "screenRecording";
 export type PermissionState = "granted" | "denied" | "managedBySystem" | "unsupported";
 

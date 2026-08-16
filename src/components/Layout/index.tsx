@@ -4,6 +4,8 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { LoaderCircle } from "lucide-react";
+
 import CommandPalette from "@/components/CommandPalette";
 import WorkspacePanel from "@/components/GitReview";
 import Sidebar from "@/components/Sidebar";
@@ -56,6 +58,12 @@ export default function Layout() {
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const workspaceMode = useUiStore((state) => state.workspaceMode);
+  const ompVersion = useOmpStore((state) => state.status?.version);
+  const ompUpdate = useOmpStore((state) => state.update);
+  const updateState = useOmpStore((state) => state.updateState);
+  const updateError = useOmpStore((state) => state.updateError);
+  const checkForUpdate = useOmpStore((state) => state.checkForUpdate);
+  const installUpdate = useOmpStore((state) => state.installUpdate);
   const closeWorkspace = useUiStore((state) => state.closeWorkspace);
   const [gitStatus, setGitStatus] = useState<GitChangesSnapshot | null>(null);
   const [width, setWidth] = useState(getSavedWidth);
@@ -177,8 +185,43 @@ export default function Layout() {
 
       <footer className="arc-statusbar">
         <span className={ompStatus?.installed ? "arc-status-ok" : undefined}>
-          {ompStatus?.installed ? "● OMP connected" : "○ OMP unavailable"}
+          {ompStatus?.installed
+            ? `● OMP ${ompVersion ?? "connected"}`
+            : "○ OMP unavailable"}
         </span>
+        {updateState === "checking" && (
+          <span className="flex items-center gap-1">
+            <LoaderCircle className="animate-spin" size={9} aria-hidden />
+            Checking updates…
+          </span>
+        )}
+        {updateState === "updating" && (
+          <span className="flex items-center gap-1">
+            <LoaderCircle className="animate-spin" size={9} aria-hidden />
+            Updating OMP…
+          </span>
+        )}
+        {updateState === "idle" && ompUpdate?.availableVersion && (
+          <button
+            type="button"
+            onClick={() => void installUpdate()}
+            title={`Install OMP ${ompUpdate.availableVersion}`}
+            aria-label={`Install OMP ${ompUpdate.availableVersion}`}
+            className="cursor-pointer text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
+          >
+            {`Update ${ompUpdate.availableVersion}`}
+          </button>
+        )}
+        {updateState === "error" && (
+          <button
+            type="button"
+            onClick={() => void checkForUpdate()}
+            title={updateError ?? "Update check failed"}
+            className="cursor-pointer text-[var(--color-warn)] hover:text-[var(--color-ink-1)]"
+          >
+            Update check failed · Retry
+          </button>
+        )}
         <span>{activeSession ? cwdShort(activeSession.cwd) : "No session selected"}</span>
         {gitStatus && (
           <span>{`${gitStatus.branch} · ${gitStatus.files.length} changes`}</span>
