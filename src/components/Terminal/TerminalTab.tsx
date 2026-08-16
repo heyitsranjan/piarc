@@ -22,6 +22,8 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
+import { ArrowDownToLine } from "lucide-react";
+
 import { useTerminal } from "@/hooks/useTerminal";
 
 import type { Tab } from "@/store/terminal";
@@ -32,6 +34,12 @@ import { AGENT_ACTIVITY_OSC, parseAgentActivity } from "@/lib/agent-activity";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
+import { isShiftedEnter, shiftedEnterSequence } from "@/lib/terminal-keys";
+import {
+  SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX,
+  animateTerminalToBottom,
+  shouldShowScrollToBottom,
+} from "@/lib/terminal-scroll";
 
 import { TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from "./constants";
 
@@ -105,6 +113,9 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     FEATURE_RICH_INPUT && richInputPreference && tab.kind === "omp";
   const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const isScrolledUpRef = useRef(false);
+  const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
   const { retryTab, closeTab } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
@@ -127,6 +138,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
     const container = containerRef.current;
     if (!container) return;
+    isScrolledUpRef.current = false;
+    setIsScrolledUp(false);
 
     const term = new Terminal({
       theme: PASSIVE_XTERM_THEME,
@@ -146,6 +159,13 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     term.loadAddon(links);
     term.open(container);
 
+    term.attachCustomKeyEventHandler((event) => {
+      if (!isShiftedEnter(event)) return true;
+      const sequence = shiftedEnterSequence(event);
+      if (sequence) writePty(tab.id, sequence).catch(() => {});
+      return false;
+    });
+
     fit.fit();
     termRef.current = term;
     fitRef.current = fit;
@@ -161,6 +181,37 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       });
       return true;
     });
+
+    let upwardWheelDistance = 0;
+    const setScrollControlVisible = (visible: boolean) => {
+      if (visible === isScrolledUpRef.current) return;
+      isScrolledUpRef.current = visible;
+      setIsScrolledUp(visible);
+    };
+
+    const scrollDispose = term.onScroll((viewportY) => {
+      const shouldShow = shouldShowScrollToBottom(viewportY, term.buffer.active.baseY);
+      if (!shouldShow) upwardWheelDistance = 0;
+      setScrollControlVisible(shouldShow);
+    });
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      if (
+        shouldShowScrollToBottom(term.buffer.active.viewportY, term.buffer.active.baseY)
+      ) {
+        setScrollControlVisible(true);
+        return;
+      }
+      if (event.deltaY > 0) {
+        upwardWheelDistance = 0;
+        setScrollControlVisible(false);
+        return;
+      }
+      upwardWheelDistance += -event.deltaY;
+      setScrollControlVisible(upwardWheelDistance >= SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX);
+    };
+    container.addEventListener("wheel", onWheel, { passive: true });
 
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
@@ -204,6 +255,10 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       unlistenExit.then((fn) => fn());
       onDataDispose.dispose();
       statusDispose.dispose();
+      cancelScrollAnimationRef.current?.();
+      cancelScrollAnimationRef.current = null;
+      scrollDispose.dispose();
+      container.removeEventListener("wheel", onWheel);
       ro.disconnect();
       term.dispose();
       termRef.current = null;
@@ -310,12 +365,30 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
       {/* ── Live terminal ───────────────────────────────────────────────── */}
       {!tab.isLoading && tab.error === null && (
-        // Reserve border space around the fitted xterm viewport without
-        // changing its font size or line height.
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[var(--color-bg)] px-4">
-          <div ref={containerRef} className="min-h-0 w-full flex-1" />
-          <div className="h-4 shrink-0 bg-[var(--color-bg)]" />
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[var(--color-bg)] p-2">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div ref={containerRef} className="min-h-0 w-full flex-1" />
+          </div>
         </div>
+      )}
+
+      {isScrolledUp && !tab.isLoading && tab.error === null && (
+        <button
+          type="button"
+          onClick={() => {
+            const term = termRef.current;
+            if (!term) return;
+            isScrolledUpRef.current = false;
+            setIsScrolledUp(false);
+            cancelScrollAnimationRef.current?.();
+            cancelScrollAnimationRef.current = animateTerminalToBottom(term);
+          }}
+          className="absolute bottom-5 right-5 z-10 grid size-8 place-items-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-bg-elev)] text-[var(--color-ink-3)] shadow-lg transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+          title="Scroll terminal to bottom"
+          aria-label="Scroll terminal to bottom"
+        >
+          <ArrowDownToLine size={14} strokeWidth={1.8} aria-hidden />
+        </button>
       )}
 
       {/* ── Exited banner (overlaid on terminal, non-blocking) ─────────── */}

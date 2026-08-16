@@ -199,7 +199,7 @@ export const useTerminalStore = create<TerminalState>()(
         })),
     }),
     {
-      name: "ompx-terminal-tabs",
+      name: "piarc-terminal-tabs",
       partialize: (state) => ({
         tabs: state.tabs.map((tab) => ({
           ...tab,

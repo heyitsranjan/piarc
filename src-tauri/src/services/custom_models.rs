@@ -18,9 +18,9 @@ use crate::models::{
     ConnectionReport, CustomModel, CustomModelApi, CustomModelCost, CustomModelDraft,
 };
 
-const PROVIDER_PREFIX: &str = "ompx-";
-const KEYCHAIN_ACCOUNT: &str = "ompx";
-const KEYCHAIN_SERVICE_PREFIX: &str = "com.heyitsranjan.ompx.provider.";
+const PROVIDER_PREFIX: &str = "piarc-";
+const KEYCHAIN_ACCOUNT: &str = "piarc";
+const KEYCHAIN_SERVICE_PREFIX: &str = "com.heyitsranjan.piarc.provider.";
 
 pub async fn test(draft: &CustomModelDraft) -> Result<ConnectionReport> {
     validate_draft(draft, false)?;
@@ -205,7 +205,7 @@ pub fn update(
 
 pub fn delete(provider_id: &str, model_id: &str) -> Result<()> {
     if !provider_id.starts_with(PROVIDER_PREFIX) {
-        bail!("Only OMPX custom models can be deleted");
+        bail!("Only PiArc custom models can be deleted");
     }
     let path = models_path()?;
     reject_symlink(&path)?;
@@ -713,7 +713,7 @@ mod tests {
     fn provider_names_become_isolated_ids() {
         assert_eq!(
             provider_id(" Company Portkey ").unwrap(),
-            "ompx-company-portkey"
+            "piarc-company-portkey"
         );
     }
 
@@ -779,7 +779,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn keychain_cli_round_trip() {
-        let service = format!("com.heyitsranjan.ompx.test.{}", uuid::Uuid::new_v4());
+        let service = format!("com.heyitsranjan.piarc.test.{}", uuid::Uuid::new_v4());
         set_secret(&service, b"temporary-secret").unwrap();
         assert_eq!(get_secret(&service).unwrap(), b"temporary-secret");
         delete_secret(&service).unwrap();

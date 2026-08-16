@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import process from "node:process";
 
-import ompxStatus from "../../src-tauri/resources/ompx-status";
+import piarcStatus from "../../src-tauri/resources/piarc-status";
 import { isAgentWorking, parseAgentActivity } from "./agent-activity";
 
 describe("agent activity protocol", () => {
-  test("parses a versioned OMPX status frame", () => {
+  test("parses a versioned PiArc status frame", () => {
     expect(
       parseAgentActivity(
-        'ompx://agent-status;{"v":1,"state":"tool","detail":"Running bash","sessionId":"session-123"}'
+        'piarc://agent-status;{"v":1,"state":"tool","detail":"Running bash","sessionId":"session-123"}'
       )
     ).toEqual({
       state: "tool",
@@ -20,13 +20,13 @@ describe("agent activity protocol", () => {
   test("rejects unrelated and malformed frames", () => {
     expect(parseAgentActivity("notify;other-app;{}")).toBeNull();
     expect(
-      parseAgentActivity('ompx://agent-status;{"v":2,"state":"thinking"}')
+      parseAgentActivity('piarc://agent-status;{"v":2,"state":"thinking"}')
     ).toBeNull();
     expect(
-      parseAgentActivity('ompx://agent-status;{"v":1,"state":"unknown"}')
+      parseAgentActivity('piarc://agent-status;{"v":1,"state":"unknown"}')
     ).toBeNull();
     expect(
-      parseAgentActivity('ompx://agent-status;{"v":1,"state":"thinking","sessionId":42}')
+      parseAgentActivity('piarc://agent-status;{"v":1,"state":"thinking","sessionId":42}')
     ).toBeNull();
   });
 
@@ -40,7 +40,7 @@ describe("agent activity protocol", () => {
     };
 
     try {
-      ompxStatus({ on: (event, handler) => handlers.set(event, handler) });
+      piarcStatus({ on: (event, handler) => handlers.set(event, handler) });
       handlers.get("session_start")(
         {},
         {

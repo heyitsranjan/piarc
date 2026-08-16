@@ -24,11 +24,11 @@ fn login_shell() -> String {
 fn status_extension(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let path = app
         .path()
-        .resolve("ompx-status.js", BaseDirectory::Resource)
-        .map_err(|error| format!("failed to resolve OMPX status extension: {error}"))?;
+        .resolve("piarc-status.js", BaseDirectory::Resource)
+        .map_err(|error| format!("failed to resolve PiArc status extension: {error}"))?;
     if !path.is_file() {
         return Err(format!(
-            "OMPX status extension is missing: {}",
+            "PiArc status extension is missing: {}",
             path.display()
         ));
     }
@@ -51,7 +51,7 @@ fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
 
 // ─── Commands ─────────────────────────────────────────────────────────────
 
-/// Spawn a new PTY for `tab_id`, loading the OMPX lifecycle extension and
+/// Spawn a new PTY for `tab_id`, loading the PiArc lifecycle extension and
 /// resuming `session_id`.
 ///
 /// The login shell remains interactive after omp exits.

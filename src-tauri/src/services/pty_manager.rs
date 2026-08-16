@@ -43,7 +43,7 @@ fn shell_quote(value: &str) -> String {
 fn omp_command(extension: &Path) -> Result<String> {
     let extension = extension
         .to_str()
-        .context("OMPX status extension path is not valid UTF-8")?;
+        .context("PiArc status extension path is not valid UTF-8")?;
     Ok(format!("omp --extension {}", shell_quote(extension)))
 }
 
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn resume_rejects_shell_syntax_in_session_id() {
-        let extension = Path::new("/Applications/OMPX.app/Contents/Resources/ompx-status.js");
+        let extension = Path::new("/Applications/PiArc.app/Contents/Resources/piarc-status.js");
         assert!(valid_session_id("019ffe5e-3e7e-7000-a243-ccce1998a378"));
         assert!(shell_command(
             PtyProgram::Resume {
@@ -305,11 +305,11 @@ mod tests {
 
     #[test]
     fn omp_program_loads_status_extension() {
-        let extension = Path::new("/tmp/ompx status.js");
+        let extension = Path::new("/tmp/piarc status.js");
         let command = shell_command(PtyProgram::NewSession(extension), "/bin/zsh").unwrap();
         assert_eq!(
             command,
-            "omp --extension '/tmp/ompx status.js'; exec '/bin/zsh' -l"
+            "omp --extension '/tmp/piarc status.js'; exec '/bin/zsh' -l"
         );
     }
 }

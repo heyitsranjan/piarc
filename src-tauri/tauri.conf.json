@@ -1,7 +1,7 @@
 {
   "productName": "PiArc",
   "version": "0.1.1",
-  "identifier": "com.heyitsranjan.ompx",
+  "identifier": "com.heyitsranjan.piarc",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -29,7 +29,7 @@
     "active": true,
     "targets": ["app", "dmg"],
     "resources": {
-      "resources/ompx-status.js": "ompx-status.js"
+      "resources/piarc-status.js": "piarc-status.js"
     },
     "icon": [
       "icons/32x32.png",

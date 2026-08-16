@@ -142,8 +142,15 @@ export default function Sidebar() {
         )}
       </div>
       <div className="arc-sidebar-footer">
-        <button type="button" className="arc-sidebar-create" onClick={openNewDialog}>
-          + Session or terminal
+        <button
+          type="button"
+          className="arc-sidebar-create"
+          onClick={openNewDialog}
+          aria-label="Create new session or terminal"
+          title="Create new session or terminal (⌘N)"
+        >
+          <span className="arc-sidebar-create-label">New Session / Terminal</span>
+          <kbd className="arc-sidebar-create-shortcut">⌘ N</kbd>
         </button>
       </div>
     </div>

@@ -29,7 +29,7 @@ pub fn run() {
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
-                        file_name: Some("ompx".into()),
+                        file_name: Some("piarc".into()),
                     }),
                     Target::new(TargetKind::Webview),
                 ])
@@ -50,7 +50,7 @@ pub fn run() {
         })
         // ── Setup ──────────────────────────────────────────────────────────
         .setup(|app| {
-            info!("OMPX starting up v{}", env!("CARGO_PKG_VERSION"));
+            info!("PiArc starting up v{}", env!("CARGO_PKG_VERSION"));
 
             // Managed state
             let app_state = AppState::new();
@@ -66,7 +66,7 @@ pub fn run() {
             app.manage(app_state);
 
             // ── Tray icon ─────────────────────────────────────────────────
-            let show = MenuItem::with_id(app, "show", "Show OMPX", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show PiArc", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
@@ -75,7 +75,7 @@ pub fn run() {
                 .icon(tauri::include_image!("icons/44x44.png"))
                 .icon_as_template(true)
                 .menu(&menu)
-                .tooltip("OMPX")
+                .tooltip("PiArc")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(w) = app.get_webview_window("main") {
@@ -138,5 +138,5 @@ pub fn run() {
             terminal::shell_pty,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running OMPX");
+        .expect("error while running PiArc");
 }

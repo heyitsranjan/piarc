@@ -1,7 +1,7 @@
-const OSC = "\x1b]777;ompx://agent-status;";
+const OSC = "\x1b]777;piarc://agent-status;";
 const BEL = "\x07";
 
-export default function ompxStatus(pi) {
+export default function piarcStatus(pi) {
   let agentActive = false;
   let generationState = "thinking";
   let retrying = false;

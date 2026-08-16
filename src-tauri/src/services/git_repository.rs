@@ -258,7 +258,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn repository_config_cannot_execute_programs() {
-        let root = std::env::temp_dir().join(format!("ompx-hostile-git-{}", uuid::Uuid::new_v4()));
+        let root = std::env::temp_dir().join(format!("piarc-hostile-git-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         assert!(Command::new("/usr/bin/git")
             .args(["init", "--quiet"])

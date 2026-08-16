@@ -1,6 +1,6 @@
 export const AGENT_ACTIVITY_OSC = 777;
 
-const PREFIX = "ompx://agent-status;";
+const PREFIX = "piarc://agent-status;";
 
 const STATES = [
   "starting",

@@ -38,9 +38,14 @@ export default function SearchBar() {
         placeholder={`Search ${label}`}
         aria-label={`Search ${label} (⌘F)`}
         className="h-[31px] w-full rounded-[4px] border border-[var(--color-border)]
-          bg-[var(--color-bg)] px-[9px] font-mono text-[9px] text-[var(--color-ink-1)]
+          bg-[var(--color-bg)] px-[9px] pr-10 font-mono text-[9px] text-[var(--color-ink-1)]
           placeholder:text-[var(--color-ink-7)] focus:outline-none"
       />
+      {!searchQuery && (
+        <kbd className="pointer-events-none absolute right-4 top-[15.5px] -translate-y-1/2 font-mono text-[8px] text-[var(--color-ink-5)]">
+          ⌘ F
+        </kbd>
+      )}
       {searchQuery && (
         <button
           type="button"

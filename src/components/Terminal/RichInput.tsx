@@ -477,6 +477,10 @@ export default function RichInput({ tab }: RichInputProps) {
               onClick={(event) => updateCursor(event.currentTarget)}
               onSelect={(event) => setCursor(event.currentTarget.selectionStart)}
               onKeyDown={(event) => {
+                if (event.key === "Enter" && event.shiftKey) {
+                  event.stopPropagation();
+                  return;
+                }
                 if (
                   completionOpen &&
                   completions.length > 0 &&

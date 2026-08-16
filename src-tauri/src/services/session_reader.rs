@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn session_path_must_be_a_direct_jsonl_child() {
-        let temp = std::env::temp_dir().join(format!("ompx-path-test-{}", uuid::Uuid::new_v4()));
+        let temp = std::env::temp_dir().join(format!("piarc-path-test-{}", uuid::Uuid::new_v4()));
         let root = temp.join("sessions");
         let bucket = root.join("project");
         fs::create_dir_all(&bucket).unwrap();
@@ -368,7 +368,7 @@ mod tests {
     fn session_path_rejects_symlinks() {
         use std::os::unix::fs::symlink;
 
-        let temp = std::env::temp_dir().join(format!("ompx-link-test-{}", uuid::Uuid::new_v4()));
+        let temp = std::env::temp_dir().join(format!("piarc-link-test-{}", uuid::Uuid::new_v4()));
         let root = temp.join("sessions");
         let bucket = root.join("project");
         fs::create_dir_all(&bucket).unwrap();
@@ -386,8 +386,10 @@ mod tests {
     fn discovery_ignores_symlinked_buckets_and_files() {
         use std::os::unix::fs::symlink;
 
-        let temp =
-            std::env::temp_dir().join(format!("ompx-discovery-link-test-{}", uuid::Uuid::new_v4()));
+        let temp = std::env::temp_dir().join(format!(
+            "piarc-discovery-link-test-{}",
+            uuid::Uuid::new_v4()
+        ));
         let root = temp.join("sessions");
         let bucket = root.join("project");
         let outside = temp.join("outside");

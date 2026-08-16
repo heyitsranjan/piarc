@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn finder_rejects_missing_folder() {
-        let error = open_in_finder(Path::new("/ompx-folder-that-does-not-exist")).unwrap_err();
+        let error = open_in_finder(Path::new("/piarc-folder-that-does-not-exist")).unwrap_err();
         assert_eq!(error.to_string(), "project folder does not exist");
     }
 }

@@ -2,7 +2,7 @@
  * @module lib/logger
  * Structured application logger for the frontend.
  *
- * Writes structured, privacy-filtered logs to OMPX's platform log directory.
+ * Writes structured, privacy-filtered logs to PiArc's platform log directory.
  *
  * Falls back to `console.*` when running outside Tauri (e.g. browser dev).
  *

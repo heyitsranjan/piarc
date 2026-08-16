@@ -125,6 +125,18 @@ body {
   line-height: normal;
 }
 
+/* Clickable controls must advertise their action consistently. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* ─── Animations ──────────────────────────────────────────────────────────── */
 html {
   transition:
@@ -269,6 +281,7 @@ html {
 .arc-brand {
   display: grid;
   gap: 5px;
+  padding-top: 1px;
   line-height: 1;
 }
 .arc-brand strong {
@@ -341,23 +354,34 @@ html {
   padding: 9px;
 }
 .arc-sidebar-create {
-  display: block;
+  display: flex;
   width: 100%;
   height: 31px;
+  align-items: center;
+  justify-content: space-between;
   border: 1px solid #444a3c;
   border-radius: 0;
-  padding: 1px 6px;
+  padding: 1px 8px;
   background: #171b14;
   color: var(--color-accent);
   font: 8px var(--font-mono);
-  text-align: center;
+  text-align: left;
+}
+.arc-sidebar-create-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
 }
 .arc-sidebar-create:hover {
   border-color: var(--color-accent);
   background: #1d2417;
   color: var(--color-accent-hover);
 }
-
+.arc-sidebar-create-shortcut {
+  color: var(--color-ink-1);
+  font: 8px/1 var(--font-mono);
+}
 .arc-sidebar-create.arc-dialog-action {
   display: inline-flex;
   width: auto;

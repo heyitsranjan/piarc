@@ -25,7 +25,7 @@ interface UiState {
   workspaceMode: WorkspaceMode | null;
   /** Active color theme. */
   theme: Theme;
-  /** Whether the rich composer owns text input instead of the active terminal. */
+  /** Whether the experimental rich composer owns text input instead of the active terminal. */
   richInputEnabled: boolean;
 
   toggleSidebar: () => void;
@@ -49,7 +49,7 @@ export const useUiStore = create<UiState>()(
       newDialogOpen: false,
       workspaceMode: null,
       theme: "system",
-      richInputEnabled: true,
+      richInputEnabled: false,
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
