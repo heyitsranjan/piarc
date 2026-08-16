@@ -61,6 +61,11 @@ export function isAgentWorking(activity: AgentActivity): boolean {
   }
 }
 
+/** True once when an active agent returns to its normal prompt. */
+export function isAgentCompletion(previous: AgentActivity, next: AgentActivity): boolean {
+  return isAgentWorking(previous) && next.state === "waiting_input";
+}
+
 export function agentActivityLabel(activity: AgentActivity): string {
   if (activity.detail) return activity.detail;
   switch (activity.state) {

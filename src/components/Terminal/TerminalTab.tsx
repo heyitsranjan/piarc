@@ -30,7 +30,12 @@ import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
-import { AGENT_ACTIVITY_OSC, parseAgentActivity } from "@/lib/agent-activity";
+import {
+  AGENT_ACTIVITY_OSC,
+  isAgentCompletion,
+  parseAgentActivity,
+} from "@/lib/agent-activity";
+import { notifyAgentCompletion } from "@/lib/agent-completion-notification";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
@@ -116,6 +121,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const isScrolledUpRef = useRef(false);
   const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
+  const activityRef = useRef(tab.activity);
+  const tabTitleRef = useRef(tab.title);
   const { retryTab, closeTab } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
@@ -127,6 +134,11 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   );
   const terminalInputEnabled =
     isVisible && (!richInputEnabled || interactiveCommandEnabled);
+
+  useEffect(() => {
+    activityRef.current = tab.activity;
+    tabTitleRef.current = tab.title;
+  }, [tab.activity, tab.title]);
 
   useEffect(() => {
     richInputEnabledRef.current = richInputEnabled;
@@ -174,11 +186,14 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       if (tab.kind !== "omp") return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
+      const previousActivity = activityRef.current;
+      const nextActivity = { state: activity.state, detail: activity.detail };
+      activityRef.current = nextActivity;
       if (activity.sessionId) bindTabSession(tab.id, activity.sessionId);
-      setTabActivity(tab.id, {
-        state: activity.state,
-        detail: activity.detail,
-      });
+      setTabActivity(tab.id, nextActivity);
+      if (isAgentCompletion(previousActivity, nextActivity)) {
+        notifyAgentCompletion(tabTitleRef.current).catch(() => {});
+      }
       return true;
     });
 

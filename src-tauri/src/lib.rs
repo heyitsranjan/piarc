@@ -23,6 +23,7 @@ use state::AppState;
 /// Build and run the Tauri application.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         // ── Logging ────────────────────────────────────────────────────────
         .plugin(
             tauri_plugin_log::Builder::new()

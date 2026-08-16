@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import process from "node:process";
 
 import piarcStatus from "../../src-tauri/resources/piarc-status";
-import { isAgentWorking, parseAgentActivity } from "./agent-activity";
+import { isAgentCompletion, isAgentWorking, parseAgentActivity } from "./agent-activity";
 
 describe("agent activity protocol", () => {
   test("parses a versioned PiArc status frame", () => {
@@ -71,4 +71,12 @@ describe("agent activity protocol", () => {
     expect(isAgentWorking({ state: "waiting_approval" })).toBe(false);
     expect(isAgentWorking({ state: "waiting_input" })).toBe(false);
   });
+});
+
+test("identifies the working-to-idle completion transition", () => {
+  expect(isAgentCompletion({ state: "tool" }, { state: "waiting_input" })).toBe(true);
+  expect(isAgentCompletion({ state: "thinking" }, { state: "done" })).toBe(false);
+  expect(isAgentCompletion({ state: "waiting_input" }, { state: "waiting_input" })).toBe(
+    false
+  );
 });
