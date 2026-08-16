@@ -121,6 +121,7 @@ pub fn run() {
             completion::read_workspace_file,
             editors::list_installed_editors,
             editors::open_folder_in_editor,
+            editors::open_folder_in_finder,
             git::get_git_changes,
             git::get_git_file_diff,
             sessions::list_sessions,

@@ -183,6 +183,10 @@ export const listInstalledEditors = (): Promise<InstalledEditor[]> =>
 export const openFolderInEditor = (editorId: string, path: string): Promise<void> =>
   invoke("open_folder_in_editor", { editorId, path });
 
+/** Open a project folder in Finder. */
+export const openFolderInFinder = (path: string): Promise<void> =>
+  invoke("open_folder_in_finder", { path });
+
 // ─── Git review ───────────────────────────────────────────────────────────
 
 /** List staged, unstaged, and untracked files in the repository containing `cwd`. */

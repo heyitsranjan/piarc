@@ -91,6 +91,7 @@ export default function TerminalArea() {
           <RichInput key={activeTab.id} tab={activeTab} bottomControls={bottomControls} />
         ) : (
           <TerminalBottomBar
+            cwd={activeTab.cwd}
             left={activeTab.kind === "terminal" ? "Terminal" : "Direct terminal input"}
             right={bottomControls}
           />
