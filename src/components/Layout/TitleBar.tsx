@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import {
-  FileDiff,
-  Files,
-  Loader2,
+  FolderTree,
+  GitBranch,
   PanelLeft,
-  Plus,
   RotateCcw,
-  Settings,
+  Settings2,
   ShieldCheck,
 } from "lucide-react";
 
@@ -36,7 +34,6 @@ import NewSessionDialog from "./NewSessionDialog";
 
 export default function TitleBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
@@ -47,13 +44,18 @@ export default function TitleBar() {
   const hasTerminals = useTerminalStore((state) =>
     state.tabs.some((tab) => tab.kind === "terminal")
   );
-  const title = activeSession?.title ?? activeTab?.title;
+  const title = activeSession
+    ? `${activeSession.title} — ${activeSession.cwd.split("/").pop()}`
+    : activeTab?.title;
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
   const openCommandPalette = useUiStore((state) => state.openCommandPalette);
   const workspaceMode = useUiStore((state) => state.workspaceMode);
   const toggleWorkspace = useUiStore((state) => state.toggleWorkspace);
+  const newDialogOpen = useUiStore((state) => state.newDialogOpen);
+  const openNewDialog = useUiStore((state) => state.openNewDialog);
+  const closeNewDialog = useUiStore((state) => state.closeNewDialog);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { refreshSession } = useTerminal();
 
@@ -64,7 +66,7 @@ export default function TitleBar() {
 
   const create = (action: () => Promise<void>) => {
     if (isStarting) return;
-    setNewDialogOpen(false);
+    closeNewDialog();
     void action();
   };
 
@@ -75,7 +77,7 @@ export default function TitleBar() {
   };
 
   useKeyboard([
-    { key: "n", meta: true, handler: () => setNewDialogOpen(true) },
+    { key: "n", meta: true, handler: openNewDialog },
     {
       key: "n",
       meta: true,
@@ -145,7 +147,7 @@ export default function TitleBar() {
         data-tauri-drag-region
       >
         <div
-          className="titlebar-leading flex min-w-0 items-center gap-1"
+          className="titlebar-leading flex min-w-0 items-center gap-2"
           data-tauri-drag-region
         >
           <button
@@ -155,24 +157,28 @@ export default function TitleBar() {
             aria-label="Toggle sidebar"
             className="titlebar-button"
           >
-            <PanelLeft size={18} strokeWidth={1.7} />
+            <PanelLeft size={16} strokeWidth={1.8} />
           </button>
-          <span className="app-wordmark truncate text-[13px] font-medium text-[var(--color-ink-1)]">
-            πx
+          <span className="arc-brand">
+            <strong>PiArc</strong>
+            <small>OMP desktop companion</small>
           </span>
         </div>
 
         {title && (
           <div
-            className="pointer-events-none absolute left-1/2 max-w-[42%] -translate-x-1/2 truncate
-            text-center text-[13px] font-medium text-[var(--color-ink-1)]"
+            className="pointer-events-none absolute left-[376px] right-[440px] truncate
+              text-center font-mono text-[9px] text-[var(--color-ink-7)]"
             title={title}
           >
             {title}
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-0.5 pr-2" data-tauri-drag-region>
+        <div
+          className="ml-auto mr-[10px] flex items-center justify-end gap-[3px]"
+          data-tauri-drag-region
+        >
           <button
             type="button"
             onClick={refreshActiveSession}
@@ -183,13 +189,9 @@ export default function TitleBar() {
                 : "Select a session to refresh"
             }
             aria-label="Refresh active session terminal"
-            className="titlebar-button"
+            className="titlebar-action"
           >
-            <RotateCcw
-              size={16}
-              strokeWidth={1.8}
-              className={activeTab?.isLoading ? "animate-spin" : undefined}
-            />
+            <RotateCcw size={13} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
@@ -199,12 +201,11 @@ export default function TitleBar() {
             aria-label="Open project explorer"
             aria-pressed={workspaceMode === "explorer"}
             className={cn(
-              "titlebar-button",
-              workspaceMode === "explorer" &&
-                "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)]"
+              "titlebar-action",
+              workspaceMode === "explorer" && "titlebar-action-active"
             )}
           >
-            <Files size={17} strokeWidth={1.8} />
+            <FolderTree size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
@@ -214,44 +215,29 @@ export default function TitleBar() {
             aria-label="Review Git changes"
             aria-pressed={workspaceMode === "git"}
             className={cn(
-              "titlebar-button",
-              workspaceMode === "git" &&
-                "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)]"
+              "titlebar-action",
+              workspaceMode === "git" && "titlebar-action-active"
             )}
           >
-            <FileDiff size={17} strokeWidth={1.8} />
+            <GitBranch size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
             title="Settings"
             aria-label="Open settings"
-            className="titlebar-button"
+            className="titlebar-action"
           >
-            <Settings size={16} strokeWidth={1.8} />
+            <Settings2 size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
             onClick={() => setPermissionsOpen(true)}
             title="Privacy & Permissions"
             aria-label="Privacy and permissions"
-            className="titlebar-button"
+            className="titlebar-action"
           >
-            <ShieldCheck size={16} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setNewDialogOpen(true)}
-            disabled={isStarting}
-            title="Create (⌘N)"
-            aria-label="Create session or terminal"
-            className="titlebar-button"
-          >
-            {isStarting ? (
-              <Loader2 size={17} strokeWidth={1.8} className="animate-spin" />
-            ) : (
-              <Plus size={18} strokeWidth={1.8} />
-            )}
+            <ShieldCheck size={14} strokeWidth={1.8} aria-hidden />
           </button>
         </div>
       </header>
@@ -261,7 +247,7 @@ export default function TitleBar() {
         <NewSessionDialog
           ompAvailable={ompAvailable}
           busy={isStarting}
-          onClose={() => setNewDialogOpen(false)}
+          onClose={closeNewDialog}
           onNewSession={startNewSession}
           onTerminal={startTerminal}
         />

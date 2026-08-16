@@ -20,8 +20,8 @@ export default function SidebarHeader({
     <div
       role="tablist"
       aria-label="Sidebar view"
-      className="mx-2 my-1.5 grid shrink-0 grid-cols-2 rounded-[var(--radius-sm)]
-        bg-[var(--color-input)] p-0.5"
+      className="mx-2 mb-[5px] mt-2 grid shrink-0 grid-cols-2 gap-0.5 rounded-[2px] border
+        border-[var(--color-border)] bg-[#0a0b0d] p-0.5"
     >
       {(
         [
@@ -36,21 +36,13 @@ export default function SidebarHeader({
           aria-selected={mode === value}
           onClick={() => onModeChange(value)}
           className={cn(
-            "flex h-6 items-center justify-center gap-1.5 rounded-[3px] text-[11px]",
-            "text-[var(--color-ink-7)] transition-colors hover:text-[var(--color-ink-1)]",
-            mode === value &&
-              "bg-[var(--color-bg-hi)] text-[var(--color-ink-0)] shadow-sm"
+            "arc-side-tab h-[25px] rounded-[2px] border-0 px-[6px] py-px font-mono text-[8px]",
+            "uppercase tracking-[0.08em] transition-colors hover:text-[var(--color-ink-1)]",
+            mode === value && "arc-side-tab-active"
           )}
         >
           <span>{label}</span>
-          <span
-            className={cn(
-              "min-w-4 rounded-full px-1 text-[9px] tabular-nums",
-              mode === value
-                ? "bg-[var(--color-accent-dim)] text-[var(--color-accent)]"
-                : "text-[var(--color-ink-9)]"
-            )}
-          >
+          <span className="ml-[5px] font-medium tabular-nums text-[var(--color-accent)]">
             {count}
           </span>
         </button>

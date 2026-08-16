@@ -42,10 +42,10 @@ interface TerminalTabProps {
 
 /** xterm.js theme — ANSI palette from Warp dark + HackerRank Pair. */
 const XTERM_THEME = {
-  background: "#0a0b0e", // canvas bg
+  background: "#090a0c", // canvas matches the application body
   foreground: "#f0f1f5", // primary text
   cursor: "#3ddc84", // accent green cursor
-  cursorAccent: "#0a0b0e",
+  cursorAccent: "#090a0c",
   selectionBackground: "#2a2d36",
   black: "#1e2028",
   red: "#f15b5b",
@@ -131,7 +131,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     const term = new Terminal({
       theme: PASSIVE_XTERM_THEME,
       fontFamily: "'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace",
-      fontSize: 11.5,
+      fontSize: 11,
       lineHeight: 1.4,
       cursorStyle: "bar",
       cursorBlink: false,
@@ -312,8 +312,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       {!tab.isLoading && tab.error === null && (
         // Reserve border space around the fitted xterm viewport without
         // changing its font size or line height.
-        <div className="flex-1 w-full flex flex-col bg-[var(--color-bg)] overflow-hidden min-h-0 px-4">
-          <div ref={containerRef} className="flex-1 w-full min-h-0" />
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[var(--color-bg)] px-4">
+          <div ref={containerRef} className="min-h-0 w-full flex-1" />
           <div className="h-4 shrink-0 bg-[var(--color-bg)]" />
         </div>
       )}

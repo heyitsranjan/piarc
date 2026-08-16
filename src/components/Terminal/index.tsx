@@ -15,7 +15,6 @@ import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { writePty } from "@/lib/ipc";
 
 import RichInput from "./RichInput";
-import TerminalBottomBar from "./TerminalBottomBar";
 import TerminalEmpty from "./TerminalEmpty";
 import TerminalTab from "./TerminalTab";
 
@@ -79,19 +78,7 @@ export default function TerminalArea() {
           );
         })}
       </div>
-      {activeTab && richInputEnabled ? (
-        <RichInput key={activeTab.id} tab={activeTab} />
-      ) : (
-        <TerminalBottomBar
-          left={
-            activeTab
-              ? activeTab.kind === "terminal"
-                ? "Terminal"
-                : "Direct terminal input"
-              : "No session selected"
-          }
-        />
-      )}
+      {activeTab && richInputEnabled && <RichInput key={activeTab.id} tab={activeTab} />}
     </div>
   );
 }

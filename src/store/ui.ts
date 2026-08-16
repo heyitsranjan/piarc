@@ -17,6 +17,8 @@ interface UiState {
   sidebarCollapsed: boolean;
   /** Which item collection the sidebar is showing. */
   sidebarMode: SidebarMode;
+  /** True while the session-or-terminal chooser is showing. */
+  newDialogOpen: boolean;
   /** True while the ⌘K command palette is showing. */
   commandPaletteOpen: boolean;
   /** Active right-side workspace, or null when the workspace is closed. */
@@ -29,6 +31,8 @@ interface UiState {
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
+  openNewDialog: () => void;
+  closeNewDialog: () => void;
   closeCommandPalette: () => void;
   toggleWorkspace: (mode: WorkspaceMode) => void;
   closeWorkspace: () => void;
@@ -42,6 +46,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       sidebarMode: "sessions",
       commandPaletteOpen: false,
+      newDialogOpen: false,
       workspaceMode: null,
       theme: "system",
       richInputEnabled: true,
@@ -50,6 +55,8 @@ export const useUiStore = create<UiState>()(
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
       closeCommandPalette: () => set({ commandPaletteOpen: false }),
+      openNewDialog: () => set({ newDialogOpen: true }),
+      closeNewDialog: () => set({ newDialogOpen: false }),
       toggleWorkspace: (mode) =>
         set((state) => ({ workspaceMode: state.workspaceMode === mode ? null : mode })),
       closeWorkspace: () => set({ workspaceMode: null }),

@@ -112,7 +112,10 @@ export default function WorkspacePanel({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -220,42 +223,31 @@ export default function WorkspacePanel({
         />
       </div>
 
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b border-[var(--color-border)] px-2.5">
+      <header className="arc-workspace-header">
         {mode === "explorer" ? (
-          <FolderTree
-            size={14}
-            strokeWidth={1.8}
-            className="shrink-0 text-[var(--color-ink-5)]"
-          />
+          <FolderTree size={14} strokeWidth={1.8} className="arc-workspace-icon" />
         ) : (
-          <GitBranch
-            size={14}
-            strokeWidth={1.8}
-            className="shrink-0 text-[var(--color-ink-5)]"
-          />
+          <GitBranch size={14} strokeWidth={1.8} className="arc-workspace-icon" />
         )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-medium text-[var(--color-ink-1)]">
-            {mode === "explorer" ? "Explorer" : (git.snapshot?.branch ?? "Git Diff")}
+        <div className="arc-workspace-heading">
+          <p className="arc-workspace-title">
+            {mode === "explorer" ? "Files" : (git.snapshot?.branch ?? "Git")}
           </p>
           <p
-            className="truncate font-mono text-[9px] leading-none text-[var(--color-ink-9)]"
+            className="arc-workspace-path"
             title={mode === "git" ? (git.snapshot?.root ?? reviewCwd) : reviewCwd}
           >
             {mode === "git" ? (git.snapshot?.root ?? reviewCwd) : reviewCwd}
           </p>
         </div>
-        <span className="text-[10px] tabular-nums text-[var(--color-ink-7)]">
-          {count}
-        </span>
+        <span className="arc-workspace-count">{count}</span>
         {mode === "explorer" && <EditorLauncher path={reviewCwd} />}
         <button
           type="button"
           onClick={() => void chooseFolder()}
           title={`Choose project folder · ${reviewCwd}`}
           aria-label="Choose project folder"
-          className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-ink-7)]
-            hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-1)]"
+          className="arc-workspace-action"
         >
           <FolderOpen size={13} />
         </button>
@@ -264,8 +256,7 @@ export default function WorkspacePanel({
           title={mode === "explorer" ? "Refresh files" : "Refresh changes"}
           aria-label={mode === "explorer" ? "Refresh files" : "Refresh changes"}
           onClick={() => void (mode === "explorer" ? explorer.refresh() : git.refresh())}
-          className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-ink-7)]
-            hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-1)]"
+          className="arc-workspace-action"
         >
           {loading ? (
             <Loader2 size={13} className="animate-spin" />
@@ -278,8 +269,7 @@ export default function WorkspacePanel({
           title="Close workspace"
           aria-label="Close workspace"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-ink-7)]
-            hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-ink-1)]"
+          className="arc-workspace-action"
         >
           <X size={14} />
         </button>

@@ -58,7 +58,7 @@ export function useNewSession(): UseNewSessionReturn {
         multiple: false,
         title: isTerminal
           ? "Choose location for new terminal"
-          : "Choose location for new πx session",
+          : "Choose location for new PiArc session",
       }).catch((reason) => {
         log.error("useNewSession: folder selection failed", {
           err: reason instanceof Error ? reason.message : String(reason),

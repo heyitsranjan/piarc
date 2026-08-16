@@ -28,7 +28,15 @@ export default function RenameDialog({
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
-  }, []);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
 
   const handleSave = async () => {
     const trimmed = value.trim();
@@ -44,8 +52,7 @@ export default function RenameDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center
-        bg-black/60 backdrop-blur-[2px] palette-backdrop"
+      className="arc-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center palette-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -54,30 +61,19 @@ export default function RenameDialog({
         role="dialog"
         aria-label="Rename session"
         aria-modal
-        className="w-full max-w-sm mx-4 palette-panel
-          bg-[var(--color-bg-2)] border border-[var(--color-border)]
-          rounded-[var(--radius-lg)]
-          shadow-[0_24px_64px_rgba(0,0,0,0.65)]
-          overflow-hidden"
+        className="arc-dialog-panel palette-panel mx-5 w-[390px] max-w-[calc(100vw-40px)] overflow-hidden border"
       >
         {/* Header */}
-        <div
-          className="flex items-center gap-2.5 px-4 pt-4 pb-3
-          border-b border-[var(--color-border)]"
-        >
+        <div className="arc-dialog-header flex items-center gap-2.5 border-b border-[var(--color-border)]">
           <Pencil size={14} strokeWidth={1.8} className="text-[var(--color-ink-7)]" />
           <div>
-            <h2 className="text-[13px] font-semibold text-[var(--color-ink-0)]">
-              Rename session
-            </h2>
-            <p className="text-[10.5px] text-[var(--color-ink-9)] mt-0.5 truncate font-mono">
-              {subtitle}
-            </p>
+            <h2 className="arc-dialog-title text-[var(--color-ink-0)]">Rename session</h2>
+            <p className="arc-dialog-subtitle truncate">{subtitle}</p>
           </div>
         </div>
 
         {/* Input */}
-        <div className="px-4 py-4">
+        <div className="arc-dialog-body">
           <input
             ref={inputRef}
             type="text"
@@ -85,39 +81,27 @@ export default function RenameDialog({
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
-              if (e.key === "Escape") onClose();
             }}
             placeholder="Session title"
             className={cn(
-              "w-full h-9 px-3 text-[13px] rounded-[var(--radius-md)]",
-              "bg-[var(--color-bg-hover)] text-[var(--color-ink-0)]",
-              "border border-[var(--color-border-strong)]",
-              "focus:outline-none focus:border-[var(--color-accent)]",
-              "placeholder:text-[var(--color-ink-9)]",
-              "transition-colors duration-[var(--duration-fast)]"
+              "h-9 w-full rounded-[4px] border border-[var(--color-border-strong)] bg-[#101217] px-3 font-mono text-[10px] text-[var(--color-ink-0)]",
+              "focus:outline-none placeholder:text-[var(--color-ink-9)]"
             )}
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 px-4 pb-4">
+        <div className="flex items-center justify-end gap-2 px-[15px] pb-[14px]">
           <button
             onClick={onClose}
-            className="h-8 px-3.5 text-[12px] rounded-[var(--radius-sm)]
-              text-[var(--color-ink-5)] border border-[var(--color-border)]
-              hover:text-[var(--color-ink-1)] hover:border-[var(--color-border-strong)]
-              transition-colors duration-[var(--duration-fast)]"
+            className="arc-dialog-button h-8 border border-[var(--color-border)] px-3.5 text-[var(--color-ink-5)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-ink-1)]"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !value.trim()}
-            className="h-8 px-3.5 text-[12px] font-medium rounded-[var(--radius-sm)]
-              bg-[var(--color-accent)] text-[#0a0b0e]
-              hover:bg-[var(--color-accent-hover)]
-              transition-colors duration-[var(--duration-fast)]
-              disabled:opacity-40 disabled:cursor-not-allowed"
+            className="arc-dialog-button h-8 bg-[var(--color-accent)] px-3.5 text-[#0a0b0e] hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saving ? "Saving…" : "Rename"}
           </button>

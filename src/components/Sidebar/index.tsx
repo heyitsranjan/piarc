@@ -36,6 +36,7 @@ export default function Sidebar() {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
+  const openNewDialog = useUiStore((s) => s.openNewDialog);
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
@@ -81,7 +82,7 @@ export default function Sidebar() {
             )}
             {state.type === "empty" && <EmptyList />}
             {state.type === "data" && (
-              <ul role="list" className="space-y-1 pb-3 pt-1">
+              <ul role="list" className="pb-3">
                 {filtered.map((session, idx) => {
                   const isPinned = pinnedIds.includes(session.id);
                   const prevPinned = idx > 0 && pinnedIds.includes(filtered[idx - 1].id);
@@ -90,8 +91,7 @@ export default function Sidebar() {
                     <Fragment key={session.id}>
                       {startsSection && (
                         <li
-                          aria-hidden
-                          className="px-3 pb-1 pt-2 text-[9px] font-semibold uppercase
+                          className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
                             tracking-[0.08em] text-[var(--color-ink-9)]"
                         >
                           {isPinned ? "Pinned" : "Recent"}
@@ -116,7 +116,7 @@ export default function Sidebar() {
           </>
         )}
         {sidebarMode === "terminals" && (
-          <ul role="list" className="space-y-1 pb-3 pt-1">
+          <ul role="list" className="pb-3">
             {terminals.map((tab) => (
               <TerminalRow
                 key={tab.id}
@@ -140,6 +140,11 @@ export default function Sidebar() {
             )}
           </ul>
         )}
+      </div>
+      <div className="arc-sidebar-footer">
+        <button type="button" className="arc-sidebar-create" onClick={openNewDialog}>
+          + Session or terminal
+        </button>
       </div>
     </div>
   );

@@ -44,10 +44,10 @@ export default function TerminalEmpty() {
             id="omp-setup-title"
             className="text-[17px] font-semibold text-[var(--color-ink-0)]"
           >
-            Install OMP to use πx
+            Install OMP to use PiArc
           </h1>
           <p className="mt-2 text-[12px] leading-5 text-[var(--color-ink-7)]">
-            Run this command in Terminal, then reopen πx.
+            Run this command in Terminal, then reopen PiArc.
           </p>
           <code
             className="mt-5 block select-text rounded-[var(--radius-md)] border

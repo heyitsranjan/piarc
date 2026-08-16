@@ -3,14 +3,20 @@ import { type ReactNode, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
+  Bot,
+  BotMessageSquare,
+  BrainCircuit,
+  Building2,
   CheckCircle2,
+  CirclePlus,
+  Database,
+  KeyRound,
+  Link,
   Loader2,
-  Pencil,
-  Plus,
-  Settings,
-  SlidersHorizontal,
+  PencilLine,
+  Server,
+  Tag,
   Trash2,
-  X,
 } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -68,7 +74,10 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
         setError(reason instanceof Error ? reason.message : String(reason))
       );
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -174,56 +183,63 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
 
   return createPortal(
     <div
-      className="palette-backdrop fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
+      className="arc-dialog-backdrop palette-backdrop fixed inset-0 z-[10000] flex items-center justify-center"
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
         role="dialog"
         aria-modal
         aria-labelledby="settings-title"
-        className="palette-panel mx-4 flex h-[min(680px,calc(100vh-48px))] w-full max-w-3xl overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg-2)] shadow-[0_24px_64px_rgba(0,0,0,0.65)]"
+        className="arc-dialog-panel palette-panel mx-5 flex h-[min(76vh,680px)] w-[800px] max-w-[calc(100vw-40px)] overflow-hidden border"
       >
-        <aside className="w-44 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-          <div className="mb-4 flex items-center gap-2 px-2">
-            <Settings size={16} className="text-[var(--color-accent)]" />
+        <aside className="w-[260px] shrink-0 border-r border-[var(--color-border)] bg-[var(--color-sidebar)] p-[10px]">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid size-6 place-items-center border border-[var(--color-accent-border)] bg-[var(--color-accent-dim)] text-[var(--color-accent)]">
+              <BrainCircuit size={14} strokeWidth={1.8} />
+            </span>
             <h2
               id="settings-title"
-              className="text-[13px] font-semibold text-[var(--color-ink-0)]"
+              className="arc-dialog-title text-[var(--color-ink-0)]"
             >
               Settings
             </h2>
           </div>
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-active)] px-2 py-2 text-left text-[11.5px] text-[var(--color-ink-0)]"
+            className="arc-row-active arc-dialog-button relative flex h-[46px] w-full items-center gap-2 px-[9px] text-left"
           >
-            <SlidersHorizontal size={14} />
-            Custom Models
+            <Server
+              size={14}
+              strokeWidth={1.8}
+              className="shrink-0 text-[var(--color-accent)]"
+            />
+            <span className="min-w-0">
+              <span className="block font-mono text-[9px] text-[var(--color-ink-0)]">
+                Custom Models
+              </span>
+              <span className="mt-1 block font-mono text-[7px] text-[var(--color-ink-7)]">
+                Providers & credentials
+              </span>
+            </span>
           </button>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center border-b border-[var(--color-border)] px-5 py-3.5">
+          <header className="arc-dialog-header flex items-center border-b border-[var(--color-border)]">
             <div className="min-w-0 flex-1">
-              <h3 className="text-[13px] font-semibold text-[var(--color-ink-0)]">
+              <h3 className="arc-dialog-title text-[var(--color-ink-0)]">
                 Custom Models
               </h3>
-              <p className="mt-0.5 text-[10.5px] text-[var(--color-ink-7)]">
-                Connect an OMP-compatible model provider. Credentials stay in macOS
-                Keychain.
+              <p className="arc-dialog-subtitle">
+                Connect model providers. Credentials stay in macOS Keychain.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close settings"
-              className="titlebar-button"
-            >
-              <X size={16} />
-            </button>
+            <kbd className="border border-[var(--color-border)] px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-ink-9)]">
+              esc
+            </kbd>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto p-[14px]">
             {adding ? (
               <ModelForm
                 draft={draft}
@@ -300,10 +316,25 @@ function ModelForm({
       }}
     >
       <div>
-        <h4 className="text-[13px] font-medium text-[var(--color-ink-0)]">
-          {editing ? "Edit custom model" : "Add custom model"}
-        </h4>
-        <p className="mt-1 text-[10.5px] text-[var(--color-ink-7)]">
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <PencilLine
+              size={15}
+              strokeWidth={1.8}
+              className="text-[var(--color-accent)]"
+            />
+          ) : (
+            <CirclePlus
+              size={15}
+              strokeWidth={1.8}
+              className="text-[var(--color-accent)]"
+            />
+          )}
+          <h4 className="font-mono text-[10px] font-semibold text-[var(--color-ink-0)]">
+            {editing ? "Edit custom model" : "Add custom model"}
+          </h4>
+        </div>
+        <p className="mt-2 font-mono text-[8px] leading-4 text-[var(--color-ink-7)]">
           Test sends a minimal request and may incur a small provider charge.
         </p>
       </div>
@@ -314,6 +345,7 @@ function ModelForm({
             value={draft.name}
             onChange={(event) => update("name", event.target.value)}
             placeholder="Work Claude"
+            leftIcon={<Tag size={13} />}
             autoFocus
           />
         </Field>
@@ -322,6 +354,7 @@ function ModelForm({
             value={draft.providerName}
             onChange={(event) => update("providerName", event.target.value)}
             placeholder="Company Portkey"
+            leftIcon={<Building2 size={13} />}
           />
         </Field>
       </div>
@@ -330,19 +363,19 @@ function ModelForm({
         <select
           value={draft.api}
           onChange={(event) => update("api", event.target.value as CustomModelApi)}
-          className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-2.5 py-1.5 text-xs text-[var(--color-ink-1)] focus:border-[var(--color-accent)] focus:outline-none"
+          className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border-2)] bg-[var(--color-bg-2)] px-2.5 py-1.5 text-xs text-[var(--color-ink-1)] focus:outline-none"
         >
           <option value="openai-completions">OpenAI Chat Completions / Portkey</option>
           <option value="openai-responses">OpenAI Responses</option>
           <option value="anthropic-messages">Anthropic Messages</option>
         </select>
       </Field>
-
       <Field label="Base URL">
         <Input
           value={draft.baseUrl}
           onChange={(event) => update("baseUrl", event.target.value)}
           placeholder="https://api.example.com/v1"
+          leftIcon={<Link size={13} />}
         />
       </Field>
       <Field
@@ -356,6 +389,7 @@ function ModelForm({
           value={draft.apiKey}
           onChange={(event) => update("apiKey", event.target.value)}
           autoComplete="new-password"
+          leftIcon={<KeyRound size={13} />}
         />
       </Field>
       <Field label="Model ID">
@@ -363,6 +397,7 @@ function ModelForm({
           value={draft.modelId}
           onChange={(event) => update("modelId", event.target.value)}
           placeholder="@provider/model-name"
+          leftIcon={<Bot size={13} />}
         />
       </Field>
 
@@ -387,9 +422,9 @@ function ModelForm({
       </div>
 
       <div>
-        <div className="text-[10.5px] font-medium text-[var(--color-ink-5)]">
+        <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-7)]">
           Pricing
-          <span className="ml-2 font-normal text-[var(--color-ink-9)]">
+          <span className="ml-2 font-normal normal-case tracking-normal text-[var(--color-ink-9)]">
             USD per 1M tokens · optional
           </span>
         </div>
@@ -417,7 +452,7 @@ function ModelForm({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 text-[11px] text-[var(--color-ink-5)]">
+      <div className="flex flex-wrap gap-4 font-mono text-[8px] text-[var(--color-ink-5)]">
         <Check
           label="Reasoning"
           checked={draft.reasoning}
@@ -433,7 +468,7 @@ function ModelForm({
       {(report || error) && (
         <div
           role={report?.success ? "status" : "alert"}
-          className={`rounded-[var(--radius-sm)] border p-3 text-[11px] ${
+          className={`border p-3 font-mono text-[8px] leading-4 ${
             report?.success
               ? "border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 text-[var(--color-ink-1)]"
               : "border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
@@ -445,14 +480,18 @@ function ModelForm({
       )}
 
       <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
-        <Button type="button" onClick={onCancel}>
+        <Button
+          type="button"
+          onClick={onCancel}
+          className="arc-dialog-button h-8 border border-[var(--color-border)] px-3.5"
+        >
           Cancel
         </Button>
         <Button
           type="button"
           onClick={onTest}
           disabled={!valid || busy !== null}
-          className="border border-[var(--color-border)]"
+          className="arc-sidebar-create arc-dialog-action"
         >
           {busy === "test" && <Loader2 size={13} className="animate-spin" />}
           Test Connection
@@ -461,6 +500,7 @@ function ModelForm({
           type="submit"
           variant="default"
           disabled={!report?.success || busy !== null}
+          className="arc-sidebar-create arc-dialog-action"
         >
           {busy === "save" && <Loader2 size={13} className="animate-spin" />}
           {editing ? "Save Changes" : "Save Model"}
@@ -489,15 +529,22 @@ function ModelList({
     <div className="mx-auto max-w-xl">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h4 className="text-[12px] font-medium text-[var(--color-ink-1)]">
-            Saved models
-          </h4>
-          <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-ink-7)]">
-            Choose a saved model from OMP&apos;s <code>/model</code> picker.
+          <div className="flex items-center gap-2">
+            <Database
+              size={15}
+              strokeWidth={1.8}
+              className="text-[var(--color-accent)]"
+            />
+            <h4 className="font-mono text-[10px] font-semibold text-[var(--color-ink-0)]">
+              Saved models
+            </h4>
+          </div>
+          <p className="mt-2 font-mono text-[8px] leading-4 text-[var(--color-ink-7)]">
+            Select a saved provider from OMP&apos;s <code>/model</code> picker.
           </p>
         </div>
-        <Button variant="default" onClick={onAdd} className="shrink-0">
-          <Plus size={13} /> Add Custom Model
+        <Button onClick={onAdd} className="arc-sidebar-create arc-dialog-action shrink-0">
+          <CirclePlus size={14} strokeWidth={1.8} /> Add Model
         </Button>
       </div>
       {error && (
@@ -515,14 +562,17 @@ function ModelList({
             return (
               <div
                 key={selector}
-                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3"
+                className="border border-[var(--color-border)] bg-[#101217] p-3"
               >
                 <div className="flex items-start gap-2">
+                  <span className="grid size-7 shrink-0 place-items-center border border-[var(--color-accent-border)] bg-[var(--color-accent-dim)] text-[var(--color-accent)]">
+                    <BotMessageSquare size={14} strokeWidth={1.8} />
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[12px] font-medium text-[var(--color-ink-1)]">
+                    <div className="font-mono text-[10px] font-semibold text-[var(--color-ink-1)]">
                       {model.name}
                     </div>
-                    <div className="mt-1 truncate text-[10.5px] text-[var(--color-ink-7)]">
+                    <div className="mt-1 truncate font-mono text-[8px] text-[var(--color-ink-7)]">
                       {model.providerName} · {selector}
                     </div>
                   </div>
@@ -530,25 +580,25 @@ function ModelList({
                     type="button"
                     onClick={() => onEdit(model)}
                     aria-label={`Edit ${model.name}`}
-                    className="titlebar-button"
+                    className="arc-dialog-button grid size-7 place-items-center border border-[var(--color-border)] text-[var(--color-ink-7)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-accent)]"
                   >
-                    <Pencil size={13} />
+                    <PencilLine size={13} strokeWidth={1.8} />
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(model)}
                     disabled={deleting !== null}
                     aria-label={`Delete ${model.name}`}
-                    className="titlebar-button text-[var(--color-danger)] disabled:opacity-50"
+                    className="arc-dialog-button grid size-7 place-items-center border border-[var(--color-border)] text-[var(--color-danger)] hover:border-[var(--color-danger)] disabled:opacity-50"
                   >
                     {deleting === selector ? (
                       <Loader2 size={13} className="animate-spin" />
                     ) : (
-                      <Trash2 size={13} />
+                      <Trash2 size={13} strokeWidth={1.8} />
                     )}
                   </button>
                 </div>
-                <div className="mt-2 text-[10px] text-[var(--color-ink-7)]">
+                <div className="mt-2 font-mono text-[8px] text-[var(--color-ink-7)]">
                   {pricingSummary(model)}
                 </div>
               </div>
@@ -556,13 +606,15 @@ function ModelList({
           })}
         </div>
       ) : (
-        <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-strong)] px-6 py-12 text-center">
-          <SlidersHorizontal size={24} className="mx-auto text-[var(--color-ink-9)]" />
-          <p className="mt-3 text-[12px] text-[var(--color-ink-5)]">
+        <div className="border border-dashed border-[var(--color-border-strong)] px-6 py-12 text-center">
+          <span className="mx-auto grid size-10 place-items-center border border-[var(--color-accent-border)] bg-[var(--color-accent-dim)] text-[var(--color-accent)]">
+            <Bot size={20} strokeWidth={1.8} />
+          </span>
+          <p className="mt-3 font-mono text-[10px] text-[var(--color-ink-5)]">
             No custom models configured.
           </p>
-          <p className="mt-1 text-[10.5px] text-[var(--color-ink-9)]">
-            Add Portkey or another OMP-compatible endpoint.
+          <p className="mt-2 font-mono text-[8px] text-[var(--color-ink-9)]">
+            Add an OMP-compatible provider endpoint.
           </p>
         </div>
       )}
@@ -591,11 +643,13 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5 text-[10.5px] font-medium text-[var(--color-ink-5)]">
+    <label className="grid gap-1.5 font-mono text-[8px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-7)]">
       <span>
         {label}
         {hint && (
-          <span className="ml-2 font-normal text-[var(--color-ink-9)]">{hint}</span>
+          <span className="ml-2 font-normal normal-case tracking-normal text-[var(--color-ink-9)]">
+            {hint}
+          </span>
         )}
       </span>
       {children}
