@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   release:
+    # Developer Preview tags are source-only and must never invoke signing.
+    if: ${{ !contains(github.ref_name, '-') }}
     name: Signed universal macOS release
     runs-on: macos-14
     environment: release
