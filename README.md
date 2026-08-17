@@ -8,7 +8,7 @@ PiArc discovers local OMP sessions, resumes them in embedded terminals, surfaces
 
 ## Requirements
 
-- macOS 13 or newer, Apple Silicon or Intel
+- macOS 12 or newer, Apple Silicon or Intel
 - Git
 - [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/)
 - [Bun](https://bun.sh) 1.3.12

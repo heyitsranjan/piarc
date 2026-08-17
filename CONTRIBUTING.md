@@ -10,7 +10,7 @@ cd piarc
 ./scripts/dev-preview
 ```
 
-Requirements: macOS 13+, Rust stable, Bun 1.3.12, and Xcode Command Line Tools. OMP is required for end-to-end session testing.
+Requirements: macOS 12+, Rust stable, Bun 1.3.12, and Xcode Command Line Tools. OMP is required for end-to-end session testing.
 
 ## Workflow
 
