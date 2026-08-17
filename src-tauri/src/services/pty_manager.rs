@@ -16,6 +16,8 @@ use tracing::{debug, info, warn};
 
 /// Hard cap on live PTY processes. LRU eviction applies above this limit.
 const PTY_CACHE_SIZE: usize = 8;
+/// Terminal type exposed to child processes. Finder-launched apps inherit `TERM=dumb`.
+const PTY_TERM: &str = "xterm-256color";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -137,6 +139,7 @@ impl PtyManager {
         let mut cmd = CommandBuilder::new(shell.as_ref());
         cmd.args(["-l", "-c", &cmd_str]);
         cmd.cwd(cwd);
+        cmd.env("TERM", PTY_TERM);
 
         let child = pair.slave.spawn_command(cmd).context("spawn PTY child")?;
         let master = pair.master;
