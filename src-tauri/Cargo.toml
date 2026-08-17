@@ -36,7 +36,7 @@ notify = "6"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # ── Cross-platform PTY (WezTerm project) ─────────────────────────────────
-portable-pty = "0.8"
+portable-pty = "0.9"
 
 # ── Structured logging ────────────────────────────────────────────────────
 tracing            = "0.1"
