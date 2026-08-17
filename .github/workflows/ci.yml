@@ -92,8 +92,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          app="src-tauri/target/release/bundle/macos/OMPX.app"
+          app="src-tauri/target/release/bundle/macos/PiArc.app"
           test -d "$app"
-          test "$(defaults read "$PWD/$app/Contents/Info" CFBundleIdentifier)" = "com.heyitsranjan.ompx"
+          test "$(defaults read "$PWD/$app/Contents/Info" CFBundleIdentifier)" = "com.heyitsranjan.piarc"
           test "$(defaults read "$PWD/$app/Contents/Info" CFBundleShortVersionString)" = "$(node -p "require('./package.json').version")"
           test "$(defaults read "$PWD/$app/Contents/Info" LSMinimumSystemVersion)" = "12.0"

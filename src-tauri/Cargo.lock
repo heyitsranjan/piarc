@@ -2803,7 +2803,7 @@ dependencies = [
 
 [[package]]
 name = "piarc"
-version = "0.1.1"
+version = "0.1.0-dev.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

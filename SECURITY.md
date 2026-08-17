@@ -4,16 +4,16 @@
 
 | Version | Supported |
 |---|---|
-| Latest GitHub release | Yes |
+| Latest PiArc GitHub release | Yes |
 | Older releases and development snapshots | No |
 
 ## Report a vulnerability
 
 Do not disclose vulnerabilities in a public issue, discussion, pull request, or log attachment.
 
-Use **Security → Report a vulnerability** in the [GitHub repository](https://github.com/ranjan-hackerrank/ompx/security/advisories/new). Include:
+Use **Security → Report a vulnerability** in the [PiArc repository](https://github.com/heyitsranjan/piarc/security/advisories/new). Include:
 
-- affected OMPX version and macOS version;
+- affected PiArc version and macOS version;
 - reproduction steps or a minimal proof of concept;
 - observed impact and required user interaction;
 - whether session data, filesystem paths, PTY execution, IPC, or macOS permissions are involved;
@@ -25,4 +25,4 @@ The maintainer will acknowledge a complete report within 7 days, provide a triag
 
 High-priority reports include arbitrary command execution, path traversal outside OMP session storage, unsafe session mutation, WebView-to-native IPC bypass, secret or terminal-content leakage, and unintended macOS permission use.
 
-Reports that require a user to intentionally run untrusted code in an already-authorized terminal are generally out of scope unless OMPX increases the resulting privilege or exposure.
+Reports that require a user to intentionally run untrusted code in an already-authorized terminal are generally out of scope unless PiArc increases the resulting privilege or exposure.

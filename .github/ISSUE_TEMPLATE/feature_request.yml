@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a focused OMPX capability
+description: Propose a focused PiArc capability
 title: "[Feature]: "
 labels: [enhancement, needs-triage]
 body:
@@ -48,5 +48,5 @@ body:
       options:
         - label: I searched existing issues and discussions.
           required: true
-        - label: This request preserves OMPX's local-first model or explains why it cannot.
+        - label: This request preserves PiArc's local-first model or explains why it cannot.
           required: true

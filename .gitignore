@@ -18,3 +18,5 @@ bun.lockb
 graphify-out/
 *.dmg
 SHA256SUMS.txt
+*.app
+logs/

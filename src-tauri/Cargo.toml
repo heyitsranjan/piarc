@@ -1,11 +1,11 @@
 [package]
 name        = "piarc"
-version     = "0.1.1"
+version     = "0.1.0-dev.1"
 description = "PiArc — local OMP session browser and embedded terminal"
 authors     = ["Smruti Ranjan Rana <heyitsranjan>"]
 edition     = "2021"
 license     = "MIT"
-repository  = "https://github.com/ranjan-hackerrank/ompx"
+repository  = "https://github.com/heyitsranjan/piarc"
 publish     = false
 
 [lib]

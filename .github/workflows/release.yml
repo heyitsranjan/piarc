@@ -105,7 +105,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: OMPX ${{ env.RELEASE_TAG }}
+          releaseName: PiArc ${{ env.RELEASE_TAG }}
           releaseBody: See CHANGELOG.md for release details and SHA256SUMS.txt for artifact digests.
           releaseDraft: true
           prerelease: false
@@ -118,11 +118,11 @@ jobs:
           EXPECTED_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          app="src-tauri/target/universal-apple-darwin/release/bundle/macos/OMPX.app"
+          app="src-tauri/target/universal-apple-darwin/release/bundle/macos/PiArc.app"
           dmg=$(printf '%s\n' src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg)
           test -d "$app"
           test -f "$dmg"
-          test "$(lipo -archs "$app/Contents/MacOS/ompx")" = "x86_64 arm64"
+          test "$(lipo -archs "$app/Contents/MacOS/PiArc")" = "x86_64 arm64"
 
           verify_app() {
             local candidate="$1"
@@ -136,7 +136,7 @@ jobs:
             grep -Fqx "TeamIdentifier=$EXPECTED_TEAM_ID" "$signature"
             grep -Fqx "Authority=$EXPECTED_SIGNING_IDENTITY" "$signature"
             test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.automation.apple-events' "$entitlements")" = "true"
-            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$info")" = "com.heyitsranjan.ompx"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$info")" = "com.heyitsranjan.piarc"
             test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info")" = "${RELEASE_TAG#v}"
             test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$info")" = "12.0"
             test -n "$(/usr/libexec/PlistBuddy -c 'Print :NSAppleEventsUsageDescription' "$info")"
@@ -155,7 +155,7 @@ jobs:
           }
           trap cleanup EXIT
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_point"
-          verify_app "$mount_point/OMPX.app"
+          verify_app "$mount_point/PiArc.app"
 
       - name: Publish SHA-256 checksums
         shell: bash

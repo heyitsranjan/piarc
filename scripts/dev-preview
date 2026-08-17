@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  printf 'PiArc Developer Preview requires macOS.\n' >&2
+  exit 1
+fi
+
+# LaunchServices and some noninteractive shells omit standard user tool paths.
+export PATH="$HOME/.bun/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if ! xcode-select -p >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+Xcode Command Line Tools are required.
+
+Install:
+  xcode-select --install
+
+Then rerun:
+  ./scripts/dev-preview
+EOF
+  exit 1
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+Bun is required for PiArc Developer Preview.
+
+Install:
+  brew install oven-sh/bun/bun
+
+Then rerun:
+  ./scripts/dev-preview
+EOF
+  exit 1
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+Rust is required for PiArc Developer Preview.
+
+Install:
+  brew install rustup-init
+  rustup-init -y
+
+Then rerun:
+  ./scripts/dev-preview
+EOF
+  exit 1
+fi
+
+bun install --frozen-lockfile
+exec bun run tauri dev

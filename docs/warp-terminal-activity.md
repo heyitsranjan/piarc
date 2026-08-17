@@ -9,7 +9,7 @@ Warp has two different status layers, and neither makes a plain `omp` PTY semant
 3. **Warp recognizes `omp` as Oh My Pi by command name, but command recognition is not semantic instrumentation.** The public agent table maps `OhMyPi` to the `omp` prefix, while Warp's icon resolver states that command-detected sessions do not have rich status and renders status only for a plugin listener that has actually received a rich notification. [CLI-agent table](https://github.com/warpdotdev/warp/blob/e72fd7aacbbb2236d9b3be2aad7e7178fe94b4bc/app/src/terminal/cli_agent.rs#L138-L175), [status-overlay resolver](https://github.com/warpdotdev/warp/blob/e72fd7aacbbb2236d9b3be2aad7e7178fe94b4bc/app/src/ui_components/agent_icon.rs#L23-L35), [resolver gate](https://github.com/warpdotdev/warp/blob/e72fd7aacbbb2236d9b3be2aad7e7178fe94b4bc/app/src/ui_components/agent_icon.rs#L125-L155)
 4. **Therefore an OMP spinner cannot, by itself, mean “thinking,” “continuing,” “executing a tool,” or “waiting for input.”** Without an OMP-specific event integration, Warp can at most know that the foreground `omp` command/block has not returned to the shell, plus that the executable looks like a known CLI agent. An interactive OMP process remains the foreground command during all of its internal phases. This last sentence is an **inference** from the confirmed hook state machine and command-only OMP recognition.
 
-For OMPX, keep PTY/process state as the coarse liveness signal and add a small OMP extension that sends typed lifecycle events over a dedicated side channel. OMP already exposes agent, turn, streaming-message, tool-execution, approval, retry, and compaction events, so no terminal-output scraping is needed. [OMP extension event surface](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md#event-surface-current-names-and-behavior)
+For PiArc, keep PTY/process state as the coarse liveness signal and add a small OMP extension that sends typed lifecycle events over a dedicated side channel. OMP already exposes agent, turn, streaming-message, tool-execution, approval, retry, and compaction events, so no terminal-output scraping is needed. [OMP extension event surface](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md#event-surface-current-names-and-behavior)
 
 ## Confirmed Warp signal flow
 
@@ -131,9 +131,9 @@ For nested/remote sessions, Warpification begins only after the explicit `Source
 
 Without lifecycle integration, the architecture post's ambiguity remains. For a known CLI command, Warp may still show the agent's brand through command recognition, but its own source withholds the semantic status overlay until a rich plugin event is actually received. [agent icon resolver](https://github.com/warpdotdev/warp/blob/e72fd7aacbbb2236d9b3be2aad7e7178fe94b4bc/app/src/ui_components/agent_icon.rs#L23-L35)
 
-## Mapping to OMPX's embedded PTY
+## Mapping to PiArc's embedded PTY
 
-Given the stated OMPX architecture—OMP is a child application running inside an OMPX-owned embedded PTY—the host can directly observe child spawn/exit and PTY bytes. Only child spawn/exit is a reliable semantic fact. PTY content, cursor changes, and process presence are presentation or liveness observations. **Inference:** an interactive `omp` child can remain alive and foreground-attached while it is streaming model output, running a tool, asking for approval, accepting another prompt, retrying, compacting, or simply waiting. Warp's shell hook sees all of that as one still-executing `omp` command until OMP exits and the shell reaches `precmd`.
+Given the stated PiArc architecture—OMP is a child application running inside a PiArc-owned embedded PTY—the host can directly observe child spawn/exit and PTY bytes. Only child spawn/exit is a reliable semantic fact. PTY content, cursor changes, and process presence are presentation or liveness observations. **Inference:** an interactive `omp` child can remain alive and foreground-attached while it is streaming model output, running a tool, asking for approval, accepting another prompt, retrying, or compacting. Treat its exit as a process-lifecycle fact, not proof that a turn completed.
 
 OMP exposes the required internal boundaries to extensions:
 
@@ -146,19 +146,19 @@ OMP exposes the required internal boundaries to extensions:
 
 These are the canonical names in OMP's first-party extension documentation. [OMP extension event surface](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md#event-surface-current-names-and-behavior)
 
-## Minimal OMPX recommendation
+## Minimal PiArc recommendation
 
 Implement one small OMP extension and one dedicated host-side status channel. Do not parse rendered output, sample descendant processes, or depend on Warp escape sequences.
 
-Prefer a dedicated inherited file descriptor, local socket, or equivalent IPC channel created by OMPX when it spawns OMP. Send newline-delimited, versioned JSON such as:
+Prefer a dedicated inherited file descriptor, local socket, or equivalent IPC channel created by PiArc when it spawns OMP. Send newline-delimited, versioned JSON such as:
 
 ```json
 {"v":1,"state":"tool","tool":"bash","turnId":"…","seq":42}
 ```
 
-Keep this channel separate from PTY stdout so status frames cannot be rendered, copied, reordered with terminal output, or confused with an application's own OSC/DCS sequences. This is a recommendation, not a description of existing OMPX implementation.
+Keep this channel separate from PTY stdout so status frames cannot be rendered, copied, reordered with terminal output, or confused with an application's own OSC/DCS sequences. This is a recommendation, not a description of existing PiArc implementation.
 
-| OMP event | Proposed OMPX state |
+| OMP event | Proposed PiArc state |
 |---|---|
 | child spawned, before OMP session ready | `starting` |
 | `agent_start`, `turn_start`, or thinking/text `message_update` while no tool is active | `thinking` (or one simpler `working` state) |
@@ -171,9 +171,9 @@ Keep this channel separate from PTY stdout so status frames cannot be rendered, 
 | `agent_end` or `turn_end`, child still alive, no active tool/approval | `waiting_input` |
 | child exit | `done` or `error` from exit code |
 
-This mapping from documented OMP events to OMPX labels is **design inference**. Include a monotonic sequence number and reduce events on the host so late/out-of-order updates cannot regress the UI. Treat child exit as authoritative over stale “working” state.
+This mapping from documented OMP events to PiArc labels is **design inference**. Include a monotonic sequence number and reduce events on the host so late/out-of-order updates cannot regress the UI. Treat child exit as authoritative over stale “working” state.
 
-If direct integration with Warp is later desired, OMP could adopt Warp's structured CLI-agent notification transport, but that is a separate adapter. OMPX itself should consume OMP-native events through IPC; Warp's current CLI status schema collapses thinking and tool work into `InProgress`, so imitating its spinner would lose the distinctions OMPX wants. [Warp Claude plugin transport](https://github.com/warpdotdev/claude-code-warp#how-it-works), [Warp CLI status state machine](https://github.com/warpdotdev/warp/blob/e72fd7aacbbb2236d9b3be2aad7e7178fe94b4bc/app/src/terminal/cli_agent_sessions/mod.rs#L183-L258)
+If direct integration with Warp is later desired, OMP could adopt Warp's structured CLI-agent notification transport, but that is a separate adapter. PiArc itself should consume OMP-native events through IPC; Warp's current CLI status schema collapses thinking and tool work into `InProgress`, so imitating its spinner would lose the distinctions PiArc wants. [Warp Claude plugin transport](https://github.com/warpdotdev/claude-code-warp#how-it-works), [Warp CLI status state machine](https://github.com/warpdotdev/claude-code-warp)
 
 ## Limitations and confidence boundaries
 

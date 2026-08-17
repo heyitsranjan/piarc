@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible OMPX defect
+description: Report a reproducible PiArc defect
 title: "[Bug]: "
 labels: [bug, needs-triage]
 body:
@@ -9,7 +9,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: OMPX version
+      label: PiArc version
       placeholder: v0.1.0
     validations:
       required: true
