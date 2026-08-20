@@ -30,11 +30,11 @@ import { useTerminalStore } from "@/store/terminal";
 import type { Tab } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { fuzzyMatchAny } from "@/lib/fuzzy";
 import type { OmpSession } from "@/lib/session";
 
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
-import SidebarHeader from "./SidebarHeader";
 import { SortableItem, SortableList } from "./SortableList";
 import TerminalRow from "./TerminalRow";
 
@@ -88,7 +88,7 @@ export default function Sidebar() {
   const { openSession, refreshSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
-  const setSidebarMode = useUiStore((s) => s.setSidebarMode);
+
   const openNewDialog = useUiStore((s) => s.openNewDialog);
   const touchRecentOpen = useUiStore((s) => s.touchRecentOpen);
   const sidebarOrder = useUiStore((s) => s.sidebarOrder);
@@ -100,6 +100,7 @@ export default function Sidebar() {
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
   const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
+  const allNotes = tabs.filter((tab) => tab.kind === "note");
   // OMP tabs that don't yet have an on-disk session — show as pending sessions.
   const sessionIds = new Set(sessions.map((s) => s.id));
   const pendingSessions: OmpSession[] = tabs
@@ -130,13 +131,14 @@ export default function Sidebar() {
     return item.tab.isPinned;
   };
   // ── Build filtered terminal list ──────────────────────────────────────
-  const terminalMatches = (tab: Tab) =>
-    !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q);
+  const terminalMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.cwd);
   const filteredTerminals = allTerminals.filter(terminalMatches);
 
+  const noteMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.content);
+  const filteredNotes = allNotes.filter(noteMatches);
+
   // Pending sessions (OMP tabs without on-disk JSONL yet), filtered by search.
-  const pendingMatches = (s: OmpSession) =>
-    !q || s.title.toLowerCase().includes(q) || s.cwd.toLowerCase().includes(q);
+  const pendingMatches = (s: OmpSession) => !q || fuzzyMatchAny(q, s.title, s.cwd);
   const filteredPending = pendingSessions.filter(pendingMatches);
 
   // ── Build combined "all" list ─────────────────────────────────────────
@@ -144,6 +146,7 @@ export default function Sidebar() {
     ...filtered.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredTerminals.map((t) => ({ kind: "terminal" as const, tab: t })),
+    ...filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t })),
   ];
   const sortedAll = sortByOrder(allItems, sidebarOrder, isPinned, tabs);
 
@@ -152,14 +155,27 @@ export default function Sidebar() {
     ...filtered.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
   ];
-  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, () => false, tabs);
+  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, isPinned, tabs);
 
   // ── Build terminals-only list ─────────────────────────────────────────
   const terminalItems = filteredTerminals.map((t) => ({
     kind: "terminal" as const,
     tab: t,
   }));
-  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, () => false, tabs);
+  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, isPinned, tabs);
+
+  // ── Build notes-only list ─────────────────────────────────────────────
+  const noteItems = filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t }));
+  const sortedNotes = sortByOrder(noteItems, sidebarOrder, isPinned, tabs);
+
+  const currentItems: CombinedItem[] =
+    sidebarMode === "all"
+      ? sortedAll
+      : sidebarMode === "sessions"
+        ? sortedSessions
+        : sidebarMode === "terminals"
+          ? sortedTerminals
+          : sortedNotes;
 
   /** Toggle pin for any item type. */
   const toggleItemPin = (item: CombinedItem) => {
@@ -179,11 +195,7 @@ export default function Sidebar() {
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Determine which list we're operating on
-    let list: CombinedItem[];
-    if (sidebarMode === "all") list = sortedAll;
-    else if (sidebarMode === "sessions") list = sortedSessions;
-    else list = sortedTerminals;
+    const list = currentItems;
 
     const fromIdx = list.findIndex((it) => itemId(it, tabs) === activeId);
     const overIdx = list.findIndex((it) => itemId(it, tabs) === overId);
@@ -240,7 +252,7 @@ export default function Sidebar() {
         onSelect={() => {
           touchRecentOpen(item.tab.id);
           setActiveTab(item.tab.id);
-          if (item.tab.error) {
+          if (item.tab.kind !== "note" && item.tab.error) {
             void retryTab(item.tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
           }
         }}
@@ -250,14 +262,40 @@ export default function Sidebar() {
       />
     );
 
+  const renderSectionedList = (items: CombinedItem[]) => (
+    <SortableList ids={items.map((it) => itemId(it, tabs))} disabled={dndDisabled}>
+      <ul role="list" className="pb-3">
+        {items.map((item, idx) => {
+          const pinned = isPinned(item);
+          const prevPinned = idx > 0 && isPinned(items[idx - 1]);
+          const startsSection = idx === 0 || pinned !== prevPinned;
+          return (
+            <Fragment key={itemId(item, tabs)}>
+              {startsSection && (
+                <li
+                  className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
+                    tracking-[0.08em] text-[var(--color-ink-9)]"
+                >
+                  {pinned ? "Pinned" : "Recent"}
+                </li>
+              )}
+              <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
+                {renderItem(item)}
+              </SortableItem>
+            </Fragment>
+          );
+        })}
+        {items.length === 0 && (
+          <li className="px-3 py-6 text-center">
+            <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
+          </li>
+        )}
+      </ul>
+    </SortableList>
+  );
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <SidebarHeader
-        mode={sidebarMode}
-        sessionCount={sessions.length}
-        terminalCount={allTerminals.length}
-        onModeChange={setSidebarMode}
-      />
       <SearchBar />
 
       {/* ── State machine ────────────────────────────────────────────── */}
@@ -267,41 +305,6 @@ export default function Sidebar() {
           collisionDetection={closestCenter}
           onDragEnd={onDragEnd}
         >
-          {sidebarMode === "all" && (
-            <SortableList
-              ids={sortedAll.map((it) => itemId(it, tabs))}
-              disabled={dndDisabled}
-            >
-              <ul role="list" className="pb-3">
-                {sortedAll.map((item, idx) => {
-                  const pinned = isPinned(item);
-                  const prevPinned = idx > 0 && isPinned(sortedAll[idx - 1]);
-                  const startsSection = idx === 0 || pinned !== prevPinned;
-                  return (
-                    <Fragment key={itemId(item, tabs)}>
-                      {startsSection && (
-                        <li
-                          className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
-                            tracking-[0.08em] text-[var(--color-ink-9)]"
-                        >
-                          {pinned ? "Pinned" : "Recent"}
-                        </li>
-                      )}
-                      <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
-                        {renderItem(item)}
-                      </SortableItem>
-                    </Fragment>
-                  );
-                })}
-                {sortedAll.length === 0 && (
-                  <li className="px-3 py-6 text-center">
-                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-                  </li>
-                )}
-              </ul>
-            </SortableList>
-          )}
-
           {sidebarMode === "sessions" && (
             <>
               {state.type === "initial" && <Hint>Starting…</Hint>}
@@ -310,57 +313,11 @@ export default function Sidebar() {
                 <ErrorBanner message={state.message} onRetry={loadSessions} />
               )}
               {state.type === "empty" && <EmptyList />}
-              {state.type === "data" && (
-                <SortableList
-                  ids={sortedSessions.map((it) => itemId(it, tabs))}
-                  disabled={dndDisabled}
-                >
-                  <ul role="list" className="pb-3">
-                    {sortedSessions.map((item) => (
-                      <SortableItem
-                        key={itemId(item, tabs)}
-                        id={itemId(item, tabs)}
-                        disabled={dndDisabled}
-                      >
-                        {renderItem(item)}
-                      </SortableItem>
-                    ))}
-                    {sortedSessions.length === 0 && (
-                      <li className="px-3 py-6 text-center">
-                        <p className="text-[12px] text-[var(--color-ink-7)]">
-                          No results
-                        </p>
-                      </li>
-                    )}
-                  </ul>
-                </SortableList>
-              )}
+              {state.type === "data" && renderSectionedList(sortedSessions)}
             </>
           )}
 
-          {sidebarMode === "terminals" && (
-            <SortableList
-              ids={sortedTerminals.map((it) => itemId(it, tabs))}
-              disabled={dndDisabled}
-            >
-              <ul role="list" className="pb-3">
-                {sortedTerminals.map((item) => (
-                  <SortableItem
-                    key={itemId(item, tabs)}
-                    id={itemId(item, tabs)}
-                    disabled={dndDisabled}
-                  >
-                    {renderItem(item)}
-                  </SortableItem>
-                ))}
-                {sortedTerminals.length === 0 && (
-                  <li className="px-3 py-6 text-center">
-                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-                  </li>
-                )}
-              </ul>
-            </SortableList>
-          )}
+          {sidebarMode !== "sessions" && renderSectionedList(currentItems)}
         </DndContext>
       </div>
       <div className="arc-sidebar-footer">
@@ -368,10 +325,10 @@ export default function Sidebar() {
           type="button"
           className="arc-sidebar-create"
           onClick={openNewDialog}
-          aria-label="Create new session or terminal"
-          title="Create new session or terminal (⌘N)"
+          aria-label="Create new session, terminal, or note"
+          title="Create new session, terminal, or note (⌘N)"
         >
-          <span className="arc-sidebar-create-label">New Session / Terminal</span>
+          <span className="arc-sidebar-create-label">New Session / Terminal / Note</span>
           <kbd className="arc-sidebar-create-shortcut">⌘ N</kbd>
         </button>
       </div>

@@ -125,6 +125,16 @@ body {
   line-height: normal;
 }
 
+::selection {
+  background: rgba(215, 255, 100, 0.45);
+  color: var(--color-ink-0);
+}
+
+::-moz-selection {
+  background: rgba(215, 255, 100, 0.45);
+  color: var(--color-ink-0);
+}
+
 /* Clickable controls must advertise their action consistently. */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),

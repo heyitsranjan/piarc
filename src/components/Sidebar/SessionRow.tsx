@@ -102,7 +102,7 @@ export default function SessionRow({
           if (e.key === "Enter") onSelect();
         }}
         className={cn(
-          "group relative mx-1.5 h-12 select-none",
+          "group relative mx-1.5 h-12",
           "rounded-[4px] border border-transparent transition-colors duration-[var(--duration-fast)]",
           isActive
             ? "arc-row-active text-[var(--color-ink-1)]"

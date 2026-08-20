@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Menu } from "@tauri-apps/api/menu";
 
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, FileText, Loader2 } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
@@ -15,6 +15,11 @@ import { cn } from "@/lib/utils";
 
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
+
+function notePreview(tab: Tab): string {
+  const snippet = tab.content.replace(/\s+/g, " ").trim().slice(0, 42);
+  return snippet || "Empty note";
+}
 
 interface TerminalRowProps {
   tab: Tab;
@@ -46,7 +51,10 @@ export default function TerminalRow({
           text: tab.isPinned ? "Unpin" : "Pin to top",
           action: onTogglePin,
         },
-        { text: "Delete terminal", action: () => setDeleteOpen(true) },
+        {
+          text: tab.kind === "note" ? "Delete note" : "Delete terminal",
+          action: () => setDeleteOpen(true),
+        },
       ],
     });
     await menu.popup();
@@ -57,9 +65,11 @@ export default function TerminalRow({
     onDelete();
   };
 
-  const isWorking = tab.isLoading || isAgentWorking(tab.activity);
+  const isWorking =
+    tab.kind !== "note" && (tab.isLoading || isAgentWorking(tab.activity));
   const needsAttention =
-    tab.activity.state === "waiting_approval" || tab.activity.state === "error";
+    tab.kind !== "note" &&
+    (tab.activity.state === "waiting_approval" || tab.activity.state === "error");
   const activityLabel = agentActivityLabel(tab.activity);
 
   const showActivity = isWorking || needsAttention;
@@ -73,7 +83,7 @@ export default function TerminalRow({
         onClick={onSelect}
         onKeyDown={(event) => event.key === "Enter" && onSelect()}
         className={cn(
-          "group relative mx-1.5 h-12 select-none",
+          "group relative mx-1.5 h-12",
           "rounded-[4px] border border-transparent transition-colors duration-[var(--duration-fast)]",
           isActive
             ? "arc-row-active text-[var(--color-ink-1)]"
@@ -81,11 +91,19 @@ export default function TerminalRow({
         )}
       >
         <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 items-center gap-2">
-          <ItemIcon
-            kind="terminal"
-            size={13}
-            className="shrink-0 text-[var(--color-ink-7)]"
-          />
+          {tab.kind === "note" ? (
+            <FileText
+              size={13}
+              strokeWidth={1.7}
+              className="shrink-0 text-[var(--color-ink-7)]"
+            />
+          ) : (
+            <ItemIcon
+              kind="terminal"
+              size={13}
+              className="shrink-0 text-[var(--color-ink-7)]"
+            />
+          )}
           <div className="flex min-w-0 flex-col justify-center">
             <span
               className={cn(
@@ -107,9 +125,19 @@ export default function TerminalRow({
                       : "text-[var(--color-accent)]"
                   : "text-[var(--color-ink-7)]"
               )}
-              title={showActivity ? activityLabel : tab.cwd}
+              title={
+                showActivity
+                  ? activityLabel
+                  : tab.kind === "note"
+                    ? notePreview(tab)
+                    : tab.cwd
+              }
             >
-              {showActivity ? activityLabel : cwdShort(tab.cwd)}
+              {showActivity
+                ? activityLabel
+                : tab.kind === "note"
+                  ? notePreview(tab)
+                  : cwdShort(tab.cwd)}
             </span>
           </div>
         </div>
@@ -142,8 +170,12 @@ export default function TerminalRow({
 
       {deleteOpen && (
         <ConfirmDeleteDialog
-          title="Delete terminal"
-          message={`Delete "${tab.title}"? Any running process in this terminal will be stopped.`}
+          title={tab.kind === "note" ? "Delete note" : "Delete terminal"}
+          message={
+            tab.kind === "note"
+              ? `Delete "${tab.title}"? This note cannot be recovered.`
+              : `Delete "${tab.title}"? Any running process in this terminal will be stopped.`
+          }
           onConfirm={deleteTerminal}
           onClose={() => setDeleteOpen(false)}
         />
@@ -152,7 +184,7 @@ export default function TerminalRow({
       {renameOpen && (
         <RenameDialog
           title={tab.title}
-          subtitle={cwdShort(tab.cwd)}
+          subtitle={tab.kind === "note" ? timeAgo(tab.createdAt) : cwdShort(tab.cwd)}
           onRename={onRename}
           onClose={() => setRenameOpen(false)}
         />

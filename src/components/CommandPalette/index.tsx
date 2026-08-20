@@ -21,6 +21,7 @@ import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { fuzzyMatchAny } from "@/lib/fuzzy";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -43,26 +44,29 @@ export default function CommandPalette() {
     const matchedSessions = sessions
       .filter(
         (session) =>
-          !q ||
-          session.title.toLowerCase().includes(q) ||
-          session.cwd.toLowerCase().includes(q) ||
-          session.firstMessage.toLowerCase().includes(q)
+          !q || fuzzyMatchAny(q, session.title, session.cwd, session.firstMessage)
       )
       .map((session) => ({ kind: "session" as const, session }));
 
     const matchedTerminals = tabs
       .filter(
-        (tab) =>
-          tab.kind === "terminal" &&
-          (!q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q))
+        (tab) => tab.kind === "terminal" && (!q || fuzzyMatchAny(q, tab.title, tab.cwd))
       )
       .map((tab) => ({ kind: "terminal" as const, tab }));
 
-    const combined = [...matchedSessions, ...matchedTerminals].sort((a, b) => {
-      const idA = a.kind === "session" ? a.session.id : a.tab.id;
-      const idB = b.kind === "session" ? b.session.id : b.tab.id;
-      return (recentOpens[idB] ?? 0) - (recentOpens[idA] ?? 0);
-    });
+    const matchedNotes = tabs
+      .filter(
+        (tab) => tab.kind === "note" && (!q || fuzzyMatchAny(q, tab.title, tab.content))
+      )
+      .map((tab) => ({ kind: "note" as const, tab }));
+
+    const combined = [...matchedSessions, ...matchedTerminals, ...matchedNotes].sort(
+      (a, b) => {
+        const idA = a.kind === "session" ? a.session.id : a.tab.id;
+        const idB = b.kind === "session" ? b.session.id : b.tab.id;
+        return (recentOpens[idB] ?? 0) - (recentOpens[idA] ?? 0);
+      }
+    );
 
     return { results: combined };
   }, [sessions, tabs, q, recentOpens]);
@@ -91,7 +95,7 @@ export default function CommandPalette() {
         await openSession(result.session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
       } else {
         touchRecentOpen(result.tab.id);
-        setSidebarMode("all");
+        setSidebarMode(result.kind === "note" ? "terminals" : "all");
         setActiveSession(null);
         setActiveTab(result.tab.id);
       }
@@ -153,7 +157,7 @@ export default function CommandPalette() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search sessions and terminals…"
+            placeholder="Search sessions, terminals, and notes…"
             autoFocus
             className="flex-1 bg-transparent font-mono text-[10px] text-[var(--color-ink-0)]
               placeholder:text-[var(--color-ink-9)] outline-none"
@@ -192,20 +196,26 @@ export default function CommandPalette() {
             <ul className="pb-2 pt-1">
               {results.map((result, index) => {
                 const isSession = result.kind === "session";
+                const isNote = result.kind === "note";
                 const id = isSession ? result.session.id : result.tab.id;
                 const title = isSession ? result.session.title : result.tab.title;
                 const cwd = isSession ? result.session.cwd : result.tab.cwd;
                 const trailing = isSession
                   ? timeAgo(result.session.modified)
                   : timeAgo(result.tab.createdAt);
-                const icon = <ItemIcon kind={isSession ? "session" : "terminal"} />;
+                const icon = (
+                  <ItemIcon kind={isSession ? "session" : isNote ? "note" : "terminal"} />
+                );
+                const subtitle = isNote
+                  ? `${timeAgo(result.tab.createdAt)} · ${result.tab.content.slice(0, 40)}`
+                  : cwdShort(cwd);
                 return (
                   <ResultRow
                     key={id}
                     icon={icon}
                     selected={index === selectedIdx}
                     title={title}
-                    subtitle={cwdShort(cwd)}
+                    subtitle={subtitle}
                     trailing={trailing}
                     onSelect={() => void confirm(index)}
                     onHover={() => setSelected(index)}
@@ -261,7 +271,7 @@ function ResultRow({
       onClick={onSelect}
       onMouseMove={onHover}
       className={cn(
-        "group relative mx-1.5 flex h-12 cursor-pointer select-none items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
+        "group relative mx-1.5 flex h-12 cursor-pointer items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
         selected ? "arc-row-active" : "hover:text-[var(--color-ink-0)]"
       )}
     >
