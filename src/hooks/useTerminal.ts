@@ -104,6 +104,7 @@ export function useTerminal(): UseTerminalReturn {
       }
 
       const tabId = openTab({
+        id: session.id,
         kind: "omp",
         sessionId: session.id,
         title: session.title,
@@ -146,6 +147,7 @@ export function useTerminal(): UseTerminalReturn {
         if (existing) await closeTab(existing.id);
 
         const tabId = openTab({
+          id: session.id,
           kind: "omp",
           sessionId: session.id,
           title: session.title,

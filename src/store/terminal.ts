@@ -58,7 +58,9 @@ interface TerminalState {
    * Open a new terminal tab.
    * Returns the new tab's ID, or null if MAX_TABS is reached.
    */
-  openTab: (session: Pick<Tab, "sessionId" | "title" | "cwd" | "kind">) => string | null;
+  openTab: (
+    session: Pick<Tab, "sessionId" | "title" | "cwd" | "kind"> & { id?: string }
+  ) => string | null;
 
   /**
    * Kill the PTY and remove the tab.
@@ -111,7 +113,7 @@ export const useTerminalStore = create<TerminalState>()(
 
       openTab: (session) => {
         if (get().tabs.length >= MAX_TABS) return null;
-        const id = `tab-${shortId()}`;
+        const id = session.id ?? `tab-${shortId()}`;
         const tab: Tab = {
           id,
           isLoading: true,
@@ -120,7 +122,10 @@ export const useTerminalStore = create<TerminalState>()(
           createdAt: Date.now() / 1000,
           isPinned: false,
           userRenamed: false,
-          ...session,
+          kind: session.kind,
+          sessionId: session.sessionId,
+          title: session.title,
+          cwd: session.cwd,
         };
         set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
         return id;

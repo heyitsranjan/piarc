@@ -42,8 +42,14 @@ type CombinedItem =
   { kind: "session"; session: OmpSession } | { kind: "terminal"; tab: Tab };
 
 /** Item ID extraction helper. */
-function itemId(item: CombinedItem): string {
-  return item.kind === "session" ? item.session.id : item.tab.id;
+function itemId(item: CombinedItem, tabs: Tab[]): string {
+  if (item.kind === "session") {
+    // Use tab.id if a tab is bound to this session — keeps the sidebar key
+    // stable across the pending→real session ID transition.
+    const tab = tabs.find((t) => t.sessionId === item.session.id);
+    return tab?.id ?? item.session.id;
+  }
+  return item.tab.id;
 }
 
 /**
@@ -54,15 +60,16 @@ function itemId(item: CombinedItem): string {
 function sortByOrder(
   items: CombinedItem[],
   order: string[],
-  pinned: (item: CombinedItem) => boolean
+  pinned: (item: CombinedItem) => boolean,
+  tabs: Tab[]
 ): CombinedItem[] {
   const orderIdx = new Map(order.map((id, i) => [id, i]));
   return [...items].sort((a, b) => {
     const aPin = Number(pinned(a));
     const bPin = Number(pinned(b));
     if (aPin !== bPin) return bPin - aPin;
-    const aOrder = orderIdx.get(itemId(a)) ?? Number.MAX_SAFE_INTEGER;
-    const bOrder = orderIdx.get(itemId(b)) ?? Number.MAX_SAFE_INTEGER;
+    const aOrder = orderIdx.get(itemId(a, tabs)) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = orderIdx.get(itemId(b, tabs)) ?? Number.MAX_SAFE_INTEGER;
     return aOrder - bOrder;
   });
 }
@@ -114,8 +121,14 @@ export default function Sidebar() {
   );
 
   // ── Pin check helpers ─────────────────────────────────────────────────
-  const isPinned = (item: CombinedItem): boolean =>
-    item.kind === "session" ? pinnedIds.includes(item.session.id) : item.tab.isPinned;
+  const isPinned = (item: CombinedItem): boolean => {
+    if (item.kind === "session") {
+      // Use tab.id for pin check if a tab is bound — consistent with itemId.
+      const tab = tabs.find((t) => t.sessionId === item.session.id);
+      return pinnedIds.includes(tab?.id ?? item.session.id);
+    }
+    return item.tab.isPinned;
+  };
   // ── Build filtered terminal list ──────────────────────────────────────
   const terminalMatches = (tab: Tab) =>
     !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q);
@@ -132,26 +145,31 @@ export default function Sidebar() {
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredTerminals.map((t) => ({ kind: "terminal" as const, tab: t })),
   ];
-  const sortedAll = sortByOrder(allItems, sidebarOrder, isPinned);
+  const sortedAll = sortByOrder(allItems, sidebarOrder, isPinned, tabs);
 
   // ── Build sessions-only list ──────────────────────────────────────────
   const sessionItems: CombinedItem[] = [
     ...filtered.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
   ];
-  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, () => false);
+  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, () => false, tabs);
 
   // ── Build terminals-only list ─────────────────────────────────────────
   const terminalItems = filteredTerminals.map((t) => ({
     kind: "terminal" as const,
     tab: t,
   }));
-  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, () => false);
+  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, () => false, tabs);
 
   /** Toggle pin for any item type. */
   const toggleItemPin = (item: CombinedItem) => {
-    if (item.kind === "session") togglePin(item.session.id);
-    else toggleTabPin(item.tab.id);
+    if (item.kind === "session") {
+      // Pin by tab.id if a tab is bound — consistent with itemId and isPinned.
+      const tab = tabs.find((t) => t.sessionId === item.session.id);
+      togglePin(tab?.id ?? item.session.id);
+    } else {
+      toggleTabPin(item.tab.id);
+    }
   };
 
   // ── Drag end handler ──────────────────────────────────────────────────
@@ -167,8 +185,8 @@ export default function Sidebar() {
     else if (sidebarMode === "sessions") list = sortedSessions;
     else list = sortedTerminals;
 
-    const fromIdx = list.findIndex((it) => itemId(it) === activeId);
-    const overIdx = list.findIndex((it) => itemId(it) === overId);
+    const fromIdx = list.findIndex((it) => itemId(it, tabs) === activeId);
+    const overIdx = list.findIndex((it) => itemId(it, tabs) === overId);
     if (fromIdx === -1 || overIdx === -1) return;
 
     // Cross-section drop: if pin states differ, toggle pin on the dragged item
@@ -179,7 +197,7 @@ export default function Sidebar() {
     }
 
     // Reorder in sidebarOrder
-    const ids = list.map(itemId);
+    const ids = list.map((it) => itemId(it, tabs));
     const newOrder = arrayMove(ids, fromIdx, overIdx);
     setSidebarOrder(newOrder);
   };
@@ -250,14 +268,17 @@ export default function Sidebar() {
           onDragEnd={onDragEnd}
         >
           {sidebarMode === "all" && (
-            <SortableList ids={sortedAll.map(itemId)} disabled={dndDisabled}>
+            <SortableList
+              ids={sortedAll.map((it) => itemId(it, tabs))}
+              disabled={dndDisabled}
+            >
               <ul role="list" className="pb-3">
                 {sortedAll.map((item, idx) => {
                   const pinned = isPinned(item);
                   const prevPinned = idx > 0 && isPinned(sortedAll[idx - 1]);
                   const startsSection = idx === 0 || pinned !== prevPinned;
                   return (
-                    <Fragment key={itemId(item)}>
+                    <Fragment key={itemId(item, tabs)}>
                       {startsSection && (
                         <li
                           className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
@@ -266,7 +287,7 @@ export default function Sidebar() {
                           {pinned ? "Pinned" : "Recent"}
                         </li>
                       )}
-                      <SortableItem id={itemId(item)} disabled={dndDisabled}>
+                      <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
                         {renderItem(item)}
                       </SortableItem>
                     </Fragment>
@@ -290,12 +311,15 @@ export default function Sidebar() {
               )}
               {state.type === "empty" && <EmptyList />}
               {state.type === "data" && (
-                <SortableList ids={sortedSessions.map(itemId)} disabled={dndDisabled}>
+                <SortableList
+                  ids={sortedSessions.map((it) => itemId(it, tabs))}
+                  disabled={dndDisabled}
+                >
                   <ul role="list" className="pb-3">
                     {sortedSessions.map((item) => (
                       <SortableItem
-                        key={itemId(item)}
-                        id={itemId(item)}
+                        key={itemId(item, tabs)}
+                        id={itemId(item, tabs)}
                         disabled={dndDisabled}
                       >
                         {renderItem(item)}
@@ -315,12 +339,15 @@ export default function Sidebar() {
           )}
 
           {sidebarMode === "terminals" && (
-            <SortableList ids={sortedTerminals.map(itemId)} disabled={dndDisabled}>
+            <SortableList
+              ids={sortedTerminals.map((it) => itemId(it, tabs))}
+              disabled={dndDisabled}
+            >
               <ul role="list" className="pb-3">
                 {sortedTerminals.map((item) => (
                   <SortableItem
-                    key={itemId(item)}
-                    id={itemId(item)}
+                    key={itemId(item, tabs)}
+                    id={itemId(item, tabs)}
                     disabled={dndDisabled}
                   >
                     {renderItem(item)}

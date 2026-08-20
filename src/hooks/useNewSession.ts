@@ -72,6 +72,7 @@ export function useNewSession(): UseNewSessionReturn {
       }
       const title = isTerminal ? "Terminal" : "New session";
       const tabId = openTab({
+        id: crypto.randomUUID(),
         kind,
         sessionId: isTerminal ? `__terminal__${Date.now()}` : `__new__${Date.now()}`,
         title,

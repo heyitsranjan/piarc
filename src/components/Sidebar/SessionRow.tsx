@@ -50,7 +50,7 @@ export default function SessionRow({
   const showActivity = isWorking || needsAttention;
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const isPinned = pinnedIds.includes(session.id);
+  const isPinned = pinnedIds.includes(tab?.id ?? session.id);
 
   const isPending = !session.path;
   const openMenu = async (event: ReactMouseEvent) => {
@@ -61,7 +61,7 @@ export default function SessionRow({
       { text: "Rename", action: () => setRenameOpen(true) },
       {
         text: isPinned ? "Unpin" : "Pin to top",
-        action: () => togglePin(session.id),
+        action: () => togglePin(tab?.id ?? session.id),
       },
       ...(isPending
         ? []
