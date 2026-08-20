@@ -13,8 +13,8 @@ export type WorkspaceMode = "explorer" | "git";
 export type SidebarMode = "sessions" | "terminals";
 
 export interface WorkspaceState {
-  /** Which workspace panel is open, or null when closed. */
-  mode: WorkspaceMode;
+  /** Which workspace panel is open, or null when closed (selection still remembered). */
+  mode: WorkspaceMode | null;
   /** Selected file path in explorer mode. */
   selectedFile: string | null;
   /** Selected git change key (staged|working:path) in git mode. */
@@ -81,27 +81,38 @@ export const useUiStore = create<UiState>()(
       toggleWorkspace: (sessionId, mode) =>
         set((s) => {
           const current = s.workspaceBySession[sessionId];
-          const isMode = current?.mode === mode;
-          const rest = { ...s.workspaceBySession };
-          delete rest[sessionId];
+          // Toggle off: set mode to null but keep selection so reopen restores file
+          if (current?.mode === mode) {
+            return {
+              workspaceBySession: {
+                ...s.workspaceBySession,
+                [sessionId]: { ...current, mode: null },
+              },
+            };
+          }
+          // Toggle on / switch mode: keep existing selection, set new mode
           return {
-            workspaceBySession: isMode
-              ? rest
-              : {
-                  ...rest,
-                  [sessionId]: {
-                    mode,
-                    selectedFile: current?.selectedFile ?? null,
-                    selectedGitKey: current?.selectedGitKey ?? null,
-                  },
-                },
+            workspaceBySession: {
+              ...s.workspaceBySession,
+              [sessionId]: {
+                mode,
+                selectedFile: current?.selectedFile ?? null,
+                selectedGitKey: current?.selectedGitKey ?? null,
+              },
+            },
           };
         }),
       closeWorkspace: (sessionId) =>
         set((s) => {
-          const rest = { ...s.workspaceBySession };
-          delete rest[sessionId];
-          return { workspaceBySession: rest };
+          const current = s.workspaceBySession[sessionId];
+          if (!current) return s;
+          // Close panel but preserve file selection for next reopen
+          return {
+            workspaceBySession: {
+              ...s.workspaceBySession,
+              [sessionId]: { ...current, mode: null },
+            },
+          };
         }),
       setWorkspaceSelection: (sessionId, patch) =>
         set((s) => {

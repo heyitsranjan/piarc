@@ -75,7 +75,18 @@ export default function Layout() {
   const dragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const prevSessionId = useRef<string | null>(null);
 
+  // Close the workspace panel of the previous session when switching sessions.
+  // Selection (selectedFile / selectedGitKey) is preserved for reopen.
+  useEffect(() => {
+    const prevId = prevSessionId.current;
+    const nextId = activeSession?.id ?? null;
+    if (prevId && nextId && prevId !== nextId) {
+      closeWorkspace(prevId);
+    }
+    prevSessionId.current = nextId;
+  }, [activeSession?.id, closeWorkspace]);
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
       if (!dragging.current) return;
