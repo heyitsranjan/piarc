@@ -230,11 +230,11 @@ impl PtyManager {
             }
             // Reap the zombie.  `kill()` already delivered SIGHUP → SIGKILL,
             // so the child is dead or dying; `wait()` returns within
-            // milliseconds.  If the child already exited (kill returned Err
-            // because the PID was invalid), `wait()` still reaps the zombie.
-            if let Err(e) = session.child.wait() {
-                debug!("PTY wait after kill failed: {e}");
-            }
+            // milliseconds.  Without this, each killed PTY lingers as a
+            // zombie until the PiArc process exits — after enough kills
+            // (tabs opened/closed repeatedly) the system hits `maxproc`
+            // and no new processes can be created.
+            let _ = session.child.wait();
         }
         self.lru.lock().retain(|id| id != tab_id);
     }
@@ -380,6 +380,88 @@ mod tests {
             "zombie processes remain after kill: {zombies:?}"
         );
     }
+    /// Regression test for the zombie-reaping bug.  `portable_pty::kill()`
+    /// sends SIGHUP → polls `try_wait()` for 250 ms → SIGKILLs, but never
+    /// calls `wait()`.  `std::process::Child::drop` skips `waitpid` on Unix,
+    /// so the killed child becomes a zombie.  This test verifies that
+    /// `PtyManager::kill()` calls `wait()` after signalling, leaving no
+    /// zombie behind.
+    ///
+    /// We use a non-interactive `sleep` that traps SIGHUP to force the
+    /// SIGKILL fallback path — the code path where the zombie bug lives.
+    #[test]
+    fn kill_reaps_sighup_resistant_child_no_zombie() {
+        use portable_pty::{native_pty_system, CommandBuilder};
+
+        // Bypass PtyManager::spawn and create a PTY manually so we can
+        // spawn a non-interactive SIGHUP-resistant process.  This is the
+        // exact scenario that triggers the zombie: the process ignores
+        // SIGHUP, so portable_pty's kill() falls back to SIGKILL, and
+        // without wait() the child becomes a zombie.
+        let pty = native_pty_system();
+        let pair = pty.openpty(portable_pty::PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        }).expect("openpty");
+
+        let mut cmd = CommandBuilder::new("/bin/zsh");
+        cmd.args(["-c", "trap '' HUP; sleep 30"]);
+        cmd.cwd("/tmp");
+        cmd.env("TERM", "xterm-256color");
+
+        let mut child = pair.slave.spawn_command(cmd).expect("spawn");
+        let _child_pid = child.process_id().expect("pid");
+
+        // Give the shell time to install the trap and enter sleep.
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let parent_pid = std::process::id() as i32;
+
+        // Part (a): kill + wait — the fix — should leave no zombie.
+        child.kill().expect("kill"); // SIGHUP → SIGKILL
+        child.wait().expect("wait"); // <-- the fix: reap the zombie
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        let zombies = zombie_child_pids(parent_pid);
+        assert!(
+            zombies.is_empty(),
+            "zombie processes remain after kill+wait: {zombies:?}"
+        );
+
+        // Part (b): kill WITHOUT wait — old behavior — should leave a zombie.
+        // This proves the bug exists and our fix is necessary.
+        let pair2 = pty.openpty(portable_pty::PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        }).expect("openpty2");
+        let mut cmd2 = CommandBuilder::new("/bin/zsh");
+        cmd2.args(["-c", "trap '' HUP; sleep 30"]);
+        cmd2.cwd("/tmp");
+        cmd2.env("TERM", "xterm-256color");
+        let mut child2 = pair2.slave.spawn_command(cmd2).expect("spawn2");
+        let _child2_pid = child2.process_id().expect("pid2");
+
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        // Intentionally do NOT call wait() — reproduces the old behavior.
+        child2.kill().expect("kill2"); // SIGHUP → SIGKILL
+
+        std::thread::sleep(std::time::Duration::from_millis(300));
+
+        let zombies2 = zombie_child_pids(parent_pid);
+        assert!(
+            !zombies2.is_empty(),
+            "expected zombie without wait() (old behavior), got none: {zombies2:?}"
+        );
+
+        // Reap the zombie so the test doesn't leak.
+        let _ = child2.wait();
+    }
 
     fn child_pids(parent: i32) -> Vec<i32> {
         let out = std::process::Command::new("ps")
@@ -398,8 +480,9 @@ mod tests {
     }
 
     fn zombie_child_pids(parent: i32) -> Vec<i32> {
+        // On macOS, `ps` without `-A` omits zombie processes.
         let out = std::process::Command::new("ps")
-            .args(["-o", "pid=,ppid=,stat="])
+            .args(["-A", "-o", "pid=,ppid=,stat="])
             .output()
             .expect("ps");
         String::from_utf8_lossy(&out.stdout)
