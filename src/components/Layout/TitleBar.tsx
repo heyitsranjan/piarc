@@ -34,9 +34,14 @@ import { cn } from "@/lib/utils";
 import NewSessionDialog from "./NewSessionDialog";
 
 export default function TitleBar() {
+  const [appName, setAppName] = useState("PiArc");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    setAppName(import.meta.env.VITE_PIARC_DEV === "1" ? "PiArc Dev" : "PiArc");
+  }, []);
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const activeSession = useSessionStore((state) => state.activeSession);
   const activeTab = useTerminalStore((state) =>
@@ -180,7 +185,7 @@ export default function TitleBar() {
             <PanelLeft size={16} strokeWidth={1.8} />
           </button>
           <span className="arc-brand">
-            <strong>PiArc</strong>
+            <strong>{appName}</strong>
             <small>OMP desktop companion</small>
           </span>
         </div>

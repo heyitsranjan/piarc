@@ -38,6 +38,11 @@ function availableSidebarMax() {
   );
 }
 
+function StatusBarAppName({ version }: { version: string }) {
+  const appName = import.meta.env.VITE_PIARC_DEV === "1" ? "PiArc Dev" : "PiArc";
+  return <span className="ml-auto">{`${appName} ${version}`}</span>;
+}
+
 function clampSidebarWidth(width: number) {
   const minimum = Math.min(SIDEBAR_MIN, window.innerWidth);
   return Math.max(minimum, Math.min(availableSidebarMax(), width));
@@ -245,7 +250,7 @@ export default function Layout() {
         {gitStatus && (
           <span>{`${gitStatus.branch} · ${gitStatus.files.length} changes`}</span>
         )}
-        <span className="ml-auto">{`PiArc ${packageInfo.version}`}</span>
+        <StatusBarAppName version={packageInfo.version} />
       </footer>
 
       {commandPaletteOpen && <CommandPalette />}
