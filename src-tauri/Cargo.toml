@@ -1,6 +1,6 @@
 [package]
 name        = "piarc"
-version     = "0.1.0-dev.3"
+version     = "0.1.0-dev.4"
 description = "PiArc — local OMP session browser and embedded terminal"
 authors     = ["Smruti Ranjan Rana <heyitsranjan>"]
 edition     = "2021"
