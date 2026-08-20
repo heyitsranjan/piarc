@@ -109,25 +109,15 @@ export default function TerminalRow({
             />
           )}
           <div className="flex min-w-0 flex-col justify-center">
-            <div className="flex min-w-0 items-center gap-1">
-              <span
-                className={cn(
-                  "block truncate font-mono text-[10px] font-semibold leading-[12px]",
-                  isActive && "text-[var(--color-accent)]"
-                )}
-                title={tab.title}
-              >
-                {tab.title}
-              </span>
-              {tab.note?.trim() && (
-                <StickyNote
-                  size={8}
-                  strokeWidth={2}
-                  className="shrink-0 text-[var(--color-accent)]"
-                  aria-label="Has note"
-                />
+            <span
+              className={cn(
+                "block truncate font-mono text-[10px] font-semibold leading-[12px]",
+                isActive && "text-[var(--color-accent)]"
               )}
-            </div>
+              title={tab.title}
+            >
+              {tab.title}
+            </span>
             <span
               className={cn(
                 "mt-1 block truncate font-mono text-[8px] leading-[9px]",
@@ -155,6 +145,15 @@ export default function TerminalRow({
             </span>
           </div>
         </div>
+
+        {tab.note?.trim() && (
+          <StickyNote
+            size={9}
+            strokeWidth={2}
+            className="absolute right-[26px] top-1/2 shrink-0 -translate-y-1/2 text-[var(--color-accent)]"
+            aria-label="Has note"
+          />
+        )}
 
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end gap-[2px]">
           {isWorking ? (
