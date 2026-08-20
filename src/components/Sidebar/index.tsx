@@ -157,18 +157,27 @@ export default function Sidebar() {
     ...filtered.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
   ];
-  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, () => false, tabs);
+  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, isPinned, tabs);
 
   // ── Build terminals-only list ─────────────────────────────────────────
   const terminalItems = filteredTerminals.map((t) => ({
     kind: "terminal" as const,
     tab: t,
   }));
-  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, () => false, tabs);
+  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, isPinned, tabs);
 
   // ── Build notes-only list ─────────────────────────────────────────────
   const noteItems = filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t }));
-  const sortedNotes = sortByOrder(noteItems, sidebarOrder, () => false, tabs);
+  const sortedNotes = sortByOrder(noteItems, sidebarOrder, isPinned, tabs);
+
+  const currentItems: CombinedItem[] =
+    sidebarMode === "all"
+      ? sortedAll
+      : sidebarMode === "sessions"
+        ? sortedSessions
+        : sidebarMode === "terminals"
+          ? sortedTerminals
+          : sortedNotes;
 
   /** Toggle pin for any item type. */
   const toggleItemPin = (item: CombinedItem) => {
@@ -188,12 +197,7 @@ export default function Sidebar() {
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Determine which list we're operating on
-    let list: CombinedItem[];
-    if (sidebarMode === "all") list = sortedAll;
-    else if (sidebarMode === "sessions") list = sortedSessions;
-    else if (sidebarMode === "terminals") list = sortedTerminals;
-    else list = sortedNotes;
+    const list = currentItems;
 
     const fromIdx = list.findIndex((it) => itemId(it, tabs) === activeId);
     const overIdx = list.findIndex((it) => itemId(it, tabs) === overId);
@@ -260,6 +264,38 @@ export default function Sidebar() {
       />
     );
 
+  const renderSectionedList = (items: CombinedItem[]) => (
+    <SortableList ids={items.map((it) => itemId(it, tabs))} disabled={dndDisabled}>
+      <ul role="list" className="pb-3">
+        {items.map((item, idx) => {
+          const pinned = isPinned(item);
+          const prevPinned = idx > 0 && isPinned(items[idx - 1]);
+          const startsSection = idx === 0 || pinned !== prevPinned;
+          return (
+            <Fragment key={itemId(item, tabs)}>
+              {startsSection && (
+                <li
+                  className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
+                    tracking-[0.08em] text-[var(--color-ink-9)]"
+                >
+                  {pinned ? "Pinned" : "Recent"}
+                </li>
+              )}
+              <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
+                {renderItem(item)}
+              </SortableItem>
+            </Fragment>
+          );
+        })}
+        {items.length === 0 && (
+          <li className="px-3 py-6 text-center">
+            <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
+          </li>
+        )}
+      </ul>
+    </SortableList>
+  );
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <SearchBar />
@@ -271,41 +307,6 @@ export default function Sidebar() {
           collisionDetection={closestCenter}
           onDragEnd={onDragEnd}
         >
-          {sidebarMode === "all" && (
-            <SortableList
-              ids={sortedAll.map((it) => itemId(it, tabs))}
-              disabled={dndDisabled}
-            >
-              <ul role="list" className="pb-3">
-                {sortedAll.map((item, idx) => {
-                  const pinned = isPinned(item);
-                  const prevPinned = idx > 0 && isPinned(sortedAll[idx - 1]);
-                  const startsSection = idx === 0 || pinned !== prevPinned;
-                  return (
-                    <Fragment key={itemId(item, tabs)}>
-                      {startsSection && (
-                        <li
-                          className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
-                            tracking-[0.08em] text-[var(--color-ink-9)]"
-                        >
-                          {pinned ? "Pinned" : "Recent"}
-                        </li>
-                      )}
-                      <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
-                        {renderItem(item)}
-                      </SortableItem>
-                    </Fragment>
-                  );
-                })}
-                {sortedAll.length === 0 && (
-                  <li className="px-3 py-6 text-center">
-                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-                  </li>
-                )}
-              </ul>
-            </SortableList>
-          )}
-
           {sidebarMode === "sessions" && (
             <>
               {state.type === "initial" && <Hint>Starting…</Hint>}
@@ -314,81 +315,11 @@ export default function Sidebar() {
                 <ErrorBanner message={state.message} onRetry={loadSessions} />
               )}
               {state.type === "empty" && <EmptyList />}
-              {state.type === "data" && (
-                <SortableList
-                  ids={sortedSessions.map((it) => itemId(it, tabs))}
-                  disabled={dndDisabled}
-                >
-                  <ul role="list" className="pb-3">
-                    {sortedSessions.map((item) => (
-                      <SortableItem
-                        key={itemId(item, tabs)}
-                        id={itemId(item, tabs)}
-                        disabled={dndDisabled}
-                      >
-                        {renderItem(item)}
-                      </SortableItem>
-                    ))}
-                    {sortedSessions.length === 0 && (
-                      <li className="px-3 py-6 text-center">
-                        <p className="text-[12px] text-[var(--color-ink-7)]">
-                          No results
-                        </p>
-                      </li>
-                    )}
-                  </ul>
-                </SortableList>
-              )}
+              {state.type === "data" && renderSectionedList(sortedSessions)}
             </>
           )}
 
-          {sidebarMode === "terminals" && (
-            <SortableList
-              ids={sortedTerminals.map((it) => itemId(it, tabs))}
-              disabled={dndDisabled}
-            >
-              <ul role="list" className="pb-3">
-                {sortedTerminals.map((item) => (
-                  <SortableItem
-                    key={itemId(item, tabs)}
-                    id={itemId(item, tabs)}
-                    disabled={dndDisabled}
-                  >
-                    {renderItem(item)}
-                  </SortableItem>
-                ))}
-                {sortedTerminals.length === 0 && (
-                  <li className="px-3 py-6 text-center">
-                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-                  </li>
-                )}
-              </ul>
-            </SortableList>
-          )}
-
-          {sidebarMode === "notes" && (
-            <SortableList
-              ids={sortedNotes.map((it) => itemId(it, tabs))}
-              disabled={dndDisabled}
-            >
-              <ul role="list" className="pb-3">
-                {sortedNotes.map((item) => (
-                  <SortableItem
-                    key={itemId(item, tabs)}
-                    id={itemId(item, tabs)}
-                    disabled={dndDisabled}
-                  >
-                    {renderItem(item)}
-                  </SortableItem>
-                ))}
-                {sortedNotes.length === 0 && (
-                  <li className="px-3 py-6 text-center">
-                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-                  </li>
-                )}
-              </ul>
-            </SortableList>
-          )}
+          {sidebarMode !== "sessions" && renderSectionedList(currentItems)}
         </DndContext>
       </div>
       <div className="arc-sidebar-footer">
