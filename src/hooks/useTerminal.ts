@@ -144,19 +144,24 @@ export function useTerminal(): UseTerminalReturn {
           .getState()
           .tabs.find((tab) => tab.sessionId === session.id);
 
+        // Preserve the existing tab's ID so sidebarOrder stays stable.
+        // For a new session, the original tab.id was a frontend UUID;
+        // using session.id here would orphan it in sidebarOrder.
+        const tabId = existing?.id ?? session.id;
+
         if (existing) await closeTab(existing.id);
 
-        const tabId = openTab({
-          id: session.id,
+        const newTabId = openTab({
+          id: tabId,
           kind: "omp",
           sessionId: session.id,
           title: session.title,
           cwd: session.cwd,
         });
-        if (!tabId) return;
+        if (!newTabId) return;
 
         await spawnPty(
-          tabId,
+          newTabId,
           { kind: "omp", sessionId: session.id, cwd: session.cwd },
           cols,
           rows
