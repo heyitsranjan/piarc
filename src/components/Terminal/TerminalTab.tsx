@@ -40,7 +40,7 @@ import { notifyAgentCompletion } from "@/lib/agent-completion-notification";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
-import { isShiftedEnter, shiftedEnterSequence } from "@/lib/terminal-keys";
+import { isShiftedEnter } from "@/lib/terminal-keys";
 import {
   SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX,
   animateTerminalToBottom,
@@ -175,8 +175,16 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
     term.attachCustomKeyEventHandler((event) => {
       if (!isShiftedEnter(event)) return true;
-      const sequence = shiftedEnterSequence(event);
-      if (sequence) writePty(tab.id, sequence).catch(() => {});
+      // Only handle the keydown phase; the keypress phase would double-fire.
+      if (event.type !== "keydown") return false;
+      // In rich mode, send OMP's modifyOtherKeys sequence so OMP inserts a
+      // newline in its TUI.  In direct mode, send a line feed (\n) so the
+      // shell inserts a newline without submitting the command.
+      if (richInputEnabledRef.current) {
+        writePty(tab.id, "\x1b[27;2;13~").catch(() => {});
+      } else {
+        writePty(tab.id, "\n").catch(() => {});
+      }
       return false;
     });
 
