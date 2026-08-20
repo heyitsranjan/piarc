@@ -17,8 +17,11 @@ import type { Terminal } from "@xterm/xterm";
 const ANSI_RE =
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\d\/#&.:=?%@~_]+)*|[a-zA-Z\d]+(?:;[-a-zA-Z\d\/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
 
-// Prompt at the start of the line (e.g. codex "› ") or end (e.g. "$ ").
-const PROMPT_START_RE = /^\s*(?:[$#%›❯➜λ]|[>~]+)\s/;
+// Bare prompt at the start of the line (e.g. codex "› ").
+// Only matches a prompt char followed by optional whitespace — not echoed
+// input like "› tell me a joke" which would false-positive.
+const PROMPT_START_RE = /^\s*(?:[$#%›❯➜λ]|[>~]+)\s*$/;
+// Prompt at the end of the line (e.g. "~/dir $ ").
 const PROMPT_END_RE = /(?:\s|^)(?:[$#%›❯➜λ]|[>~]+)\s*$/;
 /* eslint-enable no-control-regex, no-useless-escape */
 
