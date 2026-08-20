@@ -99,8 +99,9 @@ export const useUiStore = create<UiState>()(
               },
             };
           }
-          // Toggle on / switch mode: keep existing selection, set new mode
+          // Toggle on / switch mode: close notes, keep existing selection, set new mode
           return {
+            notePanelOpen: false,
             workspaceBySession: {
               ...s.workspaceBySession,
               [sessionId]: {
@@ -148,7 +149,18 @@ export const useUiStore = create<UiState>()(
               }
             : { sidebarOrder: [id, ...s.sidebarOrder] }
         ),
-      toggleNotePanel: () => set((s) => ({ notePanelOpen: !s.notePanelOpen })),
+      toggleNotePanel: () =>
+        set((s) => {
+          if (s.notePanelOpen) return { notePanelOpen: false };
+          // Opening notes — close every workspace panel
+          const closed = Object.fromEntries(
+            Object.entries(s.workspaceBySession).map(([id, ws]) => [
+              id,
+              { ...ws, mode: null as WorkspaceMode | null },
+            ])
+          );
+          return { notePanelOpen: true, workspaceBySession: closed };
+        }),
     }),
     {
       name: "omp-ui-settings",

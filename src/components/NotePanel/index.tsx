@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { X } from "lucide-react";
+import { StickyNote, X } from "lucide-react";
 
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
@@ -49,28 +49,32 @@ export default function NotePanel() {
       />
 
       <aside
-        className="fixed right-0 top-[28px] bottom-0 z-50 flex w-80 flex-col border-l border-[var(--color-border)] bg-[var(--color-bg)] shadow-xl"
+        className="fixed right-0 top-[28px] bottom-0 z-50 flex w-80 flex-col border-l border-[var(--color-border)] bg-[var(--color-bg-elev)] shadow-[-16px_0_32px_rgba(0,0,0,0.28)]"
         role="complementary"
         aria-label={`Notes for ${activeTab.title}`}
       >
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
-          <span className="truncate font-mono text-[10px] font-semibold text-[var(--color-ink-1)]">
-            {activeTab.title}
-          </span>
+        <header className="arc-workspace-header">
+          <StickyNote size={14} strokeWidth={1.8} className="arc-workspace-icon" />
+          <div className="arc-workspace-heading">
+            <p className="arc-workspace-title">Notes</p>
+            <p className="arc-workspace-path" title={activeTab.title}>
+              {activeTab.title}
+            </p>
+          </div>
           <button
             type="button"
             onClick={toggleNotePanel}
             title="Close notes (Esc)"
             aria-label="Close notes"
-            className="titlebar-button"
+            className="arc-workspace-action"
           >
-            <X size={14} strokeWidth={1.8} />
+            <X size={13} />
           </button>
-        </div>
+        </header>
 
         <textarea
           ref={textareaRef}
-          value={activeTab.note}
+          value={activeTab.note ?? ""}
           onChange={(e) => updateTabNote(activeTab.id, e.target.value)}
           placeholder="Add a note for this session…"
           spellCheck={false}

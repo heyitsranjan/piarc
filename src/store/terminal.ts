@@ -274,6 +274,7 @@ export const useTerminalStore = create<TerminalState>()(
           ...saved,
           tabs: (saved.tabs ?? []).map((tab) => ({
             ...tab,
+            note: tab.note ?? "",
             isIdle: true,
             activity: { state: "disconnected" },
           })),

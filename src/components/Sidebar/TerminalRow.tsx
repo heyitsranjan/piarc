@@ -164,7 +164,7 @@ export default function TerminalRow({
               }
               aria-label={activityLabel}
             />
-          ) : tab.note.trim() ? (
+          ) : tab.note?.trim() ? (
             <StickyNote
               size={10}
               strokeWidth={1.8}
