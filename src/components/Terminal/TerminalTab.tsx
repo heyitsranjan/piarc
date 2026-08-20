@@ -254,15 +254,12 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
-    let lastOutput = "";
     const unlistenOutput = listen<string>(outputKey, (ev) => {
       const binary = atob(ev.payload);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
       // Detect shell prompt return and mark tab idle.
-      const text = new TextDecoder().decode(bytes);
-      lastOutput += text;
-      if (isPromptLine(lastOutput)) {
+      if (isPromptLine(term)) {
         setTabIdle(tab.id, true);
         notifyTerminalCompletion(
           tab.id,
@@ -270,7 +267,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           tab.cwd,
           useTerminalStore.getState().activeTabId
         );
-        lastOutput = "";
       }
     });
 
@@ -301,7 +297,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       if (data === "\r" && tab.kind === "terminal") {
         setTabIdle(tab.id, false);
         resetTerminalCompletionNotification(tab.id);
-        lastOutput = "";
       }
       if (richInputEnabledRef.current && data === "\x1b") {
         disableTerminalInteraction(tab.id);
