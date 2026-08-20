@@ -126,7 +126,9 @@ pub fn run() {
                         if let Ok(url) = w.url() {
                             let s = url.as_str();
                             if s == "about:blank" || s == "about:blank#blocked" {
-                                log::info!("dev: re-navigating from blank to http://localhost:1420/");
+                                log::info!(
+                                    "dev: re-navigating from blank to http://localhost:1420/"
+                                );
                                 let _ = w.navigate("http://localhost:1420/".parse().unwrap());
                             }
                         }
