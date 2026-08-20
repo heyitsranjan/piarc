@@ -10,8 +10,10 @@ import {
   RotateCcw,
   Settings2,
   ShieldCheck,
+  StickyNote,
 } from "lucide-react";
 
+import NotePanel from "@/components/NotePanel";
 import PermissionsDialog from "@/components/PermissionsDialog";
 import SettingsDialog from "@/components/SettingsDialog";
 import {
@@ -64,6 +66,8 @@ export default function TitleBar() {
   const newDialogOpen = useUiStore((state) => state.newDialogOpen);
   const openNewDialog = useUiStore((state) => state.openNewDialog);
   const closeNewDialog = useUiStore((state) => state.closeNewDialog);
+  const notePanelOpen = useUiStore((state) => state.notePanelOpen);
+  const toggleNotePanel = useUiStore((state) => state.toggleNotePanel);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
   const { refreshSession } = useTerminal();
@@ -248,6 +252,17 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
+            onClick={toggleNotePanel}
+            disabled={!activeTab}
+            title="Session notes"
+            aria-label="Toggle session notes"
+            aria-pressed={notePanelOpen}
+            className={cn("titlebar-action", notePanelOpen && "titlebar-action-active")}
+          >
+            <StickyNote size={14} strokeWidth={1.8} aria-hidden />
+          </button>
+          <button
+            type="button"
             onClick={() => setSettingsOpen(true)}
             title="Settings"
             aria-label="Open settings"
@@ -278,6 +293,7 @@ export default function TitleBar() {
           onNote={startNewNote}
         />
       )}
+      <NotePanel />
     </>
   );
 }

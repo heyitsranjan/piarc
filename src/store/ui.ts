@@ -40,6 +40,8 @@ interface UiState {
   recentOpens: Record<string, number>;
   /** User-defined sidebar ordering (session + tab IDs). Items not listed fall back to recency. */
   sidebarOrder: string[];
+  /** True while the per-session note panel drawer is open. */
+  notePanelOpen: boolean;
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
@@ -63,6 +65,7 @@ interface UiState {
   setSidebarOrder: (ids: string[]) => void;
   /** Prepend an item to the sidebar order (new/resumed items attach at top). */
   prependSidebarOrder: (id: string) => void;
+  toggleNotePanel: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -77,6 +80,7 @@ export const useUiStore = create<UiState>()(
       richInputEnabled: false,
       recentOpens: {},
       sidebarOrder: [],
+      notePanelOpen: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
@@ -144,6 +148,7 @@ export const useUiStore = create<UiState>()(
               }
             : { sidebarOrder: [id, ...s.sidebarOrder] }
         ),
+      toggleNotePanel: () => set((s) => ({ notePanelOpen: !s.notePanelOpen })),
     }),
     {
       name: "omp-ui-settings",

@@ -52,6 +52,8 @@ export interface Tab {
    * Notes are always idle.
    */
   isIdle: boolean;
+  /** User-written note attached to any tab. */
+  note: string;
 }
 
 interface TerminalState {
@@ -112,6 +114,8 @@ interface TerminalState {
   setTabActivity: (tabId: string, activity: AgentActivity) => void;
   /** Update persisted plain-text content for a note tab. */
   updateTabContent: (tabId: string, content: string) => void;
+  /** Update the user-written note attached to a tab. */
+  updateTabNote: (tabId: string, note: string) => void;
   /** Mark a terminal tab as idle (prompt visible) or busy. */
   setTabIdle: (tabId: string, isIdle: boolean) => void;
 }
@@ -135,6 +139,7 @@ export const useTerminalStore = create<TerminalState>()(
           userRenamed: false,
           kind: session.kind,
           sessionId: session.sessionId,
+          note: "",
           title: session.title,
           cwd: session.cwd,
           content: "",
@@ -239,6 +244,10 @@ export const useTerminalStore = create<TerminalState>()(
       updateTabContent: (tabId, content) =>
         set((s) => ({
           tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, content } : t)),
+        })),
+      updateTabNote: (tabId, note) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, note } : t)),
         })),
       setTabIdle: (tabId, isIdle) =>
         set((s) => ({

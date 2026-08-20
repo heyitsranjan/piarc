@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Menu } from "@tauri-apps/api/menu";
 
-import { CircleAlert, FileText, Loader2 } from "lucide-react";
+import { CircleAlert, FileText, Loader2, StickyNote } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
@@ -146,7 +146,7 @@ export default function TerminalRow({
           </div>
         </div>
 
-        <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
+        <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end gap-[2px]">
           {isWorking ? (
             <Loader2
               size={14}
@@ -163,6 +163,13 @@ export default function TerminalRow({
                   : "text-[var(--color-warn)]"
               }
               aria-label={activityLabel}
+            />
+          ) : tab.note.trim() ? (
+            <StickyNote
+              size={10}
+              strokeWidth={1.8}
+              className="shrink-0 text-[var(--color-ink-7)]"
+              aria-label="Has note"
             />
           ) : (
             <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
