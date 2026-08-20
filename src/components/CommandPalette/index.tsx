@@ -5,12 +5,13 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Loader2, MessageSquare, Search, TerminalSquare } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 import {
   TERMINAL_DEFAULT_COLS,
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
+import { ItemIcon } from "@/components/shared/ItemIcon";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useSessions } from "@/hooks/useSessions";
@@ -87,11 +88,10 @@ export default function CommandPalette() {
       if (!result) return;
       if (result.kind === "session") {
         touchRecentOpen(result.session.id);
-        setSidebarMode("sessions");
         await openSession(result.session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
       } else {
         touchRecentOpen(result.tab.id);
-        setSidebarMode("terminals");
+        setSidebarMode("all");
         setActiveSession(null);
         setActiveTab(result.tab.id);
       }
@@ -198,11 +198,7 @@ export default function CommandPalette() {
                 const trailing = isSession
                   ? timeAgo(result.session.modified)
                   : timeAgo(result.tab.createdAt);
-                const icon = isSession ? (
-                  <MessageSquare size={13} strokeWidth={1.7} />
-                ) : (
-                  <TerminalSquare size={13} strokeWidth={1.7} />
-                );
+                const icon = <ItemIcon kind={isSession ? "session" : "terminal"} />;
                 return (
                   <ResultRow
                     key={id}

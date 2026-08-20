@@ -36,18 +36,16 @@ export interface Tab {
   /** Whether this terminal floats to the top of the terminal section. */
   isPinned: boolean;
   /**
-   * True while the PTY process is being spawned.
-   * Cleared to false on success or error.
+   * True when the user manually renamed this tab.
+   * Prevents automatic title sync from session data reloads.
    */
-  isLoading: boolean;
-  /**
-   * Non-null when the PTY failed to spawn.
-   * Contains a human-readable error message from the Rust backend.
-   * null means no error (either loading or live).
-   */
-  error: string | null;
+  userRenamed: boolean;
   /** Semantic OMP lifecycle state emitted by the bundled status extension. */
   activity: AgentActivity;
+  /** True while the PTY is still spawning. */
+  isLoading: boolean;
+  /** Non-null when the PTY failed to spawn. */
+  error: string | null;
 }
 
 interface TerminalState {
@@ -74,8 +72,10 @@ interface TerminalState {
   enableTerminalInteraction: (tabId: string) => void;
   /** Return xterm to passive output-only mode. */
   disableTerminalInteraction: (tabId: string) => void;
-  /** Replace a temporary new-session identifier with the ID reported by OMP. */
-  bindTabSession: (tabId: string, sessionId: string) => void;
+  /** Replace a temporary new-session identifier with the ID reported by OMP.
+   * If `title` is provided and the tab hasn't been user-renamed, also updates
+   * the tab title to match the resolved session title. */
+  bindTabSession: (tabId: string, sessionId: string, title?: string) => void;
 
   /** Mark a tab's PTY as ready (loading = false, error = null). */
   setTabReady: (tabId: string) => void;
@@ -86,8 +86,13 @@ interface TerminalState {
    */
   setTabError: (tabId: string, message: string) => void;
 
-  /** Update the tab's display title (e.g. from omp session rename). */
+  /** Update the tab's display title and mark it as user-renamed. */
   updateTabTitle: (tabId: string, title: string) => void;
+  /**
+   * Sync a tab title from session data — skipped when the user renamed it.
+   * Called from sessions store after `loadSessions` resolves.
+   */
+  syncTabTitle: (tabId: string, title: string) => void;
   /** Toggle whether a terminal floats to the top of the sidebar section. */
   toggleTabPin: (tabId: string) => void;
 
@@ -114,6 +119,7 @@ export const useTerminalStore = create<TerminalState>()(
           activity: { state: "starting" },
           createdAt: Date.now() / 1000,
           isPinned: false,
+          userRenamed: false,
           ...session,
         };
         set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
@@ -166,10 +172,18 @@ export const useTerminalStore = create<TerminalState>()(
               : t
           ),
         })),
-
       updateTabTitle: (tabId, title) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, title, userRenamed: true } : t
+          ),
+        })),
+
+      syncTabTitle: (tabId, title) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId && !t.userRenamed ? { ...t, title } : t
+          ),
         })),
 
       toggleTabPin: (tabId) =>
@@ -186,10 +200,17 @@ export const useTerminalStore = create<TerminalState>()(
           ),
         })),
 
-      bindTabSession: (tabId, sessionId) =>
+      bindTabSession: (tabId, sessionId, title) =>
         set((s) => ({
           tabs: s.tabs.map((tab) =>
-            tab.id === tabId && tab.kind === "omp" ? { ...tab, sessionId } : tab
+            tab.id === tabId && tab.kind === "omp"
+              ? {
+                  ...tab,
+                  sessionId,
+                  // Only update title if the user hasn't renamed this tab
+                  ...(title && !tab.userRenamed ? { title } : {}),
+                }
+              : tab
           ),
         })),
 

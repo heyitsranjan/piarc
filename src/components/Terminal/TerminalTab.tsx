@@ -21,12 +21,12 @@ import { open } from "@tauri-apps/plugin-shell";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
 
 import { ArrowDownToLine } from "lucide-react";
 
 import { useTerminal } from "@/hooks/useTerminal";
 
+import { useSessionStore } from "@/store/sessions";
 import type { Tab } from "@/store/terminal";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
@@ -199,7 +199,14 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
-      if (activity.sessionId) bindTabSession(tab.id, activity.sessionId);
+      if (activity.sessionId) {
+        // Resolve the session title so the tab label stays in sync.
+        // Safe cross-store read — no circular import.
+        const sess = useSessionStore
+          .getState()
+          .sessions.find((s) => s.id === activity.sessionId);
+        bindTabSession(tab.id, activity.sessionId, sess?.title);
+      }
       setTabActivity(tab.id, nextActivity);
       if (isAgentCompletion(previousActivity, nextActivity)) {
         notifyAgentCompletion(tabTitleRef.current).catch(() => {});

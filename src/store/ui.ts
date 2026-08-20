@@ -10,7 +10,7 @@ export type Theme = "dark" | "light" | "system";
 
 export type WorkspaceMode = "explorer" | "git";
 
-export type SidebarMode = "sessions" | "terminals";
+export type SidebarMode = "all" | "sessions" | "terminals";
 
 export interface WorkspaceState {
   /** Which workspace panel is open, or null when closed (selection still remembered). */
@@ -38,7 +38,8 @@ interface UiState {
   richInputEnabled: boolean;
   /** Map of item id → last-opened timestamp.  Used to sort palette results by recency. */
   recentOpens: Record<string, number>;
-
+  /** User-defined sidebar ordering (session + tab IDs). Items not listed fall back to recency. */
+  sidebarOrder: string[];
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
@@ -58,20 +59,24 @@ interface UiState {
   toggleRichInput: () => void;
   /** Record that an item (session or tab) was just opened. */
   touchRecentOpen: (id: string) => void;
+  /** Replace the full sidebar ordering. */
+  setSidebarOrder: (ids: string[]) => void;
+  /** Prepend an item to the sidebar order (new/resumed items attach at top). */
+  prependSidebarOrder: (id: string) => void;
 }
 
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      sidebarMode: "sessions",
+      sidebarMode: "all",
       commandPaletteOpen: false,
       newDialogOpen: false,
       workspaceBySession: {},
       theme: "system",
       richInputEnabled: false,
       recentOpens: {},
-
+      sidebarOrder: [],
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
@@ -129,6 +134,16 @@ export const useUiStore = create<UiState>()(
       toggleRichInput: () => set((s) => ({ richInputEnabled: !s.richInputEnabled })),
       touchRecentOpen: (id) =>
         set((s) => ({ recentOpens: { ...s.recentOpens, [id]: Date.now() } })),
+      setSidebarOrder: (ids) => set({ sidebarOrder: ids }),
+      prependSidebarOrder: (id) =>
+        set((s) =>
+          s.sidebarOrder.includes(id)
+            ? // Move to front if already present
+              {
+                sidebarOrder: [id, ...s.sidebarOrder.filter((x) => x !== id)],
+              }
+            : { sidebarOrder: [id, ...s.sidebarOrder] }
+        ),
     }),
     {
       name: "omp-ui-settings",
@@ -137,7 +152,7 @@ export const useUiStore = create<UiState>()(
         sidebarCollapsed: s.sidebarCollapsed,
         richInputEnabled: s.richInputEnabled,
         recentOpens: s.recentOpens,
-        workspaceBySession: s.workspaceBySession,
+        sidebarOrder: s.sidebarOrder,
       }),
     }
   )

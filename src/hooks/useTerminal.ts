@@ -62,7 +62,6 @@ export function useTerminal(): UseTerminalReturn {
     setTabError,
     retryTab: markRetry,
   } = useTerminalStore();
-
   /** Internal: spawn PTY for an already-opened tab. */
   const spawnPty = useCallback(
     async (

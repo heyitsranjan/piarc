@@ -26,7 +26,7 @@ import { useTerminal } from "@/hooks/useTerminal";
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
-import { useUiStore } from "@/store/ui";
+import { type SidebarMode, useUiStore } from "@/store/ui";
 
 import { cn } from "@/lib/utils";
 
@@ -72,7 +72,7 @@ export default function TitleBar() {
     void action();
   };
 
-  const showSidebar = (mode: "sessions" | "terminals") => {
+  const showSidebar = (mode: SidebarMode) => {
     if (mode === "terminals" && !hasTerminals) return;
     setSidebarMode(mode);
     if (sidebarCollapsed) toggleSidebar();
@@ -87,6 +87,12 @@ export default function TitleBar() {
       handler: () => create(startNewSession),
     },
     { key: "t", meta: true, handler: () => create(startTerminal) },
+    {
+      key: "0",
+      meta: true,
+      shift: true,
+      handler: () => showSidebar("all"),
+    },
     {
       key: "1",
       meta: true,

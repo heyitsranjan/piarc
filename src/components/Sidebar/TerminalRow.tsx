@@ -5,6 +5,8 @@ import { Menu } from "@tauri-apps/api/menu";
 
 import { CircleAlert, Loader2 } from "lucide-react";
 
+import { ItemIcon } from "@/components/shared/ItemIcon";
+
 import type { Tab } from "@/store/terminal";
 
 import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
@@ -63,7 +65,7 @@ export default function TerminalRow({
   const showActivity = isWorking || needsAttention;
   return (
     <>
-      <li
+      <div
         role="button"
         tabIndex={0}
         aria-selected={isActive}
@@ -71,38 +73,45 @@ export default function TerminalRow({
         onClick={onSelect}
         onKeyDown={(event) => event.key === "Enter" && onSelect()}
         className={cn(
-          "group relative mx-1.5 h-12 cursor-pointer select-none",
+          "group relative mx-1.5 h-12 select-none",
           "rounded-[4px] border border-transparent transition-colors duration-[var(--duration-fast)]",
           isActive
             ? "arc-row-active text-[var(--color-ink-1)]"
             : "text-[var(--color-ink-1)] hover:text-[var(--color-ink-0)]"
         )}
       >
-        <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 flex-col justify-center">
-          <span
-            className={cn(
-              "block truncate font-mono text-[10px] font-semibold leading-[12px]",
-              isActive && "text-[var(--color-accent)]"
-            )}
-            title={tab.title}
-          >
-            {tab.title}
-          </span>
-          <span
-            className={cn(
-              "mt-1 block truncate font-mono text-[8px] leading-[9px]",
-              showActivity
-                ? tab.activity.state === "error"
-                  ? "text-[var(--color-danger)]"
-                  : tab.activity.state === "waiting_approval"
-                    ? "text-[var(--color-warn)]"
-                    : "text-[var(--color-accent)]"
-                : "text-[var(--color-ink-7)]"
-            )}
-            title={showActivity ? activityLabel : tab.cwd}
-          >
-            {showActivity ? activityLabel : cwdShort(tab.cwd)}
-          </span>
+        <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 items-center gap-2">
+          <ItemIcon
+            kind="terminal"
+            size={13}
+            className="shrink-0 text-[var(--color-ink-7)]"
+          />
+          <div className="flex min-w-0 flex-col justify-center">
+            <span
+              className={cn(
+                "block truncate font-mono text-[10px] font-semibold leading-[12px]",
+                isActive && "text-[var(--color-accent)]"
+              )}
+              title={tab.title}
+            >
+              {tab.title}
+            </span>
+            <span
+              className={cn(
+                "mt-1 block truncate font-mono text-[8px] leading-[9px]",
+                showActivity
+                  ? tab.activity.state === "error"
+                    ? "text-[var(--color-danger)]"
+                    : tab.activity.state === "waiting_approval"
+                      ? "text-[var(--color-warn)]"
+                      : "text-[var(--color-accent)]"
+                  : "text-[var(--color-ink-7)]"
+              )}
+              title={showActivity ? activityLabel : tab.cwd}
+            >
+              {showActivity ? activityLabel : cwdShort(tab.cwd)}
+            </span>
+          </div>
         </div>
 
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
@@ -129,7 +138,7 @@ export default function TerminalRow({
             </span>
           )}
         </div>
-      </li>
+      </div>
 
       {deleteOpen && (
         <ConfirmDeleteDialog

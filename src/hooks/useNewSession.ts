@@ -44,6 +44,7 @@ export function useNewSession(): UseNewSessionReturn {
   const ompAvailable = useOmpStore((state) => state.status?.installed ?? false);
   const { openTab, setTabReady, setTabError } = useTerminalStore();
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
+  const prependSidebarOrder = useUiStore((state) => state.prependSidebarOrder);
 
   const start = useCallback(
     async (kind: "omp" | "terminal") => {
@@ -82,7 +83,8 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
         return;
       }
-      setSidebarMode(isTerminal ? "terminals" : "sessions");
+      setSidebarMode("all");
+      prependSidebarOrder(tabId);
 
       try {
         const params = {
@@ -101,7 +103,7 @@ export function useNewSession(): UseNewSessionReturn {
         setIsStarting(false);
       }
     },
-    [ompAvailable, openTab, setTabReady, setTabError, setSidebarMode]
+    [ompAvailable, openTab, setTabReady, setTabError, setSidebarMode, prependSidebarOrder]
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);

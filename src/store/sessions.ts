@@ -11,6 +11,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { useTerminalStore } from "@/store/terminal";
+
 import { deleteSession, listSessions, renameSession } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
 
@@ -23,6 +25,8 @@ interface SessionsState {
   searchQuery: string;
   /** Session IDs pinned by the user; pinned sessions float to the top. */
   pinnedIds: string[];
+  /** User-defined title overrides by session ID. Survives session data reloads. */
+  renamedTitles: Record<string, string>;
   /** True while `loadSessions` is in flight. */
   isLoading: boolean;
   /** True once at least one successful fetch has completed. */
@@ -64,6 +68,7 @@ export const useSessionStore = create<SessionsState>()(
       activeSession: null,
       searchQuery: "",
       pinnedIds: [],
+      renamedTitles: {},
       isLoading: false,
       hasLoadedOnce: false,
       error: null,
@@ -71,8 +76,23 @@ export const useSessionStore = create<SessionsState>()(
       loadSessions: async () => {
         set({ isLoading: true, error: null });
         try {
-          const sessions = await listSessions();
+          const fetched = await listSessions();
+          // Overlay user-defined title overrides so reloaded data doesn't
+          // clobber names the user set manually (belt-and-suspenders —
+          // Rust already writes source: "user" to the JSONL title slot, but
+          // OMP itself may overwrite that slot on some flows).
+          const { renamedTitles } = get();
+          const sessions = fetched.map((s) =>
+            renamedTitles[s.id] ? { ...s, title: renamedTitles[s.id] } : s
+          );
           set({ sessions, isLoading: false, hasLoadedOnce: true });
+
+          // Sync terminal tab titles for non-user-renamed tabs.
+          const { tabs, syncTabTitle } = useTerminalStore.getState();
+          for (const s of sessions) {
+            const tab = tabs.find((t) => t.sessionId === s.id);
+            if (tab) syncTabTitle(tab.id, s.title);
+          }
         } catch (err) {
           set({ error: String(err), isLoading: false, hasLoadedOnce: true });
         }
@@ -99,11 +119,20 @@ export const useSessionStore = create<SessionsState>()(
             pinnedIds: removed
               ? s.pinnedIds.filter((id) => id !== removed.id)
               : s.pinnedIds,
+            renamedTitles: removed
+              ? Object.fromEntries(
+                  Object.entries(s.renamedTitles).filter(([id]) => id !== removed.id)
+                )
+              : s.renamedTitles,
           };
         });
       },
 
       renameSession: async (path, title) => {
+        // Find the session to get its ID for renamedTitles and tab sync.
+        const session = get().sessions.find((s) => s.path === path);
+        const sessionId = session?.id;
+
         // Optimistic update — UI reflects change immediately
         set((s) => ({
           sessions: s.sessions.map((sess) =>
@@ -113,7 +142,21 @@ export const useSessionStore = create<SessionsState>()(
             s.activeSession?.path === path
               ? { ...s.activeSession, title }
               : s.activeSession,
+          // Persist the override so future loadSessions() calls don't clobber it.
+          renamedTitles: sessionId
+            ? { ...s.renamedTitles, [sessionId]: title }
+            : s.renamedTitles,
         }));
+
+        // Sync the terminal tab title for this session.
+        // Uses syncTabTitle (not updateTabTitle) so a tab the user renamed
+        // directly via the terminal context menu is not clobbered.
+        if (sessionId) {
+          const { tabs, syncTabTitle } = useTerminalStore.getState();
+          const tab = tabs.find((t) => t.sessionId === sessionId);
+          if (tab) syncTabTitle(tab.id, title);
+        }
+
         // Persist to disk — rewrites JSONL title slot
         await renameSession(path, title);
       },
@@ -137,7 +180,7 @@ export const useSessionStore = create<SessionsState>()(
     {
       name: "omp-ui-prefs",
       // Only persist UI choices — session data comes from disk on every launch
-      partialize: (s) => ({ pinnedIds: s.pinnedIds }),
+      partialize: (s) => ({ pinnedIds: s.pinnedIds, renamedTitles: s.renamedTitles }),
     }
   )
 );

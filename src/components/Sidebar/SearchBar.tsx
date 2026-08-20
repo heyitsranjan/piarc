@@ -14,7 +14,7 @@ import { useUiStore } from "@/store/ui";
 export default function SearchBar() {
   const { searchQuery, setSearch } = useSessionStore();
   const sidebarMode = useUiStore((state) => state.sidebarMode);
-  const label = sidebarMode === "terminals" ? "terminals" : "sessions";
+  const label = sidebarMode === "all" ? "sessions and terminals" : sidebarMode;
   const ref = useRef<HTMLInputElement>(null);
 
   useKeyboard([

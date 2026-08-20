@@ -16,15 +16,17 @@ export default function SidebarHeader({
   terminalCount,
   onModeChange,
 }: SidebarHeaderProps) {
+  const allCount = sessionCount + terminalCount;
   return (
     <div
       role="tablist"
       aria-label="Sidebar view"
-      className="mx-2 mb-[5px] mt-2 grid shrink-0 grid-cols-2 gap-0.5 rounded-[2px] border
+      className="mx-2 mb-[5px] mt-2 grid shrink-0 grid-cols-3 gap-0.5 rounded-[2px] border
         border-[var(--color-border)] bg-[#0a0b0d] p-0.5"
     >
       {(
         [
+          ["all", "All", allCount],
           ["sessions", "Sessions", sessionCount],
           ["terminals", "Terminals", terminalCount],
         ] as const
