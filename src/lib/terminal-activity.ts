@@ -17,7 +17,9 @@ import type { Terminal } from "@xterm/xterm";
 const ANSI_RE =
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\d\/#&.:=?%@~_]+)*|[a-zA-Z\d]+(?:;[-a-zA-Z\d\/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
 
-const PROMPT_RE = /(?:^|\s)(?:[\$#%\>\~❯➜λ])(?:\s|$)/;
+// Prompt at the start of the line (e.g. codex "› ") or end (e.g. "$ ").
+const PROMPT_START_RE = /^\s*(?:[$#%›❯➜λ]|[>~]+)\s/;
+const PROMPT_END_RE = /(?:\s|^)(?:[$#%›❯➜λ]|[>~]+)\s*$/;
 /* eslint-enable no-control-regex, no-useless-escape */
 
 /** Remove ANSI escape sequences from raw terminal output. */
@@ -39,5 +41,5 @@ export function isPromptLine(term: Terminal): boolean {
   if (term.buffer.active === term.buffer.alternate) return false;
   const text = getCursorLine(term).trimEnd();
   if (text.length === 0) return false;
-  return PROMPT_RE.test(text);
+  return PROMPT_START_RE.test(text) || PROMPT_END_RE.test(text);
 }
