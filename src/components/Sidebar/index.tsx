@@ -34,7 +34,6 @@ import type { OmpSession } from "@/lib/session";
 
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
-import SidebarHeader from "./SidebarHeader";
 import { SortableItem, SortableList } from "./SortableList";
 import TerminalRow from "./TerminalRow";
 
@@ -88,7 +87,7 @@ export default function Sidebar() {
   const { openSession, refreshSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
-  const setSidebarMode = useUiStore((s) => s.setSidebarMode);
+
   const openNewDialog = useUiStore((s) => s.openNewDialog);
   const touchRecentOpen = useUiStore((s) => s.touchRecentOpen);
   const sidebarOrder = useUiStore((s) => s.sidebarOrder);
@@ -99,9 +98,8 @@ export default function Sidebar() {
   const closeTab = useTerminalStore((s) => s.closeTab);
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
-  const allTerminals = tabs.filter(
-    (tab) => tab.kind === "terminal" || tab.kind === "note"
-  );
+  const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
+  const allNotes = tabs.filter((tab) => tab.kind === "note");
   // OMP tabs that don't yet have an on-disk session — show as pending sessions.
   const sessionIds = new Set(sessions.map((s) => s.id));
   const pendingSessions: OmpSession[] = tabs
@@ -136,6 +134,10 @@ export default function Sidebar() {
     !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q);
   const filteredTerminals = allTerminals.filter(terminalMatches);
 
+  const noteMatches = (tab: Tab) =>
+    !q || tab.title.toLowerCase().includes(q) || tab.content.toLowerCase().includes(q);
+  const filteredNotes = allNotes.filter(noteMatches);
+
   // Pending sessions (OMP tabs without on-disk JSONL yet), filtered by search.
   const pendingMatches = (s: OmpSession) =>
     !q || s.title.toLowerCase().includes(q) || s.cwd.toLowerCase().includes(q);
@@ -146,6 +148,7 @@ export default function Sidebar() {
     ...filtered.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
     ...filteredTerminals.map((t) => ({ kind: "terminal" as const, tab: t })),
+    ...filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t })),
   ];
   const sortedAll = sortByOrder(allItems, sidebarOrder, isPinned, tabs);
 
@@ -162,6 +165,10 @@ export default function Sidebar() {
     tab: t,
   }));
   const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, () => false, tabs);
+
+  // ── Build notes-only list ─────────────────────────────────────────────
+  const noteItems = filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t }));
+  const sortedNotes = sortByOrder(noteItems, sidebarOrder, () => false, tabs);
 
   /** Toggle pin for any item type. */
   const toggleItemPin = (item: CombinedItem) => {
@@ -185,7 +192,8 @@ export default function Sidebar() {
     let list: CombinedItem[];
     if (sidebarMode === "all") list = sortedAll;
     else if (sidebarMode === "sessions") list = sortedSessions;
-    else list = sortedTerminals;
+    else if (sidebarMode === "terminals") list = sortedTerminals;
+    else list = sortedNotes;
 
     const fromIdx = list.findIndex((it) => itemId(it, tabs) === activeId);
     const overIdx = list.findIndex((it) => itemId(it, tabs) === overId);
@@ -254,12 +262,6 @@ export default function Sidebar() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <SidebarHeader
-        mode={sidebarMode}
-        sessionCount={sessions.length}
-        terminalCount={allTerminals.length}
-        onModeChange={setSidebarMode}
-      />
       <SearchBar />
 
       {/* ── State machine ────────────────────────────────────────────── */}
@@ -356,6 +358,30 @@ export default function Sidebar() {
                   </SortableItem>
                 ))}
                 {sortedTerminals.length === 0 && (
+                  <li className="px-3 py-6 text-center">
+                    <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
+                  </li>
+                )}
+              </ul>
+            </SortableList>
+          )}
+
+          {sidebarMode === "notes" && (
+            <SortableList
+              ids={sortedNotes.map((it) => itemId(it, tabs))}
+              disabled={dndDisabled}
+            >
+              <ul role="list" className="pb-3">
+                {sortedNotes.map((item) => (
+                  <SortableItem
+                    key={itemId(item, tabs)}
+                    id={itemId(item, tabs)}
+                    disabled={dndDisabled}
+                  >
+                    {renderItem(item)}
+                  </SortableItem>
+                ))}
+                {sortedNotes.length === 0 && (
                   <li className="px-3 py-6 text-center">
                     <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
                   </li>

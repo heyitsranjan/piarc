@@ -10,7 +10,7 @@ export type Theme = "dark" | "light" | "system";
 
 export type WorkspaceMode = "explorer" | "git";
 
-export type SidebarMode = "all" | "sessions" | "terminals";
+export type SidebarMode = "all" | "sessions" | "terminals" | "notes";
 
 export interface WorkspaceState {
   /** Which workspace panel is open, or null when closed (selection still remembered). */
