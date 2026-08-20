@@ -65,12 +65,16 @@ export default function TerminalRow({
     onDelete();
   };
 
+  const isRunning = tab.kind !== "note" && !tab.isLoading && !tab.isIdle;
+  const isStarting = tab.kind !== "note" && tab.isLoading;
   const isWorking =
-    tab.kind !== "note" && (tab.isLoading || isAgentWorking(tab.activity));
+    tab.kind !== "note" && (isStarting || isAgentWorking(tab.activity) || isRunning);
   const needsAttention =
     tab.kind !== "note" &&
     (tab.activity.state === "waiting_approval" || tab.activity.state === "error");
   const activityLabel = agentActivityLabel(tab.activity);
+
+  const statusLabel = isStarting ? "Starting…" : isRunning ? "Running…" : activityLabel;
 
   const showActivity = isWorking || needsAttention;
   return (
@@ -127,14 +131,14 @@ export default function TerminalRow({
               )}
               title={
                 showActivity
-                  ? activityLabel
+                  ? statusLabel
                   : tab.kind === "note"
                     ? notePreview(tab)
                     : tab.cwd
               }
             >
               {showActivity
-                ? activityLabel
+                ? statusLabel
                 : tab.kind === "note"
                   ? notePreview(tab)
                   : cwdShort(tab.cwd)}

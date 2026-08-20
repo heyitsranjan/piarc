@@ -40,6 +40,11 @@ import { notifyAgentCompletion } from "@/lib/agent-completion-notification";
 import { EVENT_PTY_EXIT_PREFIX, EVENT_PTY_OUTPUT_PREFIX } from "@/lib/constants";
 import { FEATURE_RICH_INPUT } from "@/lib/features";
 import { resizePty, writePty } from "@/lib/ipc";
+import { isPromptLine } from "@/lib/terminal-activity";
+import {
+  notifyTerminalCompletion,
+  resetTerminalCompletionNotification,
+} from "@/lib/terminal-completion-notification";
 import { isShiftedEnter } from "@/lib/terminal-keys";
 import {
   SCROLL_TO_BOTTOM_WHEEL_THRESHOLD_PX,
@@ -127,6 +132,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const { retryTab, closeTab } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
+  const setTabIdle = useTerminalStore((s) => s.setTabIdle);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -248,10 +254,24 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
+    let lastOutput = "";
     const unlistenOutput = listen<string>(outputKey, (ev) => {
       const binary = atob(ev.payload);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
+      // Detect shell prompt return and mark tab idle.
+      const text = new TextDecoder().decode(bytes);
+      lastOutput += text;
+      if (isPromptLine(lastOutput)) {
+        setTabIdle(tab.id, true);
+        notifyTerminalCompletion(
+          tab.id,
+          tab.title,
+          tab.cwd,
+          useTerminalStore.getState().activeTabId
+        );
+        lastOutput = "";
+      }
     });
 
     let wasAltBuffer = false;
@@ -277,6 +297,12 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     const onDataDispose = term.onData((data) => {
       if (richInputEnabledRef.current && !isTerminalNavigationInput(data)) return;
       writePty(tab.id, data).catch(() => {});
+      // Enter in a plain terminal likely submitted a command.
+      if (data === "\r" && tab.kind === "terminal") {
+        setTabIdle(tab.id, false);
+        resetTerminalCompletionNotification(tab.id);
+        lastOutput = "";
+      }
       if (richInputEnabledRef.current && data === "\x1b") {
         disableTerminalInteraction(tab.id);
       }
@@ -310,10 +336,13 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     bindTabSession,
     disableTerminalInteraction,
     setTabActivity,
+    setTabIdle,
     tab.id,
     tab.isLoading,
     tab.error,
     tab.kind,
+    tab.title,
+    tab.cwd,
   ]);
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables
