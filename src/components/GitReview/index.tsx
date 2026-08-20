@@ -10,6 +10,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { FolderOpen, FolderTree, GitBranch, Loader2, RefreshCw, X } from "lucide-react";
 
+import DrawerPanel from "@/components/shared/DrawerPanel";
+
 import { useGitReview } from "@/hooks/useGitReview";
 import { useWorkspaceExplorer } from "@/hooks/useWorkspaceExplorer";
 
@@ -132,17 +134,6 @@ export default function WorkspacePanel({
   };
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
       if (dragging.current) {
         const next = clampPanelWidth(
@@ -217,7 +208,7 @@ export default function WorkspacePanel({
   };
 
   return (
-    <aside
+    <DrawerPanel
       aria-label={mode === "explorer" ? "Project explorer" : "Git changes"}
       data-selected={selected ? "true" : "false"}
       data-mode={mode}
@@ -228,8 +219,8 @@ export default function WorkspacePanel({
           "--workspace-tree-width": `${treeWidth}px`,
         } as CSSProperties
       }
-      className="git-review-workspace absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden
-        border-l border-[var(--color-border)] bg-[var(--color-bg-elev)] shadow-[-16px_0_32px_rgba(0,0,0,0.28)]"
+      className="git-review-workspace"
+      onClose={onClose}
     >
       <div
         role="separator"
@@ -371,7 +362,7 @@ export default function WorkspacePanel({
           )}
         </div>
       </div>
-    </aside>
+    </DrawerPanel>
   );
 }
 

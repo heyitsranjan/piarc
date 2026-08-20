@@ -13,7 +13,6 @@ import {
   StickyNote,
 } from "lucide-react";
 
-import NotePanel from "@/components/NotePanel";
 import PermissionsDialog from "@/components/PermissionsDialog";
 import SettingsDialog from "@/components/SettingsDialog";
 import {
@@ -293,7 +292,6 @@ export default function TitleBar() {
           onNote={startNewNote}
         />
       )}
-      <NotePanel />
     </>
   );
 }

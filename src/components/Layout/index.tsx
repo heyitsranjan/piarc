@@ -8,6 +8,7 @@ import { LoaderCircle } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
 import WorkspacePanel from "@/components/GitReview";
+import NotePanel from "@/components/NotePanel";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 
@@ -205,6 +206,7 @@ export default function Layout() {
             onClose={() => closeWorkspace(activeSession.id)}
           />
         )}
+        <NotePanel />
       </div>
 
       <footer className="arc-statusbar">
