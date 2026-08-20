@@ -399,12 +399,14 @@ mod tests {
         // SIGHUP, so portable_pty's kill() falls back to SIGKILL, and
         // without wait() the child becomes a zombie.
         let pty = native_pty_system();
-        let pair = pty.openpty(portable_pty::PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        }).expect("openpty");
+        let pair = pty
+            .openpty(portable_pty::PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .expect("openpty");
 
         let mut cmd = CommandBuilder::new("/bin/zsh");
         cmd.args(["-c", "trap '' HUP; sleep 30"]);
@@ -433,12 +435,14 @@ mod tests {
 
         // Part (b): kill WITHOUT wait — old behavior — should leave a zombie.
         // This proves the bug exists and our fix is necessary.
-        let pair2 = pty.openpty(portable_pty::PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        }).expect("openpty2");
+        let pair2 = pty
+            .openpty(portable_pty::PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .expect("openpty2");
         let mut cmd2 = CommandBuilder::new("/bin/zsh");
         cmd2.args(["-c", "trap '' HUP; sleep 30"]);
         cmd2.cwd("/tmp");

@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-shell";
 
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -164,9 +165,10 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       disableStdin: true,
       scrollback: 5000,
     });
-
     const fit = new FitAddon();
-    const links = new WebLinksAddon();
+    const links = new WebLinksAddon((_event, uri) => {
+      open(uri).catch(() => {});
+    });
     term.loadAddon(fit);
     term.loadAddon(links);
     term.open(container);
