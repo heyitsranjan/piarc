@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Menu } from "@tauri-apps/api/menu";
 
-import { CircleAlert, FileText, Loader2, StickyNote } from "lucide-react";
+import { CircleAlert, FileText, Loader2 } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
@@ -95,19 +95,24 @@ export default function TerminalRow({
         )}
       >
         <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 items-center gap-2">
-          {tab.kind === "note" ? (
-            <FileText
-              size={13}
-              strokeWidth={1.7}
-              className="shrink-0 text-[var(--color-ink-7)]"
-            />
-          ) : (
-            <ItemIcon
-              kind="terminal"
-              size={13}
-              className="shrink-0 text-[var(--color-ink-7)]"
-            />
-          )}
+          <div className="relative shrink-0">
+            {tab.kind === "note" ? (
+              <FileText
+                size={13}
+                strokeWidth={1.7}
+                className="text-[var(--color-ink-7)]"
+              />
+            ) : (
+              <ItemIcon kind="terminal" size={13} className="text-[var(--color-ink-7)]" />
+            )}
+            {tab.note?.trim() && (
+              <span
+                className="absolute -right-[3px] -top-[2px] h-[5px] w-[5px] rounded-full bg-[var(--color-accent)] ring-1 ring-[var(--color-bg-elev)]"
+                title="Has note"
+                aria-label="Has note"
+              />
+            )}
+          </div>
           <div className="flex min-w-0 flex-col justify-center">
             <span
               className={cn(
@@ -163,13 +168,6 @@ export default function TerminalRow({
                   : "text-[var(--color-warn)]"
               }
               aria-label={activityLabel}
-            />
-          ) : tab.note?.trim() ? (
-            <StickyNote
-              size={10}
-              strokeWidth={1.8}
-              className="shrink-0 text-[var(--color-ink-7)]"
-              aria-label="Has note"
             />
           ) : (
             <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
