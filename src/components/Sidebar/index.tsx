@@ -99,7 +99,9 @@ export default function Sidebar() {
   const closeTab = useTerminalStore((s) => s.closeTab);
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
-  const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
+  const allTerminals = tabs.filter(
+    (tab) => tab.kind === "terminal" || tab.kind === "note"
+  );
   // OMP tabs that don't yet have an on-disk session — show as pending sessions.
   const sessionIds = new Set(sessions.map((s) => s.id));
   const pendingSessions: OmpSession[] = tabs
@@ -240,7 +242,7 @@ export default function Sidebar() {
         onSelect={() => {
           touchRecentOpen(item.tab.id);
           setActiveTab(item.tab.id);
-          if (item.tab.error) {
+          if (item.tab.kind !== "note" && item.tab.error) {
             void retryTab(item.tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
           }
         }}
@@ -368,10 +370,10 @@ export default function Sidebar() {
           type="button"
           className="arc-sidebar-create"
           onClick={openNewDialog}
-          aria-label="Create new session or terminal"
-          title="Create new session or terminal (⌘N)"
+          aria-label="Create new session, terminal, or note"
+          title="Create new session, terminal, or note (⌘N)"
         >
-          <span className="arc-sidebar-create-label">New Session / Terminal</span>
+          <span className="arc-sidebar-create-label">New Session / Terminal / Note</span>
           <kbd className="arc-sidebar-create-shortcut">⌘ N</kbd>
         </button>
       </div>

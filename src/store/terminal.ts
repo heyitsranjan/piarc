@@ -16,23 +16,23 @@ import type { AgentActivity } from "@/lib/agent-activity";
 import { killPty } from "@/lib/ipc";
 import { shortId } from "@/lib/utils";
 
-/** A single terminal tab and its lifecycle state. */
-export type TabKind = "omp" | "terminal";
+/** Tab kinds: terminal sessions, plain shells, or plain-text notes. */
+export type TabKind = "omp" | "terminal" | "note";
 
 export interface Tab {
   /** Unique tab ID — also the PTY cache key in Rust `AppState`. */
   id: string;
-  /** omp session UUID being resumed in this tab. */
+  /** omp session UUID being resumed in this tab, or synthetic note ID. */
   sessionId: string;
-  /** Whether this tab runs omp or a plain login shell. */
+  /** Whether this tab runs omp, a plain login shell, or a note. */
   kind: TabKind;
   /** Human-readable label shown in the tab strip. */
   title: string;
-  /** Working directory; passed to `createPty`. */
+  /** Working directory; passed to `createPty`. Notes leave this empty. */
   cwd: string;
   /** Creation timestamp used by the sidebar's relative time label. */
   createdAt: number;
-  /** Whether this terminal floats to the top of the terminal section. */
+  /** Whether this tab floats to the top of its section. */
   isPinned: boolean;
   /**
    * True when the user manually renamed this tab.
@@ -45,6 +45,8 @@ export interface Tab {
   isLoading: boolean;
   /** Non-null when the PTY failed to spawn. */
   error: string | null;
+  /** Plain-text content for note tabs. */
+  content: string;
 }
 
 interface TerminalState {
@@ -103,6 +105,8 @@ interface TerminalState {
   retryTab: (tabId: string) => void;
   /** Apply a structured lifecycle update emitted by the OMP status extension. */
   setTabActivity: (tabId: string, activity: AgentActivity) => void;
+  /** Update persisted plain-text content for a note tab. */
+  updateTabContent: (tabId: string, content: string) => void;
 }
 
 export const useTerminalStore = create<TerminalState>()(
@@ -116,9 +120,9 @@ export const useTerminalStore = create<TerminalState>()(
         const id = session.id ?? `tab-${shortId()}`;
         const tab: Tab = {
           id,
-          isLoading: true,
+          isLoading: session.kind === "note" ? false : true,
           error: null,
-          activity: { state: "starting" },
+          activity: { state: session.kind === "note" ? "waiting_input" : "starting" },
           createdAt: Date.now() / 1000,
           isPinned: false,
           userRenamed: false,
@@ -126,6 +130,7 @@ export const useTerminalStore = create<TerminalState>()(
           sessionId: session.sessionId,
           title: session.title,
           cwd: session.cwd,
+          content: "",
         };
         set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
         return id;
@@ -222,6 +227,10 @@ export const useTerminalStore = create<TerminalState>()(
       setTabActivity: (tabId, activity) =>
         set((s) => ({
           tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, activity } : t)),
+        })),
+      updateTabContent: (tabId, content) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, content } : t)),
         })),
     }),
     {

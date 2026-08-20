@@ -20,6 +20,7 @@ import {
 } from "@/components/Terminal/constants";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
+import { useNewNote } from "@/hooks/useNewNote";
 import { useNewSession } from "@/hooks/useNewSession";
 import { useTerminal } from "@/hooks/useTerminal";
 
@@ -59,6 +60,7 @@ export default function TitleBar() {
   const openNewDialog = useUiStore((state) => state.openNewDialog);
   const closeNewDialog = useUiStore((state) => state.closeNewDialog);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
+  const { startNewNote } = useNewNote();
   const { refreshSession } = useTerminal();
 
   const refreshActiveSession = () => {
@@ -87,6 +89,15 @@ export default function TitleBar() {
       handler: () => create(startNewSession),
     },
     { key: "t", meta: true, handler: () => create(startTerminal) },
+    {
+      key: "o",
+      meta: true,
+      shift: true,
+      handler: () => {
+        closeNewDialog();
+        startNewNote();
+      },
+    },
     {
       key: "0",
       meta: true,
@@ -259,6 +270,7 @@ export default function TitleBar() {
           onClose={closeNewDialog}
           onNewSession={startNewSession}
           onTerminal={startTerminal}
+          onNote={startNewNote}
         />
       )}
     </>

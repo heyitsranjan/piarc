@@ -7,6 +7,8 @@
  */
 import { useEffect, useRef } from "react";
 
+import Note from "@/components/Note";
+
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
@@ -73,7 +75,11 @@ export default function TerminalArea() {
                 active ? "visible z-10" : "invisible z-0 pointer-events-none"
               }`}
             >
-              <TerminalTab tab={tab} isVisible={active} />
+              {tab.kind === "note" ? (
+                <Note tab={tab} />
+              ) : (
+                <TerminalTab tab={tab} isVisible={active} />
+              )}
             </div>
           );
         })}

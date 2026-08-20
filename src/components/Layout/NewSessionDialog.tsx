@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from "react";
 
-import { Bot, TerminalSquare } from "lucide-react";
+import { Bot, FileText, TerminalSquare } from "lucide-react";
 
 interface NewSessionDialogProps {
   busy: boolean;
@@ -8,6 +8,7 @@ interface NewSessionDialogProps {
   onClose: () => void;
   onNewSession: () => Promise<void>;
   onTerminal: () => Promise<void>;
+  onNote: () => void;
 }
 
 export default function NewSessionDialog({
@@ -16,6 +17,7 @@ export default function NewSessionDialog({
   onClose,
   onNewSession,
   onTerminal,
+  onNote,
 }: NewSessionDialogProps) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -46,7 +48,9 @@ export default function NewSessionDialog({
       >
         <div className="arc-dialog-header relative flex flex-col justify-center border-b border-[var(--color-border)]">
           <h2 className="arc-dialog-title text-[var(--color-ink-0)]">Create</h2>
-          <p className="arc-dialog-subtitle">Start PiArc or open a plain terminal.</p>
+          <p className="arc-dialog-subtitle">
+            Start PiArc, open a terminal, or create a note.
+          </p>
           <kbd className="absolute right-[15px] top-1/2 -translate-y-1/2 border border-[var(--color-border)] px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-ink-9)]">
             esc
           </kbd>
@@ -70,6 +74,17 @@ export default function NewSessionDialog({
             shortcut="⌘T"
             disabled={busy}
             onClick={() => choose(onTerminal)}
+          />
+          <Choice
+            icon={<FileText size={18} strokeWidth={1.7} />}
+            title="Note"
+            description="Create a plain-text note"
+            shortcut="⌘⇧O"
+            disabled={busy}
+            onClick={() => {
+              onClose();
+              onNote();
+            }}
           />
         </div>
       </div>
