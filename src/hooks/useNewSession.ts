@@ -79,11 +79,6 @@ export function useNewSession(): UseNewSessionReturn {
         cwd,
       });
 
-      if (!tabId) {
-        log.warn("useNewSession: MAX_TABS reached");
-        setIsStarting(false);
-        return;
-      }
       setSidebarMode("all");
       prependSidebarOrder(tabId);
 

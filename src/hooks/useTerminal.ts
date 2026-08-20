@@ -111,9 +111,6 @@ export function useTerminal(): UseTerminalReturn {
         cwd: session.cwd,
       });
 
-      // Null means MAX_TABS reached — silently do nothing (TabBar shows hint)
-      if (!tabId) return;
-
       await spawnPty(
         tabId,
         { kind: "omp", sessionId: session.id, cwd: session.cwd },
@@ -158,8 +155,6 @@ export function useTerminal(): UseTerminalReturn {
           title: session.title,
           cwd: session.cwd,
         });
-        if (!newTabId) return;
-
         await spawnPty(
           newTabId,
           { kind: "omp", sessionId: session.id, cwd: session.cwd },

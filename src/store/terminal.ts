@@ -13,7 +13,6 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { AgentActivity } from "@/lib/agent-activity";
-import { MAX_TABS } from "@/lib/constants";
 import { killPty } from "@/lib/ipc";
 import { shortId } from "@/lib/utils";
 
@@ -55,12 +54,14 @@ interface TerminalState {
   interactiveTabId: string | null;
 
   /**
-   * Open a new terminal tab.
-   * Returns the new tab's ID, or null if MAX_TABS is reached.
+   * Open a new terminal tab. Always succeeds — the Rust PTY cache (LRU,
+   * cap 12) evicts the least-recently-used process when full, and the
+   * evicted tab's reader thread emits `pty_exit` so the frontend marks it
+   * disconnected for reconnection on click.
    */
   openTab: (
     session: Pick<Tab, "sessionId" | "title" | "cwd" | "kind"> & { id?: string }
-  ) => string | null;
+  ) => string;
 
   /**
    * Kill the PTY and remove the tab.
@@ -106,13 +107,12 @@ interface TerminalState {
 
 export const useTerminalStore = create<TerminalState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       tabs: [],
       activeTabId: null,
       interactiveTabId: null,
 
       openTab: (session) => {
-        if (get().tabs.length >= MAX_TABS) return null;
         const id = session.id ?? `tab-${shortId()}`;
         const tab: Tab = {
           id,
