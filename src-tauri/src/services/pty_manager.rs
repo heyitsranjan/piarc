@@ -231,8 +231,8 @@ impl PtyManager {
         // login shell sources our wrapper which sources the user's real
         // config then the OSC 133 integration hooks.
         if matches!(program, PtyProgram::Shell) {
-            let (zdotdir, bash_env) = write_integration_wrapper(&shell)
-                .context("write shell-integration wrapper")?;
+            let (zdotdir, bash_env) =
+                write_integration_wrapper(&shell).context("write shell-integration wrapper")?;
             cmd.env("ZDOTDIR", zdotdir.parent().unwrap_or(&zdotdir));
             cmd.env("BASH_ENV", &bash_env);
             cmd.env("ENV", &bash_env);
