@@ -57,7 +57,10 @@ export default function Layout() {
   const ompStatus = useOmpStore((state) => state.status);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
-  const workspaceMode = useUiStore((state) => state.workspaceMode);
+  const workspaceState = useUiStore((state) =>
+    activeSession ? state.workspaceBySession[activeSession.id] : undefined
+  );
+  const workspaceMode = workspaceState?.mode ?? null;
   const ompVersion = useOmpStore((state) => state.status?.version);
   const ompUpdate = useOmpStore((state) => state.update);
   const updateState = useOmpStore((state) => state.updateState);
@@ -65,6 +68,7 @@ export default function Layout() {
   const checkForUpdate = useOmpStore((state) => state.checkForUpdate);
   const installUpdate = useOmpStore((state) => state.installUpdate);
   const closeWorkspace = useUiStore((state) => state.closeWorkspace);
+  const setWorkspaceSelection = useUiStore((state) => state.setWorkspaceSelection);
   const [gitStatus, setGitStatus] = useState<GitChangesSnapshot | null>(null);
   const [width, setWidth] = useState(getSavedWidth);
   const widthRef = useRef(width);
@@ -176,9 +180,13 @@ export default function Layout() {
         {workspaceMode && activeSession?.cwd && (
           <WorkspacePanel
             cwd={activeSession.cwd}
+            sessionId={activeSession.id}
             leftInset={sidebarCollapsed ? 0 : width + REVIEW_SIDEBAR_GAP}
             mode={workspaceMode}
-            onClose={closeWorkspace}
+            savedFile={workspaceState?.selectedFile ?? null}
+            savedGitKey={workspaceState?.selectedGitKey ?? null}
+            onSelectionChange={setWorkspaceSelection}
+            onClose={() => closeWorkspace(activeSession.id)}
           />
         )}
       </div>

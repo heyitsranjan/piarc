@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GitChangesSnapshot, GitFileChange } from "@/lib/git";
 import { gitChangeKey } from "@/lib/git";
@@ -7,13 +7,26 @@ import { getGitChanges, getGitFileDiff } from "@/lib/ipc";
 const REFRESH_INTERVAL_MS = 3000;
 
 /** Load repository changes and the selected file patch while the review workspace is open. */
-export function useGitReview(cwd: string | undefined, open: boolean) {
+export function useGitReview(
+  cwd: string | undefined,
+  open: boolean,
+  initialSelectedKey: string | null = null,
+  onSelectChange: ((file: GitFileChange | null) => void) | undefined = undefined
+) {
   const [snapshot, setSnapshot] = useState<GitChangesSnapshot | null>(null);
   const [selected, setSelected] = useState<GitFileChange | null>(null);
   const [patch, setPatch] = useState("");
   const [loadingChanges, setLoadingChanges] = useState(false);
   const [loadingPatch, setLoadingPatch] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Report selection changes to the parent (for per-session persistence).
+  const onSelectChangeRef = useRef(onSelectChange);
+  onSelectChangeRef.current = onSelectChange;
+  const selectFile = useCallback((file: GitFileChange | null) => {
+    setSelected(file);
+    onSelectChangeRef.current?.(file);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!cwd || !open) return;
@@ -49,6 +62,15 @@ export function useGitReview(cwd: string | undefined, open: boolean) {
     return () => window.clearInterval(timer);
   }, [cwd, open, refresh]);
 
+  // Restore selection from initialSelectedKey once snapshot loads.
+  useEffect(() => {
+    if (!snapshot || !initialSelectedKey) return;
+    const found = snapshot.files.find(
+      (file) => gitChangeKey(file) === initialSelectedKey
+    );
+    if (found) setSelected(found);
+  }, [snapshot, initialSelectedKey]);
+
   useEffect(() => {
     if (!cwd || !open || !selected) {
       setPatch("");
@@ -81,6 +103,6 @@ export function useGitReview(cwd: string | undefined, open: boolean) {
     loadingPatch,
     error,
     refresh,
-    selectFile: setSelected,
+    selectFile,
   };
 }

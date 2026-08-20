@@ -12,6 +12,15 @@ export type WorkspaceMode = "explorer" | "git";
 
 export type SidebarMode = "sessions" | "terminals";
 
+export interface WorkspaceState {
+  /** Which workspace panel is open, or null when closed. */
+  mode: WorkspaceMode;
+  /** Selected file path in explorer mode. */
+  selectedFile: string | null;
+  /** Selected git change key (staged|working:path) in git mode. */
+  selectedGitKey: string | null;
+}
+
 interface UiState {
   /** Controls sidebar visibility (toggled by ⌘B). */
   sidebarCollapsed: boolean;
@@ -21,8 +30,8 @@ interface UiState {
   newDialogOpen: boolean;
   /** True while the command palette overlay is showing. */
   commandPaletteOpen: boolean;
-  /** Active right-side workspace, or null when the workspace is closed. */
-  workspaceMode: WorkspaceMode | null;
+  /** Per-session workspace state: sessionId → workspace panel state. */
+  workspaceBySession: Record<string, WorkspaceState>;
   /** Active color theme. */
   theme: Theme;
   /** Whether the experimental rich composer owns text input instead of the active terminal. */
@@ -36,8 +45,15 @@ interface UiState {
   closeCommandPalette: () => void;
   openNewDialog: () => void;
   closeNewDialog: () => void;
-  toggleWorkspace: (mode: WorkspaceMode) => void;
-  closeWorkspace: () => void;
+  /** Toggle a workspace panel mode for the given session. */
+  toggleWorkspace: (sessionId: string, mode: WorkspaceMode) => void;
+  /** Close the workspace panel for the given session. */
+  closeWorkspace: (sessionId: string) => void;
+  /** Update the selected file / git key for a session's workspace. */
+  setWorkspaceSelection: (
+    sessionId: string,
+    patch: Partial<Pick<WorkspaceState, "selectedFile" | "selectedGitKey">>
+  ) => void;
   setTheme: (t: Theme) => void;
   toggleRichInput: () => void;
   /** Record that an item (session or tab) was just opened. */
@@ -51,7 +67,7 @@ export const useUiStore = create<UiState>()(
       sidebarMode: "sessions",
       commandPaletteOpen: false,
       newDialogOpen: false,
-      workspaceMode: null,
+      workspaceBySession: {},
       theme: "system",
       richInputEnabled: false,
       recentOpens: {},
@@ -62,9 +78,42 @@ export const useUiStore = create<UiState>()(
       closeCommandPalette: () => set({ commandPaletteOpen: false }),
       openNewDialog: () => set({ newDialogOpen: true }),
       closeNewDialog: () => set({ newDialogOpen: false }),
-      toggleWorkspace: (mode) =>
-        set((state) => ({ workspaceMode: state.workspaceMode === mode ? null : mode })),
-      closeWorkspace: () => set({ workspaceMode: null }),
+      toggleWorkspace: (sessionId, mode) =>
+        set((s) => {
+          const current = s.workspaceBySession[sessionId];
+          const isMode = current?.mode === mode;
+          const rest = { ...s.workspaceBySession };
+          delete rest[sessionId];
+          return {
+            workspaceBySession: isMode
+              ? rest
+              : {
+                  ...rest,
+                  [sessionId]: {
+                    mode,
+                    selectedFile: current?.selectedFile ?? null,
+                    selectedGitKey: current?.selectedGitKey ?? null,
+                  },
+                },
+          };
+        }),
+      closeWorkspace: (sessionId) =>
+        set((s) => {
+          const rest = { ...s.workspaceBySession };
+          delete rest[sessionId];
+          return { workspaceBySession: rest };
+        }),
+      setWorkspaceSelection: (sessionId, patch) =>
+        set((s) => {
+          const current = s.workspaceBySession[sessionId];
+          if (!current) return s;
+          return {
+            workspaceBySession: {
+              ...s.workspaceBySession,
+              [sessionId]: { ...current, ...patch },
+            },
+          };
+        }),
       setTheme: (theme) => set({ theme }),
       toggleRichInput: () => set((s) => ({ richInputEnabled: !s.richInputEnabled })),
       touchRecentOpen: (id) =>
@@ -77,6 +126,7 @@ export const useUiStore = create<UiState>()(
         sidebarCollapsed: s.sidebarCollapsed,
         richInputEnabled: s.richInputEnabled,
         recentOpens: s.recentOpens,
+        workspaceBySession: s.workspaceBySession,
       }),
     }
   )

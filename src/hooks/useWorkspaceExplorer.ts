@@ -1,16 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OmpPathSuggestion } from "@/lib/ipc";
 import { listWorkspaceEntries, readWorkspaceFile } from "@/lib/ipc";
 
 /** Load an ignore-aware project tree and one selected text file while Explorer is open. */
-export function useWorkspaceExplorer(cwd: string | undefined, open: boolean) {
+export function useWorkspaceExplorer(
+  cwd: string | undefined,
+  open: boolean,
+  initialSelected: string | null = null,
+  onSelectChange: ((path: string | null) => void) | undefined = undefined
+) {
   const [entries, setEntries] = useState<OmpPathSuggestion[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelected);
   const [content, setContent] = useState("");
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Report selection changes to the parent (for per-session persistence).
+  const onSelectChangeRef = useRef(onSelectChange);
+  onSelectChangeRef.current = onSelectChange;
+  const selectFile = useCallback((path: string | null) => {
+    setSelected(path);
+    onSelectChangeRef.current?.(path);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!cwd || !open) return;
@@ -36,11 +49,11 @@ export function useWorkspaceExplorer(cwd: string | undefined, open: boolean) {
 
   useEffect(() => {
     setEntries([]);
-    setSelected(null);
+    setSelected(initialSelected);
     setContent("");
     setError(null);
     if (cwd && open) void refresh();
-  }, [cwd, open, refresh]);
+  }, [cwd, open, refresh, initialSelected]);
 
   useEffect(() => {
     if (!cwd || !open || !selected) {
@@ -78,6 +91,6 @@ export function useWorkspaceExplorer(cwd: string | undefined, open: boolean) {
     loadingContent,
     error,
     refresh,
-    selectFile: setSelected,
+    selectFile,
   };
 }

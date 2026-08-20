@@ -51,7 +51,9 @@ export default function TitleBar() {
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
   const openCommandPalette = useUiStore((state) => state.openCommandPalette);
-  const workspaceMode = useUiStore((state) => state.workspaceMode);
+  const workspaceMode = useUiStore((state) =>
+    activeSession ? (state.workspaceBySession[activeSession.id]?.mode ?? null) : null
+  );
   const toggleWorkspace = useUiStore((state) => state.toggleWorkspace);
   const newDialogOpen = useUiStore((state) => state.newDialogOpen);
   const openNewDialog = useUiStore((state) => state.openNewDialog);
@@ -102,14 +104,14 @@ export default function TitleBar() {
       key: "e",
       meta: true,
       handler: () => {
-        if (activeSession) toggleWorkspace("explorer");
+        if (activeSession) toggleWorkspace(activeSession.id, "explorer");
       },
     },
     {
       key: "g",
       meta: true,
       handler: () => {
-        if (activeSession) toggleWorkspace("git");
+        if (activeSession) toggleWorkspace(activeSession.id, "git");
       },
     },
     { key: "k", meta: true, handler: openCommandPalette },
@@ -196,7 +198,7 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
-            onClick={() => toggleWorkspace("explorer")}
+            onClick={() => activeSession && toggleWorkspace(activeSession.id, "explorer")}
             disabled={!activeSession}
             title="Open project explorer (⌘E)"
             aria-label="Open project explorer"
@@ -210,7 +212,7 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
-            onClick={() => toggleWorkspace("git")}
+            onClick={() => activeSession && toggleWorkspace(activeSession.id, "git")}
             disabled={!activeSession}
             title="Review Git changes (⌘G)"
             aria-label="Review Git changes"

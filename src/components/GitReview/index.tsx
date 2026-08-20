@@ -15,6 +15,7 @@ import { useWorkspaceExplorer } from "@/hooks/useWorkspaceExplorer";
 
 import type { WorkspaceMode } from "@/store/ui";
 
+import { gitChangeKey } from "@/lib/git";
 import { cwdShort } from "@/lib/session";
 
 import DiffViewer from "./DiffViewer";
@@ -25,8 +26,15 @@ import FileViewer from "./FileViewer";
 
 interface WorkspacePanelProps {
   cwd: string;
+  sessionId: string;
   leftInset: number;
   mode: WorkspaceMode;
+  savedFile: string | null;
+  savedGitKey: string | null;
+  onSelectionChange: (
+    sessionId: string,
+    patch: Partial<{ selectedFile: string | null; selectedGitKey: string | null }>
+  ) => void;
   onClose: () => void;
 }
 
@@ -71,8 +79,12 @@ function getSavedFolder(cwd: string) {
 
 export default function WorkspacePanel({
   cwd,
+  sessionId,
   leftInset,
   mode,
+  savedFile,
+  savedGitKey,
+  onSelectionChange,
   onClose,
 }: WorkspacePanelProps) {
   const [reviewCwd, setReviewCwd] = useState(() => getSavedFolder(cwd));
@@ -86,8 +98,17 @@ export default function WorkspacePanel({
   const treeDragging = useRef(false);
   const treeDragStartX = useRef(0);
   const treeDragStartWidth = useRef(0);
-  const explorer = useWorkspaceExplorer(reviewCwd, mode === "explorer");
-  const git = useGitReview(reviewCwd, mode === "git");
+  const explorer = useWorkspaceExplorer(
+    reviewCwd,
+    mode === "explorer",
+    savedFile,
+    (path) => onSelectionChange(sessionId, { selectedFile: path })
+  );
+  const git = useGitReview(reviewCwd, mode === "git", savedGitKey, (file) =>
+    onSelectionChange(sessionId, {
+      selectedGitKey: file ? gitChangeKey(file) : null,
+    })
+  );
   const selected = mode === "explorer" ? explorer.selected : git.selected;
   const loading = mode === "explorer" ? explorer.loadingEntries : git.loadingChanges;
   const count =
