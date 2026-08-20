@@ -138,7 +138,7 @@ export const useTerminalStore = create<TerminalState>()(
           title: session.title,
           cwd: session.cwd,
           content: "",
-          isIdle: session.kind === "note",
+          isIdle: true,
         };
         set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
         return id;
