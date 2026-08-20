@@ -253,6 +253,7 @@ export const useTerminalStore = create<TerminalState>()(
         tabs: state.tabs.map((tab) => ({
           ...tab,
           isLoading: false,
+          isIdle: true,
           activity: { state: "disconnected" },
           error: "Disconnected — select to reconnect",
         })),
@@ -264,6 +265,7 @@ export const useTerminalStore = create<TerminalState>()(
           ...saved,
           tabs: (saved.tabs ?? []).map((tab) => ({
             ...tab,
+            isIdle: true,
             activity: { state: "disconnected" },
           })),
           activeTabId: null,
