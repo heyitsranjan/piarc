@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#090a0c"/>
+  <g fill="#d7ff64">
+    <rect x="14" y="16" width="36" height="8"/>
+    <rect x="18" y="24" width="8" height="22"/>
+    <rect x="32" y="24" width="8" height="32"/>
+  </g>
+  <rect x="37" y="4" width="23" height="14" rx="4" fill="#ff8a4c"/>
+  <text x="48.5" y="14" fill="#090a0c" font-family="Arial, sans-serif" font-size="7" font-weight="700" text-anchor="middle">DEV</text>
+</svg>
