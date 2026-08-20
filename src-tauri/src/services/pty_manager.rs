@@ -15,7 +15,9 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize}
 use tracing::{debug, info, warn};
 
 /// Hard cap on live PTY processes. LRU eviction applies above this limit.
-const PTY_CACHE_SIZE: usize = 8;
+/// Must match `MAX_TABS` in the frontend so the Rust cache never silently
+/// evicts (kills) a tab that is still visible in the UI.
+const PTY_CACHE_SIZE: usize = 12;
 /// Terminal type exposed to child processes. Finder-launched apps inherit `TERM=dumb`.
 const PTY_TERM: &str = "xterm-256color";
 
@@ -213,12 +215,25 @@ impl PtyManager {
 
     /// Kill a PTY process and remove it from the cache.
     /// Safe to call even if the process has already exited.
+    ///
+    /// `portable_pty::ChildKiller::kill()` sends SIGHUP, polls `try_wait()`
+    /// for 250 ms, then falls back to SIGKILL — but never reaps the child.
+    /// `std::process::Child::drop` does not call `waitpid` on Unix, so every
+    /// killed child would linger as a zombie until the PiArc process exits.
+    /// We call `wait()` after signalling to reap the zombie promptly.
     pub fn kill(&self, tab_id: &str) {
         if let Some(mut session) = self.sessions.lock().remove(tab_id) {
             if session.child.kill().is_err() {
                 warn!("PTY termination reported an error");
             } else {
                 info!("PTY killed");
+            }
+            // Reap the zombie.  `kill()` already delivered SIGHUP → SIGKILL,
+            // so the child is dead or dying; `wait()` returns within
+            // milliseconds.  If the child already exited (kill returned Err
+            // because the PID was invalid), `wait()` still reaps the zombie.
+            if let Err(e) = session.child.wait() {
+                debug!("PTY wait after kill failed: {e}");
             }
         }
         self.lru.lock().retain(|id| id != tab_id);
@@ -314,5 +329,88 @@ mod tests {
             command,
             "omp --extension '/tmp/piarc status.js'; exec '/bin/zsh' -l"
         );
+    }
+
+    /// Regression test for the zombie-reaping bug: `kill()` must `wait()` on
+    /// the child so no `<defunct>` process remains after the PTY is closed.
+    #[test]
+    fn kill_reaps_child_no_zombie() {
+        use super::{PtyManager, PtyProgram};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let manager = PtyManager::new();
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        manager
+            .spawn(
+                "tab-zombie".into(),
+                PtyProgram::Shell,
+                "/tmp",
+                (80, 24),
+                "/bin/zsh",
+                move |_tid, _data| {
+                    c.fetch_add(1, Ordering::SeqCst);
+                },
+            )
+            .expect("spawn");
+
+        // Give the shell a moment to start so we have a real child PID.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
+        // Find the child PID via /proc-free approach: use ps to list children
+        // of this test process.  We verify *after* kill that no zombie with
+        // that lineage remains.
+        let parent_pid = std::process::id() as i32;
+        let children_before = child_pids(parent_pid);
+        assert!(
+            !children_before.is_empty(),
+            "expected at least one child process before kill"
+        );
+
+        manager.kill("tab-zombie");
+
+        // After kill, give the OS a moment to process the wait().
+        std::thread::sleep(std::time::Duration::from_millis(300));
+
+        // No child of this process should be in Z (zombie) state.
+        let zombies = zombie_child_pids(parent_pid);
+        assert!(
+            zombies.is_empty(),
+            "zombie processes remain after kill: {zombies:?}"
+        );
+    }
+
+    fn child_pids(parent: i32) -> Vec<i32> {
+        let out = std::process::Command::new("ps")
+            .args(["-o", "pid=,ppid=", "-A"])
+            .output()
+            .expect("ps");
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.trim().split_whitespace();
+                let pid: i32 = parts.next()?.parse().ok()?;
+                let ppid: i32 = parts.next()?.parse().ok()?;
+                (ppid == parent).then_some(pid)
+            })
+            .collect()
+    }
+
+    fn zombie_child_pids(parent: i32) -> Vec<i32> {
+        let out = std::process::Command::new("ps")
+            .args(["-o", "pid=,ppid=,stat="])
+            .output()
+            .expect("ps");
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.trim().split_whitespace();
+                let pid: i32 = parts.next()?.parse().ok()?;
+                let ppid: i32 = parts.next()?.parse().ok()?;
+                let stat: String = parts.next()?.parse().ok()?;
+                (ppid == parent && stat.starts_with('Z')).then_some(pid)
+            })
+            .collect()
     }
 }

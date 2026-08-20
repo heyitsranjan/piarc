@@ -7,9 +7,6 @@
 /** Maximum number of concurrent terminal tabs. */
 export const MAX_TABS = 12;
 
-/** Maximum number of PTY processes kept alive in the Rust cache (LRU). */
-export const PTY_CACHE_SIZE = 8;
-
 /** Debounce delay (ms) before re-running session search. */
 export const SEARCH_DEBOUNCE_MS = 120;
 
