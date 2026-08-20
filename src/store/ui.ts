@@ -66,6 +66,8 @@ interface UiState {
   /** Prepend an item to the sidebar order (new/resumed items attach at top). */
   prependSidebarOrder: (id: string) => void;
   toggleNotePanel: () => void;
+  /** Close every workspace drawer (notes + all workspace panels). Called on tab switch. */
+  closeAllPanels: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -161,6 +163,16 @@ export const useUiStore = create<UiState>()(
           );
           return { notePanelOpen: true, workspaceBySession: closed };
         }),
+      closeAllPanels: () =>
+        set((s) => ({
+          notePanelOpen: false,
+          workspaceBySession: Object.fromEntries(
+            Object.entries(s.workspaceBySession).map(([id, ws]) => [
+              id,
+              { ...ws, mode: null as WorkspaceMode | null },
+            ])
+          ),
+        })),
     }),
     {
       name: "omp-ui-settings",
