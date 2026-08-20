@@ -63,7 +63,7 @@ export default function TerminalEmpty() {
 
   return (
     <div
-      className="flex h-full select-none flex-col items-center justify-center gap-3
+      className="flex h-full flex-col items-center justify-center gap-3
         bg-[var(--color-bg)]"
     >
       <Terminal size={28} strokeWidth={1.2} className="text-[var(--color-ink-9)]" />

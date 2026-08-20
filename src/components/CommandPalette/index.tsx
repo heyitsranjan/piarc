@@ -279,7 +279,7 @@ function ResultRow({
       onClick={onSelect}
       onMouseMove={onHover}
       className={cn(
-        "group relative mx-1.5 flex h-12 cursor-pointer select-none items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
+        "group relative mx-1.5 flex h-12 cursor-pointer items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
         selected ? "arc-row-active" : "hover:text-[var(--color-ink-0)]"
       )}
     >

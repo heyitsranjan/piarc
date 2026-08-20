@@ -57,7 +57,7 @@ export default function TabBar() {
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "group relative flex items-center gap-1.5 px-3 h-full",
-              "cursor-pointer select-none shrink-0 max-w-48",
+              "cursor-pointer shrink-0 max-w-48",
               "text-xs transition-colors duration-[var(--duration-fast)]",
               "border-r border-[var(--color-border-2)]",
               isActive
