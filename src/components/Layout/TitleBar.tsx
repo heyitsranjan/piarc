@@ -252,7 +252,7 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={toggleNotePanel}
-            disabled={!activeTab}
+            disabled={!activeTab || activeTab?.kind === "note"}
             title="Session notes"
             aria-label="Toggle session notes"
             aria-pressed={notePanelOpen}
