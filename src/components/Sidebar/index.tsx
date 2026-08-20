@@ -37,6 +37,8 @@ export default function Sidebar() {
   const sidebarMode = useUiStore((s) => s.sidebarMode);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
   const openNewDialog = useUiStore((s) => s.openNewDialog);
+  const touchRecentOpen = useUiStore((s) => s.touchRecentOpen);
+  const recentOpens = useUiStore((s) => s.recentOpens);
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
@@ -50,9 +52,14 @@ export default function Sidebar() {
       (tab) =>
         !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q)
     )
-    .sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
+    .sort(
+      (a, b) =>
+        (recentOpens[b.id] ?? 0) - (recentOpens[a.id] ?? 0) ||
+        Number(b.isPinned) - Number(a.isPinned)
+    );
 
   const handleSelect = async (session: OmpSession) => {
+    touchRecentOpen(session.id);
     const opening = openSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
     if (window.innerWidth < 800) toggleSidebar();
     await opening;
@@ -123,6 +130,7 @@ export default function Sidebar() {
                 tab={tab}
                 isActive={activeTabId === tab.id}
                 onSelect={() => {
+                  touchRecentOpen(tab.id);
                   setActiveTab(tab.id);
                   if (tab.error) {
                     void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);

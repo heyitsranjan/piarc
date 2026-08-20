@@ -113,6 +113,7 @@ export default function TitleBar() {
       },
     },
     { key: "k", meta: true, handler: openCommandPalette },
+    { key: "p", meta: true, handler: openCommandPalette },
     { key: "r", meta: true, handler: refreshActiveSession },
   ]);
 

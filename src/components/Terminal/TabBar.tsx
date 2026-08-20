@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 /** The tab bar rendered above the terminal pane. */
 export default function TabBar() {
   const { tabs, activeTabId, closeTab, setActiveTab } = useTerminalStore();
-  const openCmdPalette = useUiStore((state) => state.openCommandPalette);
+  const openCommandPalette = useUiStore((state) => state.openCommandPalette);
 
   // ⌘W → close active tab
   // ⌘1-9 → switch to tab by index
@@ -109,7 +109,7 @@ export default function TabBar() {
         variant="ghost"
         title="New tab"
         aria-label="New tab"
-        onClick={openCmdPalette}
+        onClick={openCommandPalette}
         className="px-3 h-full shrink-0"
       >
         <svg

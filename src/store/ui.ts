@@ -19,7 +19,7 @@ interface UiState {
   sidebarMode: SidebarMode;
   /** True while the session-or-terminal chooser is showing. */
   newDialogOpen: boolean;
-  /** True while the ⌘K command palette is showing. */
+  /** True while the command palette overlay is showing. */
   commandPaletteOpen: boolean;
   /** Active right-side workspace, or null when the workspace is closed. */
   workspaceMode: WorkspaceMode | null;
@@ -27,17 +27,21 @@ interface UiState {
   theme: Theme;
   /** Whether the experimental rich composer owns text input instead of the active terminal. */
   richInputEnabled: boolean;
+  /** Map of item id → last-opened timestamp.  Used to sort palette results by recency. */
+  recentOpens: Record<string, number>;
 
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
+  closeCommandPalette: () => void;
   openNewDialog: () => void;
   closeNewDialog: () => void;
-  closeCommandPalette: () => void;
   toggleWorkspace: (mode: WorkspaceMode) => void;
   closeWorkspace: () => void;
   setTheme: (t: Theme) => void;
   toggleRichInput: () => void;
+  /** Record that an item (session or tab) was just opened. */
+  touchRecentOpen: (id: string) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -50,6 +54,7 @@ export const useUiStore = create<UiState>()(
       workspaceMode: null,
       theme: "system",
       richInputEnabled: false,
+      recentOpens: {},
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
@@ -62,6 +67,8 @@ export const useUiStore = create<UiState>()(
       closeWorkspace: () => set({ workspaceMode: null }),
       setTheme: (theme) => set({ theme }),
       toggleRichInput: () => set((s) => ({ richInputEnabled: !s.richInputEnabled })),
+      touchRecentOpen: (id) =>
+        set((s) => ({ recentOpens: { ...s.recentOpens, [id]: Date.now() } })),
     }),
     {
       name: "omp-ui-settings",
@@ -69,6 +76,7 @@ export const useUiStore = create<UiState>()(
         theme: s.theme,
         sidebarCollapsed: s.sidebarCollapsed,
         richInputEnabled: s.richInputEnabled,
+        recentOpens: s.recentOpens,
       }),
     }
   )

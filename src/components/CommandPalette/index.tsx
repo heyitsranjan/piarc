@@ -1,11 +1,11 @@
 /**
  * @module components/CommandPalette
- * ⌘K overlay — search and open any session. All async states handled.
+ * ⌘K / ⌘P overlay — search and open any session. All async states handled.
  */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Loader2, Search, TerminalSquare } from "lucide-react";
+import { Loader2, MessageSquare, Search, TerminalSquare } from "lucide-react";
 
 import {
   TERMINAL_DEFAULT_COLS,
@@ -26,51 +26,56 @@ import { cn } from "@/lib/utils";
 export default function CommandPalette() {
   const { state, sessions, loadSessions } = useSessions();
   const { openSession } = useTerminal();
-  const close = useUiStore((s) => s.closeCommandPalette);
   const setSidebarMode = useUiStore((s) => s.setSidebarMode);
+  const close = useUiStore((s) => s.closeCommandPalette);
+  const touchRecentOpen = useUiStore((s) => s.touchRecentOpen);
+  const recentOpens = useUiStore((s) => s.recentOpens);
   const tabs = useTerminalStore((s) => s.tabs);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const setActiveSession = useSessionStore((s) => s.setActive);
-
   const [query, setQuery] = useState("");
-  const [selectedIdx, setSelected] = useState(0);
+  const [selectedIdx, setSelected] = useState(-1);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const q = query.toLowerCase().trim();
-  const { sessionResults, terminalResults, results } = useMemo(() => {
-    const matchedSessions = sessions.filter(
-      (session) =>
-        !q ||
-        session.title.toLowerCase().includes(q) ||
-        session.cwd.toLowerCase().includes(q) ||
-        session.firstMessage.toLowerCase().includes(q)
-    );
+  const { results } = useMemo(() => {
+    const matchedSessions = sessions
+      .filter(
+        (session) =>
+          !q ||
+          session.title.toLowerCase().includes(q) ||
+          session.cwd.toLowerCase().includes(q) ||
+          session.firstMessage.toLowerCase().includes(q)
+      )
+      .map((session) => ({ kind: "session" as const, session }));
+
     const matchedTerminals = tabs
       .filter(
         (tab) =>
           tab.kind === "terminal" &&
           (!q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q))
       )
-      .sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
-    return {
-      sessionResults: matchedSessions,
-      terminalResults: matchedTerminals,
-      results: [
-        ...matchedSessions.map((session) => ({ kind: "session" as const, session })),
-        ...matchedTerminals.map((tab) => ({ kind: "terminal" as const, tab })),
-      ],
-    };
-  }, [sessions, tabs, q]);
+      .map((tab) => ({ kind: "terminal" as const, tab }));
+
+    const combined = [...matchedSessions, ...matchedTerminals].sort((a, b) => {
+      const idA = a.kind === "session" ? a.session.id : a.tab.id;
+      const idB = b.kind === "session" ? b.session.id : b.tab.id;
+      return (recentOpens[idB] ?? 0) - (recentOpens[idA] ?? 0);
+    });
+
+    return { results: combined };
+  }, [sessions, tabs, q, recentOpens]);
 
   useEffect(() => {
-    setSelected(0);
+    setSelected(-1);
   }, [query]);
 
   useEffect(() => {
-    setSelected((index) => Math.min(index, Math.max(0, results.length - 1)));
+    setSelected((index) => (index >= results.length ? results.length - 1 : index));
   }, [results.length]);
 
   useEffect(() => {
+    if (selectedIdx < 0) return;
     resultsRef.current
       ?.querySelector<HTMLElement>(`[data-result-index="${selectedIdx}"]`)
       ?.scrollIntoView({ block: "nearest" });
@@ -81,9 +86,11 @@ export default function CommandPalette() {
       const result = results[index];
       if (!result) return;
       if (result.kind === "session") {
+        touchRecentOpen(result.session.id);
         setSidebarMode("sessions");
         await openSession(result.session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
       } else {
+        touchRecentOpen(result.tab.id);
         setSidebarMode("terminals");
         setActiveSession(null);
         setActiveTab(result.tab.id);
@@ -98,6 +105,7 @@ export default function CommandPalette() {
       setActiveTab,
       setSidebarMode,
       close,
+      touchRecentOpen,
     ]
   );
 
@@ -109,10 +117,13 @@ export default function CommandPalette() {
         close();
       },
     },
-    { key: "ArrowUp", handler: () => setSelected((i) => Math.max(0, i - 1)) },
+    {
+      key: "ArrowUp",
+      handler: () => setSelected((i) => (i <= 0 ? results.length - 1 : i - 1)),
+    },
     {
       key: "ArrowDown",
-      handler: () => setSelected((i) => Math.min(Math.max(0, results.length - 1), i + 1)),
+      handler: () => setSelected((i) => (i >= results.length - 1 ? 0 : i + 1)),
     },
     { key: "Enter", handler: () => void confirm() },
   ]);
@@ -154,11 +165,9 @@ export default function CommandPalette() {
 
         {/* Results */}
         <div ref={resultsRef} className="max-h-[288px] overflow-y-auto">
-          {state.type === "initial" && terminalResults.length === 0 && (
-            <Status>Starting…</Status>
-          )}
+          {state.type === "initial" && results.length === 0 && <Status>Starting…</Status>}
 
-          {state.type === "loading" && terminalResults.length === 0 && (
+          {state.type === "loading" && results.length === 0 && (
             <Status>
               <Loader2 size={13} strokeWidth={1.8} className="mr-2 animate-spin" />
               Loading…
@@ -179,42 +188,36 @@ export default function CommandPalette() {
             </div>
           )}
 
-          {sessionResults.length > 0 && state.type === "data" && (
-            <ResultSection title="Sessions">
-              {sessionResults.map((session, index) => (
-                <ResultRow
-                  key={session.id}
-                  selected={index === selectedIdx}
-                  title={session.title}
-                  subtitle={cwdShort(session.cwd)}
-                  trailing={timeAgo(session.modified)}
-                  onSelect={() => void confirm(index)}
-                  onHover={() => setSelected(index)}
-                  index={index}
-                />
-              ))}
-            </ResultSection>
-          )}
-
-          {terminalResults.length > 0 && (
-            <ResultSection title="Terminals">
-              {terminalResults.map((tab, offset) => {
-                const index = sessionResults.length + offset;
+          {results.length > 0 && (
+            <ul className="pb-2 pt-1">
+              {results.map((result, index) => {
+                const isSession = result.kind === "session";
+                const id = isSession ? result.session.id : result.tab.id;
+                const title = isSession ? result.session.title : result.tab.title;
+                const cwd = isSession ? result.session.cwd : result.tab.cwd;
+                const trailing = isSession
+                  ? timeAgo(result.session.modified)
+                  : timeAgo(result.tab.createdAt);
+                const icon = isSession ? (
+                  <MessageSquare size={13} strokeWidth={1.7} />
+                ) : (
+                  <TerminalSquare size={13} strokeWidth={1.7} />
+                );
                 return (
                   <ResultRow
-                    key={tab.id}
-                    icon={<TerminalSquare size={13} strokeWidth={1.7} />}
+                    key={id}
+                    icon={icon}
                     selected={index === selectedIdx}
-                    title={tab.title}
-                    subtitle={cwdShort(tab.cwd)}
-                    trailing={timeAgo(tab.createdAt)}
+                    title={title}
+                    subtitle={cwdShort(cwd)}
+                    trailing={trailing}
                     onSelect={() => void confirm(index)}
                     onHover={() => setSelected(index)}
                     index={index}
                   />
                 );
               })}
-            </ResultSection>
+            </ul>
           )}
 
           {(state.type === "data" || state.type === "empty") && results.length === 0 && (
@@ -232,17 +235,6 @@ export default function CommandPalette() {
         </div>
       </div>
     </>
-  );
-}
-
-function ResultSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-9)]">
-        {title}
-      </h2>
-      <ul role="listbox">{children}</ul>
-    </section>
   );
 }
 
@@ -271,7 +263,7 @@ function ResultRow({
       aria-selected={selected}
       data-result-index={index}
       onClick={onSelect}
-      onMouseEnter={onHover}
+      onMouseMove={onHover}
       className={cn(
         "group relative mx-1.5 flex h-12 cursor-pointer select-none items-center justify-between gap-3 rounded-[4px] border border-transparent px-2 text-[var(--color-ink-1)] transition-colors duration-[var(--duration-fast)]",
         selected ? "arc-row-active" : "hover:text-[var(--color-ink-0)]"

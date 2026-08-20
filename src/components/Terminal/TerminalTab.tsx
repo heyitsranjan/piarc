@@ -241,11 +241,20 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
-
     const unlistenOutput = listen<string>(outputKey, (ev) => {
       const binary = atob(ev.payload);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       term.write(bytes);
+    });
+
+    let wasAltBuffer = false;
+    // When a full-screen app (codex, vim, less, htop…) exits the alternate
+    // buffer, xterm restores the normal buffer at its pre-existing scroll
+    // position — often the top of scrollback.  Snap to bottom on alt→normal.
+    const bufferDispose = term.buffer.onBufferChange((buffer) => {
+      const isAlt = buffer === term.buffer.alternate;
+      if (wasAltBuffer && !isAlt) term.scrollToBottom();
+      wasAltBuffer = isAlt;
     });
 
     const unlistenExit = listen<number>(exitKey, (ev) => {
@@ -278,6 +287,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     return () => {
       unlistenOutput.then((fn) => fn());
       unlistenExit.then((fn) => fn());
+      bufferDispose.dispose();
       onDataDispose.dispose();
       statusDispose.dispose();
       cancelScrollAnimationRef.current?.();
