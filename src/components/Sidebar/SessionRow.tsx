@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Menu } from "@tauri-apps/api/menu";
 import { message } from "@tauri-apps/plugin-dialog";
 
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, Loader2, StickyNote } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
@@ -142,6 +142,15 @@ export default function SessionRow({
             </span>
           </div>
         </div>
+
+        {tab?.note?.trim() && (
+          <StickyNote
+            size={9}
+            strokeWidth={2}
+            className="absolute right-[26px] top-1/2 shrink-0 -translate-y-1/2 text-[var(--color-accent)]"
+            aria-label="Has note"
+          />
+        )}
 
         {/* Timestamp and overflow share one fixed slot. */}
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
