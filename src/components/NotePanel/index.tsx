@@ -35,7 +35,10 @@ export default function NotePanel() {
   return (
     <DrawerPanel
       aria-label={`Notes for ${activeTab.title}`}
-      className="w-80"
+      storageKey="piarc-note-width"
+      defaultWidth={320}
+      minWidth={240}
+      maxWidth={600}
       onClose={toggleNotePanel}
     >
       <header className="arc-workspace-header">

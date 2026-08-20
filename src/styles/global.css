@@ -449,13 +449,6 @@ html {
   }
 }
 
-/* ─── Git review workspace ───────────────────────────────────────────────── */
-.git-review-workspace {
-  width: min(
-    var(--git-review-width, 860px),
-    calc(100vw - var(--git-review-left-inset, 0px))
-  );
-}
 .arc-workspace-header {
   display: flex;
   height: 40px;

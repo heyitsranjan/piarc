@@ -48,17 +48,6 @@ const TREE_DEFAULT = 240;
 const TREE_MIN = 180;
 const CONTENT_MIN = 240;
 
-function clampPanelWidth(width: number, leftInset: number) {
-  const maximum = Math.max(0, window.innerWidth - leftInset);
-  const minimum = Math.min(PANEL_MIN, maximum);
-  return Math.max(minimum, Math.min(maximum, width));
-}
-
-function getSavedWidth(leftInset: number) {
-  const saved = Number.parseInt(localStorage.getItem(WIDTH_STORAGE_KEY) ?? "", 10);
-  return clampPanelWidth(Number.isFinite(saved) ? saved : PANEL_DEFAULT, leftInset);
-}
-
 function clampTreeWidth(treeWidth: number, panelWidth: number) {
   return Math.max(
     TREE_MIN,
@@ -90,12 +79,7 @@ export default function WorkspacePanel({
   onClose,
 }: WorkspacePanelProps) {
   const [reviewCwd, setReviewCwd] = useState(() => getSavedFolder(cwd));
-  const [width, setWidth] = useState(() => getSavedWidth(leftInset));
-  const widthRef = useRef(width);
-  const dragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartWidth = useRef(0);
-  const [treeWidth, setTreeWidth] = useState(() => getSavedTreeWidth(width));
+  const [treeWidth, setTreeWidth] = useState(() => getSavedTreeWidth(PANEL_DEFAULT));
   const treeWidthRef = useRef(treeWidth);
   const treeDragging = useRef(false);
   const treeDragStartX = useRef(0);
@@ -133,63 +117,34 @@ export default function WorkspacePanel({
     }
   };
 
+  // Tree resize — outer panel resize is handled by DrawerPanel
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
-      if (dragging.current) {
-        const next = clampPanelWidth(
-          dragStartWidth.current + dragStartX.current - event.clientX,
-          leftInset
-        );
-        widthRef.current = next;
-        setWidth(next);
-        setTreeWidth((current) => {
-          const clamped = clampTreeWidth(current, next);
-          treeWidthRef.current = clamped;
-          return clamped;
-        });
-      } else if (treeDragging.current) {
-        const next = clampTreeWidth(
-          treeDragStartWidth.current + event.clientX - treeDragStartX.current,
-          widthRef.current
-        );
-        treeWidthRef.current = next;
-        setTreeWidth(next);
-      }
+      if (!treeDragging.current) return;
+      const next = clampTreeWidth(
+        treeDragStartWidth.current + event.clientX - treeDragStartX.current,
+        treeWidthRef.current
+      );
+      treeWidthRef.current = next;
+      setTreeWidth(next);
     };
     const onMouseUp = () => {
-      if (!dragging.current && !treeDragging.current) return;
-      if (dragging.current) {
-        localStorage.setItem(WIDTH_STORAGE_KEY, String(Math.round(widthRef.current)));
-      }
-      if (treeDragging.current) {
-        localStorage.setItem(
-          TREE_WIDTH_STORAGE_KEY,
-          String(Math.round(treeWidthRef.current))
-        );
-      }
-      dragging.current = false;
+      if (!treeDragging.current) return;
       treeDragging.current = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      localStorage.setItem(
+        TREE_WIDTH_STORAGE_KEY,
+        String(Math.round(treeWidthRef.current))
+      );
     };
-
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [leftInset]);
-
-  const startResize = (event: ReactMouseEvent) => {
-    event.preventDefault();
-    dragging.current = true;
-    dragStartX.current = event.clientX;
-    dragStartWidth.current =
-      event.currentTarget.parentElement?.getBoundingClientRect().width ?? width;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
+  }, []);
 
   const startTreeResize = (event: ReactMouseEvent) => {
     event.preventDefault();
@@ -201,7 +156,7 @@ export default function WorkspacePanel({
   };
 
   const resizeTreeBy = (delta: number) => {
-    const next = clampTreeWidth(treeWidthRef.current + delta, widthRef.current);
+    const next = clampTreeWidth(treeWidthRef.current + delta, treeWidthRef.current);
     treeWidthRef.current = next;
     setTreeWidth(next);
     localStorage.setItem(TREE_WIDTH_STORAGE_KEY, String(Math.round(next)));
@@ -212,29 +167,19 @@ export default function WorkspacePanel({
       aria-label={mode === "explorer" ? "Project explorer" : "Git changes"}
       data-selected={selected ? "true" : "false"}
       data-mode={mode}
-      style={
-        {
-          "--git-review-width": `${width}px`,
-          "--git-review-left-inset": `${leftInset}px`,
-          "--workspace-tree-width": `${treeWidth}px`,
-        } as CSSProperties
-      }
+      style={{ "--workspace-tree-width": `${treeWidth}px` } as CSSProperties}
       className="git-review-workspace"
+      storageKey={WIDTH_STORAGE_KEY}
+      defaultWidth={PANEL_DEFAULT}
+      minWidth={PANEL_MIN}
+      maxWidth={() => Math.max(PANEL_MIN, window.innerWidth - leftInset)}
+      onWidthChange={(w) => {
+        const clamped = clampTreeWidth(treeWidthRef.current, w);
+        treeWidthRef.current = clamped;
+        setTreeWidth(clamped);
+      }}
       onClose={onClose}
     >
-      <div
-        role="separator"
-        aria-label="Resize project workspace"
-        aria-orientation="vertical"
-        onMouseDown={startResize}
-        className="git-review-resize-handle group absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize"
-      >
-        <div
-          className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--color-border)]
-            transition-colors duration-[var(--duration-fast)] group-hover:bg-[var(--color-accent)]"
-        />
-      </div>
-
       <header className="arc-workspace-header">
         {mode === "explorer" ? (
           <FolderTree size={14} strokeWidth={1.8} className="arc-workspace-icon" />
