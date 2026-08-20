@@ -58,6 +58,34 @@ fn valid_session_id(session_id: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
+/// Shell integration via OSC 133 (FinalTerm) escape sequences.
+///
+/// The shell emits these markers so the terminal emulator can reliably
+/// detect command start / finish without guessing from prompt text:
+/// - `A` = prompt start — shell is idle, awaiting input
+/// - `C` = command output start — a command is now running
+/// - `D` = command finished — back to idle
+///
+/// Hooks:
+/// - `preexec` (after Enter, before command runs) → emit `C` (busy)
+/// - `precmd`  (after command finishes, before prompt)  → emit `D` then `A` (idle)
+/// - initial startup → emit `A` (idle)
+fn shell_integration_script() -> &'static str {
+    r#"
+__piarc_osc133() { printf '\e]133;%s\e\\' "$1"; }
+__piarc_preexec() { __piarc_osc133 C; }
+__piarc_precmd() { __piarc_osc133 D; __piarc_osc133 A; }
+if [ -n "$ZSH_VERSION" ]; then
+    precmd_functions+=(__piarc_precmd)
+    preexec_functions+=(__piarc_preexec)
+    __piarc_osc133 A
+elif [ -n "$BASH_VERSION" ]; then
+    PROMPT_COMMAND="__piarc_precmd;${PROMPT_COMMAND}"
+    trap '__piarc_preexec' DEBUG
+    __piarc_osc133 A
+fi
+"#
+}
 fn shell_command(program: PtyProgram<'_>, shell: &str) -> Result<String> {
     let shell = shell_quote(shell);
     Ok(match program {
@@ -78,7 +106,9 @@ fn shell_command(program: PtyProgram<'_>, shell: &str) -> Result<String> {
                 shell_quote(session_id)
             )
         }
-        PtyProgram::Shell => format!("exec {shell} -l"),
+        PtyProgram::Shell => {
+            format!("{}; exec {shell} -l", shell_integration_script())
+        }
     })
 }
 

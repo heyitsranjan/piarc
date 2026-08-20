@@ -220,6 +220,28 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       return true;
     });
 
+    // OSC 133 (FinalTerm) shell-integration markers — emitted by the shell
+    // integration script injected at PTY spawn.  `A` = prompt visible (idle),
+    // `C` = command output started (busy), `D` = command finished (idle).
+    // Only applies to plain terminals; OMP sessions use the agent-activity OSC.
+    const shellIntegDispose = term.parser.registerOscHandler(133, (data) => {
+      if (tab.kind !== "terminal") return false;
+      const mark = data.charAt(0);
+      if (mark === "A" || mark === "D") {
+        setTabIdle(tab.id, true);
+        notifyTerminalCompletion(
+          tab.id,
+          tab.title,
+          tab.cwd,
+          useTerminalStore.getState().activeTabId
+        );
+      } else if (mark === "C") {
+        setTabIdle(tab.id, false);
+        resetTerminalCompletionNotification(tab.id);
+      }
+      return true;
+    });
+
     let upwardWheelDistance = 0;
     const setScrollControlVisible = (visible: boolean) => {
       if (visible === isScrolledUpRef.current) return;
@@ -327,6 +349,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       unlistenExit.then((fn) => fn());
       bufferDispose.dispose();
       onDataDispose.dispose();
+      shellIntegDispose.dispose();
       statusDispose.dispose();
       cancelScrollAnimationRef.current?.();
       cancelScrollAnimationRef.current = null;
