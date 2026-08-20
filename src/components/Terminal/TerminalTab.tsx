@@ -254,11 +254,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     // PTY output → xterm
     const outputKey = `${EVENT_PTY_OUTPUT_PREFIX}:${tab.id}`;
     const exitKey = `${EVENT_PTY_EXIT_PREFIX}:${tab.id}`;
-    const unlistenOutput = listen<string>(outputKey, (ev) => {
-      const binary = atob(ev.payload);
-      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-      term.write(bytes);
-      // Detect shell prompt return and mark tab idle.
+    const checkIdle = () => {
       if (isPromptLine(term)) {
         setTabIdle(tab.id, true);
         notifyTerminalCompletion(
@@ -268,15 +264,29 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           useTerminalStore.getState().activeTabId
         );
       }
+    };
+
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    const unlistenOutput = listen<string>(outputKey, (ev) => {
+      const binary = atob(ev.payload);
+      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      term.write(bytes);
+      // Detect shell prompt return after the terminal has rendered.
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(checkIdle, 50);
     });
 
     let wasAltBuffer = false;
     // When a full-screen app (codex, vim, less, htop…) exits the alternate
     // buffer, xterm restores the normal buffer at its pre-existing scroll
-    // position — often the top of scrollback.  Snap to bottom on alt→normal.
+    // position — often the top of scrollback.  Snap to bottom on alt→normal
+    // and re-check whether the shell prompt is now visible.
     const bufferDispose = term.buffer.onBufferChange((buffer) => {
       const isAlt = buffer === term.buffer.alternate;
-      if (wasAltBuffer && !isAlt) term.scrollToBottom();
+      if (wasAltBuffer && !isAlt) {
+        term.scrollToBottom();
+        checkIdle();
+      }
       wasAltBuffer = isAlt;
     });
 
@@ -323,6 +333,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       scrollDispose.dispose();
       container.removeEventListener("wheel", onWheel);
       ro.disconnect();
+      if (idleTimer) clearTimeout(idleTimer);
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
