@@ -17,8 +17,8 @@ import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
 function notePreview(tab: Tab): string {
-  const snippet = tab.content.replace(/\s+/g, " ").trim().slice(0, 36);
-  return snippet ? `${snippet} · ${timeAgo(tab.createdAt)}` : timeAgo(tab.createdAt);
+  const snippet = tab.content.replace(/\s+/g, " ").trim().slice(0, 42);
+  return snippet || "Empty note";
 }
 
 interface TerminalRowProps {
