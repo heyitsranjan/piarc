@@ -16,6 +16,11 @@ import { cn } from "@/lib/utils";
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
+function notePreview(tab: Tab): string {
+  const snippet = tab.content.replace(/\s+/g, " ").trim().slice(0, 36);
+  return snippet ? `${snippet} · ${timeAgo(tab.createdAt)}` : timeAgo(tab.createdAt);
+}
+
 interface TerminalRowProps {
   tab: Tab;
   isActive: boolean;
@@ -124,14 +129,14 @@ export default function TerminalRow({
                 showActivity
                   ? activityLabel
                   : tab.kind === "note"
-                    ? timeAgo(tab.createdAt)
+                    ? notePreview(tab)
                     : tab.cwd
               }
             >
               {showActivity
                 ? activityLabel
                 : tab.kind === "note"
-                  ? timeAgo(tab.createdAt)
+                  ? notePreview(tab)
                   : cwdShort(tab.cwd)}
             </span>
           </div>
