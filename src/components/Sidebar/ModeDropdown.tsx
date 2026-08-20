@@ -71,7 +71,7 @@ export default function ModeDropdown() {
           role="listbox"
           aria-label="Sidebar view"
           className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[120px] overflow-hidden
-            rounded-[4px] border border-[var(--color-border)] bg-[var(--color-panel)] shadow-lg"
+            rounded-[4px] border border-[var(--color-border)] bg-[var(--color-bg-elev)] shadow-lg"
         >
           {MODES.map(({ value, label }) => (
             <button
