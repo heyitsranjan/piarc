@@ -224,7 +224,7 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={() => activeSession && toggleWorkspace(activeSession.id, "explorer")}
-            disabled={!activeSession}
+            disabled={!activeSession || activeTab?.kind === "note"}
             title="Open project explorer (⌘E)"
             aria-label="Open project explorer"
             aria-pressed={workspaceMode === "explorer"}
@@ -238,7 +238,7 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={() => activeSession && toggleWorkspace(activeSession.id, "git")}
-            disabled={!activeSession}
+            disabled={!activeSession || activeTab?.kind === "note"}
             title="Review Git changes (⌘G)"
             aria-label="Review Git changes"
             aria-pressed={workspaceMode === "git"}
