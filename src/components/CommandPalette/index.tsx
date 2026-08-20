@@ -58,11 +58,23 @@ export default function CommandPalette() {
       )
       .map((tab) => ({ kind: "terminal" as const, tab }));
 
-    const combined = [...matchedSessions, ...matchedTerminals].sort((a, b) => {
-      const idA = a.kind === "session" ? a.session.id : a.tab.id;
-      const idB = b.kind === "session" ? b.session.id : b.tab.id;
-      return (recentOpens[idB] ?? 0) - (recentOpens[idA] ?? 0);
-    });
+    const matchedNotes = tabs
+      .filter(
+        (tab) =>
+          tab.kind === "note" &&
+          (!q ||
+            tab.title.toLowerCase().includes(q) ||
+            tab.content.toLowerCase().includes(q))
+      )
+      .map((tab) => ({ kind: "note" as const, tab }));
+
+    const combined = [...matchedSessions, ...matchedTerminals, ...matchedNotes].sort(
+      (a, b) => {
+        const idA = a.kind === "session" ? a.session.id : a.tab.id;
+        const idB = b.kind === "session" ? b.session.id : b.tab.id;
+        return (recentOpens[idB] ?? 0) - (recentOpens[idA] ?? 0);
+      }
+    );
 
     return { results: combined };
   }, [sessions, tabs, q, recentOpens]);
@@ -91,7 +103,7 @@ export default function CommandPalette() {
         await openSession(result.session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
       } else {
         touchRecentOpen(result.tab.id);
-        setSidebarMode("all");
+        setSidebarMode(result.kind === "note" ? "terminals" : "all");
         setActiveSession(null);
         setActiveTab(result.tab.id);
       }
@@ -153,7 +165,7 @@ export default function CommandPalette() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search sessions and terminals…"
+            placeholder="Search sessions, terminals, and notes…"
             autoFocus
             className="flex-1 bg-transparent font-mono text-[10px] text-[var(--color-ink-0)]
               placeholder:text-[var(--color-ink-9)] outline-none"
@@ -192,20 +204,26 @@ export default function CommandPalette() {
             <ul className="pb-2 pt-1">
               {results.map((result, index) => {
                 const isSession = result.kind === "session";
+                const isNote = result.kind === "note";
                 const id = isSession ? result.session.id : result.tab.id;
                 const title = isSession ? result.session.title : result.tab.title;
                 const cwd = isSession ? result.session.cwd : result.tab.cwd;
                 const trailing = isSession
                   ? timeAgo(result.session.modified)
                   : timeAgo(result.tab.createdAt);
-                const icon = <ItemIcon kind={isSession ? "session" : "terminal"} />;
+                const icon = (
+                  <ItemIcon kind={isSession ? "session" : isNote ? "note" : "terminal"} />
+                );
+                const subtitle = isNote
+                  ? `${timeAgo(result.tab.createdAt)} · ${result.tab.content.slice(0, 40)}`
+                  : cwdShort(cwd);
                 return (
                   <ResultRow
                     key={id}
                     icon={icon}
                     selected={index === selectedIdx}
                     title={title}
-                    subtitle={cwdShort(cwd)}
+                    subtitle={subtitle}
                     trailing={trailing}
                     onSelect={() => void confirm(index)}
                     onHover={() => setSelected(index)}
