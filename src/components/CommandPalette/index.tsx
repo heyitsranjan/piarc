@@ -21,6 +21,7 @@ import { useSessionStore } from "@/store/sessions";
 import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { fuzzyMatchAny } from "@/lib/fuzzy";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -43,28 +44,19 @@ export default function CommandPalette() {
     const matchedSessions = sessions
       .filter(
         (session) =>
-          !q ||
-          session.title.toLowerCase().includes(q) ||
-          session.cwd.toLowerCase().includes(q) ||
-          session.firstMessage.toLowerCase().includes(q)
+          !q || fuzzyMatchAny(q, session.title, session.cwd, session.firstMessage)
       )
       .map((session) => ({ kind: "session" as const, session }));
 
     const matchedTerminals = tabs
       .filter(
-        (tab) =>
-          tab.kind === "terminal" &&
-          (!q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q))
+        (tab) => tab.kind === "terminal" && (!q || fuzzyMatchAny(q, tab.title, tab.cwd))
       )
       .map((tab) => ({ kind: "terminal" as const, tab }));
 
     const matchedNotes = tabs
       .filter(
-        (tab) =>
-          tab.kind === "note" &&
-          (!q ||
-            tab.title.toLowerCase().includes(q) ||
-            tab.content.toLowerCase().includes(q))
+        (tab) => tab.kind === "note" && (!q || fuzzyMatchAny(q, tab.title, tab.content))
       )
       .map((tab) => ({ kind: "note" as const, tab }));
 

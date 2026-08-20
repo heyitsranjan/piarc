@@ -13,6 +13,7 @@ import { persist } from "zustand/middleware";
 
 import { useTerminalStore } from "@/store/terminal";
 
+import { fuzzyMatchAny } from "@/lib/fuzzy";
 import { deleteSession, listSessions, renameSession } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
 
@@ -165,12 +166,7 @@ export const useSessionStore = create<SessionsState>()(
         const { sessions, searchQuery, pinnedIds } = get();
         const q = searchQuery.toLowerCase().trim();
         const matches = q
-          ? sessions.filter(
-              (s) =>
-                s.title.toLowerCase().includes(q) ||
-                s.cwd.toLowerCase().includes(q) ||
-                s.firstMessage.toLowerCase().includes(q)
-            )
+          ? sessions.filter((s) => fuzzyMatchAny(q, s.title, s.cwd, s.firstMessage))
           : sessions;
         const pinned = matches.filter((s) => pinnedIds.includes(s.id));
         const rest = matches.filter((s) => !pinnedIds.includes(s.id));

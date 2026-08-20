@@ -30,6 +30,7 @@ import { useTerminalStore } from "@/store/terminal";
 import type { Tab } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
+import { fuzzyMatchAny } from "@/lib/fuzzy";
 import type { OmpSession } from "@/lib/session";
 
 import SearchBar from "./SearchBar";
@@ -130,17 +131,14 @@ export default function Sidebar() {
     return item.tab.isPinned;
   };
   // ── Build filtered terminal list ──────────────────────────────────────
-  const terminalMatches = (tab: Tab) =>
-    !q || tab.title.toLowerCase().includes(q) || tab.cwd.toLowerCase().includes(q);
+  const terminalMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.cwd);
   const filteredTerminals = allTerminals.filter(terminalMatches);
 
-  const noteMatches = (tab: Tab) =>
-    !q || tab.title.toLowerCase().includes(q) || tab.content.toLowerCase().includes(q);
+  const noteMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.content);
   const filteredNotes = allNotes.filter(noteMatches);
 
   // Pending sessions (OMP tabs without on-disk JSONL yet), filtered by search.
-  const pendingMatches = (s: OmpSession) =>
-    !q || s.title.toLowerCase().includes(q) || s.cwd.toLowerCase().includes(q);
+  const pendingMatches = (s: OmpSession) => !q || fuzzyMatchAny(q, s.title, s.cwd);
   const filteredPending = pendingSessions.filter(pendingMatches);
 
   // ── Build combined "all" list ─────────────────────────────────────────
