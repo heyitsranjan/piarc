@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 
-import { CirclePlus, Trash2, Variable, X } from "lucide-react";
+import { CirclePlus, KeyRound, Trash2, X } from "lucide-react";
 
 import DrawerPanel from "@/components/shared/DrawerPanel";
 import Button from "@/components/ui/Button";
@@ -66,7 +66,7 @@ export default function EnvPanel() {
       onClose={toggleEnvPanel}
     >
       <header className="arc-workspace-header">
-        <Variable size={14} strokeWidth={1.8} className="arc-workspace-icon" />
+        <KeyRound size={14} strokeWidth={1.8} className="arc-workspace-icon" />
         <div className="arc-workspace-heading">
           <p className="arc-workspace-title">Session Environment</p>
           <p className="arc-workspace-path" title={activeTab.title}>

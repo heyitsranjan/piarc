@@ -7,11 +7,11 @@ import {
   Cog,
   FolderTree,
   GitBranch,
+  KeyRound,
   PanelLeft,
   RotateCcw,
   ShieldCheck,
   StickyNote,
-  Variable,
 } from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
@@ -273,7 +273,7 @@ export default function TitleBar() {
             aria-pressed={envPanelOpen}
             className={cn("titlebar-action", envPanelOpen && "titlebar-action-active")}
           >
-            <Variable size={14} strokeWidth={1.8} aria-hidden />
+            <KeyRound size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"

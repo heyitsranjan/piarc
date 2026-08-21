@@ -17,7 +17,6 @@ import {
   Server,
   Tag,
   Trash2,
-  Variable,
 } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -246,7 +245,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
               activeTab === "env" && "arc-row-active"
             )}
           >
-            <Variable
+            <KeyRound
               size={14}
               strokeWidth={1.8}
               className={cn(
