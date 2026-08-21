@@ -27,7 +27,7 @@ import { useTerminal } from "@/hooks/useTerminal";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { type SidebarMode, useUiStore } from "@/store/ui";
 
 import { cn } from "@/lib/utils";
@@ -48,9 +48,7 @@ export default function TitleBar() {
   const activeTab = useTerminalStore((state) =>
     state.tabs.find((tab) => tab.id === state.activeTabId)
   );
-  const hasTerminals = useTerminalStore((state) =>
-    state.tabs.some((tab) => tab.kind === "terminal")
-  );
+  const hasTerminals = useTerminalStore((state) => state.tabs.some(isPlainTerminal));
   const title = activeSession
     ? `${activeSession.title} — ${activeSession.cwd.split("/").pop()}`
     : activeTab?.title;
@@ -70,7 +68,6 @@ export default function TitleBar() {
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
   const { refreshSession } = useTerminal();
-
   const refreshActiveSession = () => {
     if (!activeSession) return;
     void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);

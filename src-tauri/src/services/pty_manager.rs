@@ -31,10 +31,33 @@ pub struct PtySession {
     pub master: Box<dyn MasterPty + Send>,
 }
 
+/// Which AI agent CLI to run inside the PTY.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentKind {
+    Omp,
+    Codex,
+    Claude,
+}
+
+impl AgentKind {
+    /// The binary name used to launch the agent.
+    fn binary(&self) -> &'static str {
+        match self {
+            Self::Omp => "omp",
+            Self::Codex => "codex",
+            Self::Claude => "claude",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum PtyProgram<'a> {
-    NewSession(&'a Path),
+    NewSession {
+        agent: AgentKind,
+        extension: &'a Path,
+    },
     Resume {
+        agent: AgentKind,
         session_id: &'a str,
         extension: &'a Path,
     },
@@ -44,11 +67,16 @@ pub enum PtyProgram<'a> {
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
-fn omp_command(extension: &Path) -> Result<String> {
-    let extension = extension
+/// Build the launch command for an agent, including the PiArc status extension
+/// for OMP (codex/claude don't support `--extension`).
+fn agent_command(agent: AgentKind, extension: &Path) -> Result<String> {
+    let ext = extension
         .to_str()
         .context("PiArc status extension path is not valid UTF-8")?;
-    Ok(format!("omp --extension {}", shell_quote(extension)))
+    Ok(match agent {
+        AgentKind::Omp => format!("omp --extension {}", shell_quote(ext)),
+        AgentKind::Codex | AgentKind::Claude => agent.binary().to_string(),
+    })
 }
 
 fn valid_session_id(session_id: &str) -> bool {
@@ -145,20 +173,21 @@ fn write_integration_wrapper(_shell: &str) -> Result<(std::path::PathBuf, std::p
 fn shell_command(program: PtyProgram<'_>, shell: &str) -> Result<String> {
     let shell = shell_quote(shell);
     Ok(match program {
-        PtyProgram::NewSession(extension) => {
-            format!("{}; exec {shell} -l", omp_command(extension)?)
+        PtyProgram::NewSession { agent, extension } => {
+            format!("{}; exec {shell} -l", agent_command(agent, extension)?)
         }
         PtyProgram::Resume {
+            agent,
             session_id,
             extension,
         } => {
             anyhow::ensure!(
                 valid_session_id(session_id),
-                "invalid OMP session identifier"
+                "invalid agent session identifier"
             );
             format!(
                 "{} --resume {}; exec {shell} -l",
-                omp_command(extension)?,
+                agent_command(agent, extension)?,
                 shell_quote(session_id)
             )
         }
@@ -390,12 +419,12 @@ impl Drop for PtyManager {
 mod tests {
     use std::path::Path;
 
-    use super::{shell_command, valid_session_id, PtyProgram};
+    use super::{shell_command, valid_session_id, AgentKind, PtyProgram};
 
     #[test]
     fn shell_program_opens_login_shell_without_omp() {
         let command = shell_command(PtyProgram::Shell, "/bin/zsh").unwrap();
-        assert_eq!(command, "exec '/bin/zsh' -l");
+        assert_eq!(command, "exec '/bin/zsh' -l -i");
         assert!(!command.contains("omp"));
     }
 
@@ -405,6 +434,7 @@ mod tests {
         assert!(valid_session_id("019ffe5e-3e7e-7000-a243-ccce1998a378"));
         assert!(shell_command(
             PtyProgram::Resume {
+                agent: AgentKind::Omp,
                 session_id: "abc; touch /tmp/pwned",
                 extension,
             },
@@ -413,6 +443,7 @@ mod tests {
         .is_err());
         assert!(shell_command(
             PtyProgram::Resume {
+                agent: AgentKind::Omp,
                 session_id: "$(whoami)",
                 extension,
             },
@@ -424,10 +455,49 @@ mod tests {
     #[test]
     fn omp_program_loads_status_extension() {
         let extension = Path::new("/tmp/piarc status.js");
-        let command = shell_command(PtyProgram::NewSession(extension), "/bin/zsh").unwrap();
+        let command = shell_command(
+            PtyProgram::NewSession {
+                agent: AgentKind::Omp,
+                extension,
+            },
+            "/bin/zsh",
+        )
+        .unwrap();
         assert_eq!(
             command,
             "omp --extension '/tmp/piarc status.js'; exec '/bin/zsh' -l"
+        );
+    }
+
+    #[test]
+    fn codex_program_omits_extension_flag() {
+        let extension = Path::new("/tmp/piarc-status.js");
+        let command = shell_command(
+            PtyProgram::NewSession {
+                agent: AgentKind::Codex,
+                extension,
+            },
+            "/bin/zsh",
+        )
+        .unwrap();
+        assert_eq!(command, "codex; exec '/bin/zsh' -l");
+    }
+
+    #[test]
+    fn claude_resume_builds_correct_command() {
+        let extension = Path::new("/tmp/piarc-status.js");
+        let command = shell_command(
+            PtyProgram::Resume {
+                agent: AgentKind::Claude,
+                session_id: "session-abc123",
+                extension,
+            },
+            "/bin/zsh",
+        )
+        .unwrap();
+        assert_eq!(
+            command,
+            "claude --resume 'session-abc123'; exec '/bin/zsh' -l"
         );
     }
 

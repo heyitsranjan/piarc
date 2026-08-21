@@ -121,7 +121,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const fitRef = useRef<FitAddon | null>(null);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
   const richInputEnabled =
-    FEATURE_RICH_INPUT && richInputPreference && tab.kind === "omp";
+    FEATURE_RICH_INPUT && richInputPreference && tab.agent !== null;
   const richInputEnabledRef = useRef(richInputEnabled);
   const [exited, setExited] = useState<ExitInfo | null>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -199,7 +199,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     fitRef.current = fit;
 
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
-      if (tab.kind !== "omp") return false;
+      if (tab.agent === null) return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
       const previousActivity = activityRef.current;
@@ -229,7 +229,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     // `C` = command output started (busy), `D` = command finished (idle).
     // Only applies to plain terminals; OMP sessions use the agent-activity OSC.
     const shellIntegDispose = term.parser.registerOscHandler(133, (data) => {
-      if (tab.kind !== "terminal") return false;
+      if (tab.agent !== null) return false;
       const mark = data.charAt(0);
       if (mark === "A" || mark === "D") {
         setTabIdle(tab.id, true);
@@ -330,7 +330,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       if (richInputEnabledRef.current && !isTerminalNavigationInput(data)) return;
       writePty(tab.id, data).catch(() => {});
       // Enter in a plain terminal likely submitted a command.
-      if (data === "\r" && tab.kind === "terminal") {
+      if (data === "\r" && tab.agent === null) {
         setTabIdle(tab.id, false);
         resetTerminalCompletionNotification(tab.id);
       }
@@ -373,7 +373,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     tab.id,
     tab.isLoading,
     tab.error,
-    tab.kind,
+    tab.agent,
     tab.title,
     tab.cwd,
   ]);

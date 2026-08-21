@@ -1,9 +1,14 @@
 /**
  * @module components/Sidebar
- * Left panel — session browser with all async states.
+ * Left-panel session/terminal/note navigator.
  *
- * Supports drag-to-reorder and drag-to-pin in all three modes.
- * "all" mode shows Pinned/Recent section headers; other modes are flat.
+ * Renders from Tab[] only — the single source of truth.
+ * - Agent tabs (omp / codex / claude) → SessionRow
+ * - Plain terminal tabs               → TerminalRow
+ * - Note tabs                         → TerminalRow
+ *
+ * React key is always `tab.id` (fresh UUID), never a session UUID.
+ * No CombinedItem, no itemId bridge, no pendingSessions logic.
  */
 import { Fragment, type ReactNode } from "react";
 
@@ -26,279 +31,218 @@ import {
 import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
-import { useTerminalStore } from "@/store/terminal";
-import type { Tab } from "@/store/terminal";
+import { useSessionStore } from "@/store/sessions";
+import { type Tab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
-import type { OmpSession } from "@/lib/session";
 
 import SearchBar from "./SearchBar";
 import SessionRow from "./SessionRow";
 import { SortableItem, SortableList } from "./SortableList";
 import TerminalRow from "./TerminalRow";
 
-type CombinedItem =
-  { kind: "session"; session: OmpSession } | { kind: "terminal"; tab: Tab };
-
-/** Item ID extraction helper. */
-function itemId(item: CombinedItem, tabs: Tab[]): string {
-  if (item.kind === "session") {
-    // Use tab.id if a tab is bound to this session — keeps the sidebar key
-    // stable across the pending→real session ID transition.
-    const tab = tabs.find((t) => t.sessionId === item.session.id);
-    return tab?.id ?? item.session.id;
-  }
-  return item.tab.id;
-}
-
-/**
- * Sort items: pinned first, then by sidebarOrder.
- * Items not in sidebarOrder go to the end (natural order preserved via stable sort).
- * No recency or automated re-sorting — only drag order and new-item prepend.
- */
-function sortByOrder(
-  items: CombinedItem[],
-  order: string[],
-  pinned: (item: CombinedItem) => boolean,
-  tabs: Tab[]
-): CombinedItem[] {
+/** Sort tabs: pinned first, then by sidebarOrder, then by recency. */
+function sortTabs(tabs: Tab[], order: string[]): Tab[] {
   const orderIdx = new Map(order.map((id, i) => [id, i]));
-  return [...items].sort((a, b) => {
-    const aPin = Number(pinned(a));
-    const bPin = Number(pinned(b));
+  return [...tabs].sort((a, b) => {
+    const aPin = Number(a.isPinned);
+    const bPin = Number(b.isPinned);
     if (aPin !== bPin) return bPin - aPin;
-    const aOrder = orderIdx.get(itemId(a, tabs)) ?? Number.MAX_SAFE_INTEGER;
-    const bOrder = orderIdx.get(itemId(b, tabs)) ?? Number.MAX_SAFE_INTEGER;
+    const aOrder = orderIdx.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = orderIdx.get(b.id) ?? Number.MAX_SAFE_INTEGER;
     return aOrder - bOrder;
   });
 }
 
 export default function Sidebar() {
-  const {
-    state,
-    sessions,
-    filtered,
-    activeSession,
-    loadSessions,
-    pinnedIds,
-    searchQuery,
-    togglePin,
-  } = useSessions();
+  const { state, loadSessions } = useSessions();
   const { openSession, refreshSession, retryTab } = useTerminal();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const sidebarMode = useUiStore((s) => s.sidebarMode);
-
   const openNewDialog = useUiStore((s) => s.openNewDialog);
   const touchRecentOpen = useUiStore((s) => s.touchRecentOpen);
   const sidebarOrder = useUiStore((s) => s.sidebarOrder);
   const setSidebarOrder = useUiStore((s) => s.setSidebarOrder);
+
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const closeTab = useTerminalStore((s) => s.closeTab);
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
-  const allTerminals = tabs.filter((tab) => tab.kind === "terminal");
-  const allNotes = tabs.filter((tab) => tab.kind === "note");
-  // OMP tabs that don't yet have an on-disk session — show as pending sessions.
-  const sessionIds = new Set(sessions.map((s) => s.id));
-  const pendingSessions: OmpSession[] = tabs
-    .filter((tab) => tab.kind === "omp" && !sessionIds.has(tab.sessionId))
-    .map((tab) => ({
-      id: tab.id, // use tab ID for sidebar ordering (matches prependSidebarOrder)
-      path: "",
-      title: tab.title || "New session",
-      cwd: tab.cwd,
-      modified: Math.floor(tab.modifiedAt),
-      firstMessage: "",
-    }));
+  const searchQuery = useSessionStore((s) => s.searchQuery);
+
   const q = searchQuery.toLowerCase().trim();
 
-  // DnD sensors — distance constraint distinguishes click from drag.
+  // ── Partition tabs by kind ──────────────────────────────────────────────
+  const agentTabs = tabs.filter((t) => t.agent !== null && t.kind === "terminal");
+  const terminalTabs = tabs.filter(isPlainTerminal);
+  const noteTabs = tabs.filter((t) => t.kind === "note");
+
+  // ── Filter by search query ──────────────────────────────────────────────
+  const filteredAgents = agentTabs.filter(
+    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd, t.firstMessage)
+  );
+  const filteredTerminals = terminalTabs.filter(
+    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd)
+  );
+  const filteredNotes = noteTabs.filter(
+    (t) => !q || fuzzyMatchAny(q, t.title, t.content)
+  );
+
+  // ── Build mode-specific lists ───────────────────────────────────────────
+  const allTabs =
+    sidebarMode === "sessions"
+      ? filteredAgents
+      : sidebarMode === "terminals"
+        ? filteredTerminals
+        : sidebarMode === "notes"
+          ? filteredNotes
+          : [...filteredAgents, ...filteredTerminals, ...filteredNotes];
+
+  const sorted = sortTabs(allTabs, sidebarOrder);
+
+  // ── DnD sensors ─────────────────────────────────────────────────────────
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // ── Pin check helpers ─────────────────────────────────────────────────
-  const isPinned = (item: CombinedItem): boolean => {
-    if (item.kind === "session") {
-      // Use tab.id for pin check if a tab is bound — consistent with itemId.
-      const tab = tabs.find((t) => t.sessionId === item.session.id);
-      return pinnedIds.includes(tab?.id ?? item.session.id);
-    }
-    return item.tab.isPinned;
-  };
-  // ── Build filtered terminal list ──────────────────────────────────────
-  const terminalMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.cwd);
-  const filteredTerminals = allTerminals.filter(terminalMatches);
+  const dndDisabled = q.length > 0;
 
-  const noteMatches = (tab: Tab) => !q || fuzzyMatchAny(q, tab.title, tab.content);
-  const filteredNotes = allNotes.filter(noteMatches);
-
-  // Pending sessions (OMP tabs without on-disk JSONL yet), filtered by search.
-  const pendingMatches = (s: OmpSession) => !q || fuzzyMatchAny(q, s.title, s.cwd);
-  const filteredPending = pendingSessions.filter(pendingMatches);
-
-  // ── Build combined "all" list ─────────────────────────────────────────
-  const allItems: CombinedItem[] = [
-    ...filtered.map((s) => ({ kind: "session" as const, session: s })),
-    ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
-    ...filteredTerminals.map((t) => ({ kind: "terminal" as const, tab: t })),
-    ...filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t })),
-  ];
-  const sortedAll = sortByOrder(allItems, sidebarOrder, isPinned, tabs);
-
-  // ── Build sessions-only list ──────────────────────────────────────────
-  const sessionItems: CombinedItem[] = [
-    ...filtered.map((s) => ({ kind: "session" as const, session: s })),
-    ...filteredPending.map((s) => ({ kind: "session" as const, session: s })),
-  ];
-  const sortedSessions = sortByOrder(sessionItems, sidebarOrder, isPinned, tabs);
-
-  // ── Build terminals-only list ─────────────────────────────────────────
-  const terminalItems = filteredTerminals.map((t) => ({
-    kind: "terminal" as const,
-    tab: t,
-  }));
-  const sortedTerminals = sortByOrder(terminalItems, sidebarOrder, isPinned, tabs);
-
-  // ── Build notes-only list ─────────────────────────────────────────────
-  const noteItems = filteredNotes.map((t) => ({ kind: "terminal" as const, tab: t }));
-  const sortedNotes = sortByOrder(noteItems, sidebarOrder, isPinned, tabs);
-
-  const currentItems: CombinedItem[] =
-    sidebarMode === "all"
-      ? sortedAll
-      : sidebarMode === "sessions"
-        ? sortedSessions
-        : sidebarMode === "terminals"
-          ? sortedTerminals
-          : sortedNotes;
-
-  /** Toggle pin for any item type. */
-  const toggleItemPin = (item: CombinedItem) => {
-    if (item.kind === "session") {
-      // Pin by tab.id if a tab is bound — consistent with itemId and isPinned.
-      const tab = tabs.find((t) => t.sessionId === item.session.id);
-      togglePin(tab?.id ?? item.session.id);
-    } else {
-      toggleTabPin(item.tab.id);
-    }
-  };
-
-  // ── Drag end handler ──────────────────────────────────────────────────
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const activeId = String(active.id);
-    const overId = String(over.id);
-
-    const list = currentItems;
-
-    const fromIdx = list.findIndex((it) => itemId(it, tabs) === activeId);
-    const overIdx = list.findIndex((it) => itemId(it, tabs) === overId);
+    const fromIdx = sorted.findIndex((t) => t.id === String(active.id));
+    const overIdx = sorted.findIndex((t) => t.id === String(over.id));
     if (fromIdx === -1 || overIdx === -1) return;
 
-    // Cross-section drop: if pin states differ, toggle pin on the dragged item
-    const activeItem = list[fromIdx];
-    const overItem = list[overIdx];
-    if (isPinned(activeItem) !== isPinned(overItem)) {
-      toggleItemPin(activeItem);
+    // Cross-section drop → toggle pin
+    if (sorted[fromIdx].isPinned !== sorted[overIdx].isPinned) {
+      toggleTabPin(sorted[fromIdx].id);
     }
-
-    // Reorder in sidebarOrder
-    const ids = list.map((it) => itemId(it, tabs));
-    const newOrder = arrayMove(ids, fromIdx, overIdx);
-    setSidebarOrder(newOrder);
+    setSidebarOrder(
+      arrayMove(
+        sorted.map((t) => t.id),
+        fromIdx,
+        overIdx
+      )
+    );
   };
 
-  const handleSelect = async (session: OmpSession) => {
-    touchRecentOpen(session.id);
-    // Pending session (no JSONL yet) — just switch to its tab.
-    if (!session.path) {
-      const tab = tabs.find((t) => t.id === session.id);
-      if (tab) setActiveTab(tab.id);
-      if (window.innerWidth < 800) toggleSidebar();
-      return;
+  // ── Row renderer ────────────────────────────────────────────────────────
+  const renderTab = (tab: Tab) => {
+    if (tab.agent !== null) {
+      return (
+        <SessionRow
+          tab={tab}
+          isActive={activeTabId === tab.id}
+          onSelect={async () => {
+            touchRecentOpen(tab.id);
+            if (window.innerWidth < 800) toggleSidebar();
+            // If session has a path it's on disk — open/resume it.
+            if (tab.path) {
+              await openSession(
+                {
+                  id: tab.sessionId,
+                  path: tab.path,
+                  title: tab.title,
+                  cwd: tab.cwd,
+                  modified: Math.floor(tab.modifiedAt),
+                  firstMessage: tab.firstMessage,
+                },
+                TERMINAL_DEFAULT_COLS,
+                TERMINAL_DEFAULT_ROWS,
+                tab.agent ?? undefined
+              );
+            } else {
+              // Pending — tab exists but session file not written yet.
+              setActiveTab(tab.id);
+            }
+          }}
+          onRefresh={() =>
+            void refreshSession(
+              {
+                id: tab.sessionId,
+                path: tab.path,
+                title: tab.title,
+                cwd: tab.cwd,
+                modified: Math.floor(tab.modifiedAt),
+                firstMessage: tab.firstMessage,
+              },
+              TERMINAL_DEFAULT_COLS,
+              TERMINAL_DEFAULT_ROWS,
+              tab.agent ?? undefined
+            )
+          }
+        />
+      );
     }
-    const opening = openSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
-    if (window.innerWidth < 800) toggleSidebar();
-    await opening;
-  };
-
-  const handleRefresh = (session: OmpSession) =>
-    refreshSession(session, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
-
-  // DnD disabled while searching
-  const dndDisabled = q.length > 0;
-
-  // ── Row renderer ──────────────────────────────────────────────────────
-  const renderItem = (item: CombinedItem) =>
-    item.kind === "session" ? (
-      <SessionRow
-        session={item.session}
-        isActive={
-          activeSession?.id === item.session.id || activeTabId === item.session.id
-        }
-        onSelect={() => handleSelect(item.session)}
-        onRefresh={() => void handleRefresh(item.session)}
-      />
-    ) : (
+    return (
       <TerminalRow
-        tab={item.tab}
-        isActive={activeTabId === item.tab.id}
+        tab={tab}
+        isActive={activeTabId === tab.id}
         onSelect={() => {
-          touchRecentOpen(item.tab.id);
-          setActiveTab(item.tab.id);
-          if (item.tab.kind !== "note" && item.tab.error) {
-            void retryTab(item.tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+          touchRecentOpen(tab.id);
+          setActiveTab(tab.id);
+          if (tab.kind !== "note" && tab.error) {
+            void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
           }
         }}
-        onRename={(title) => updateTabTitle(item.tab.id, title)}
-        onTogglePin={() => toggleTabPin(item.tab.id)}
-        onDelete={() => void closeTab(item.tab.id)}
+        onRename={(title) => updateTabTitle(tab.id, title)}
+        onTogglePin={() => {
+          toggleTabPin(tab.id);
+        }}
+        onDelete={() => void closeTab(tab.id)}
       />
     );
+  };
 
-  const renderSectionedList = (items: CombinedItem[]) => (
-    <SortableList ids={items.map((it) => itemId(it, tabs))} disabled={dndDisabled}>
-      <ul role="list" className="pb-3">
-        {items.map((item, idx) => {
-          const pinned = isPinned(item);
-          const prevPinned = idx > 0 && isPinned(items[idx - 1]);
-          const startsSection = idx === 0 || pinned !== prevPinned;
-          return (
-            <Fragment key={itemId(item, tabs)}>
-              {startsSection && (
-                <li
-                  className="px-[7px] pb-[5px] pt-[9px] font-mono text-[7px] font-semibold uppercase
-                    tracking-[0.08em] text-[var(--color-ink-9)]"
-                >
-                  {pinned ? "Pinned" : "Recent"}
-                </li>
-              )}
-              <SortableItem id={itemId(item, tabs)} disabled={dndDisabled}>
-                {renderItem(item)}
-              </SortableItem>
-            </Fragment>
-          );
-        })}
-        {items.length === 0 && (
-          <li className="px-3 py-6 text-center">
-            <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
-          </li>
-        )}
-      </ul>
-    </SortableList>
-  );
+  const renderList = (items: Tab[]) => {
+    const pinnedCount = items.filter((t) => t.isPinned).length;
+    const recentCount = items.length - pinnedCount;
+
+    return (
+      <SortableList ids={items.map((t) => t.id)} disabled={dndDisabled}>
+        <ul role="list" className="pb-3">
+          {items.map((tab, idx) => {
+            const prevPinned = idx > 0 && items[idx - 1].isPinned;
+            const startsSection = idx === 0 || tab.isPinned !== prevPinned;
+            const sectionCount = tab.isPinned ? pinnedCount : recentCount;
+            return (
+              <Fragment key={tab.id}>
+                {startsSection && (
+                  <li
+                    className="flex items-center justify-between px-[7px] pb-[5px] pt-[9px]
+                      font-mono text-[7px] font-semibold uppercase tracking-[0.08em]
+                      text-[var(--color-ink-9)]"
+                  >
+                    <span>{tab.isPinned ? "Pinned" : "Recent"}</span>
+                    <span className="tabular-nums text-[var(--color-accent)]">
+                      {sectionCount}
+                    </span>
+                  </li>
+                )}
+                <SortableItem id={tab.id} disabled={dndDisabled}>
+                  {renderTab(tab)}
+                </SortableItem>
+              </Fragment>
+            );
+          })}
+          {items.length === 0 && (
+            <li className="px-3 py-6 text-center">
+              <p className="text-[12px] text-[var(--color-ink-7)]">No results</p>
+            </li>
+          )}
+        </ul>
+      </SortableList>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <SearchBar />
-
-      {/* ── State machine ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <DndContext
           sensors={sensors}
@@ -313,11 +257,10 @@ export default function Sidebar() {
                 <ErrorBanner message={state.message} onRetry={loadSessions} />
               )}
               {state.type === "empty" && <EmptyList />}
-              {state.type === "data" && renderSectionedList(sortedSessions)}
+              {state.type === "data" && renderList(sorted)}
             </>
           )}
-
-          {sidebarMode !== "sessions" && renderSectionedList(currentItems)}
+          {sidebarMode !== "sessions" && renderList(sorted)}
         </DndContext>
       </div>
       <div className="arc-sidebar-footer">

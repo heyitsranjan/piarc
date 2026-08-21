@@ -1,6 +1,9 @@
 /**
  * @module components/Sidebar/SessionRow
- * One session entry with a native macOS context menu.
+ * Sidebar row for an agent-backed terminal tab (omp / codex / claude).
+ *
+ * Accepts a `Tab` directly — no OmpSession needed.
+ * All display metadata (title, cwd, path, firstMessage, modifiedAt) lives on Tab.
  */
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useState } from "react";
@@ -13,46 +16,48 @@ import { CircleAlert, Loader2, StickyNote } from "lucide-react";
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { type Tab, useTerminalStore } from "@/store/terminal";
 
 import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
-import type { OmpSession } from "@/lib/session";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
-interface SessionRowProps {
-  session: OmpSession;
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+export interface SessionRowProps {
+  tab: Tab;
   isActive: boolean;
   onSelect: () => void;
   onRefresh: () => void;
 }
 
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export default function SessionRow({
-  session,
+  tab,
   isActive,
   onSelect,
   onRefresh,
 }: SessionRowProps) {
   const { pinnedIds, togglePin, renameSession, removeSession } = useSessionStore();
-  const tabs = useTerminalStore((s) => s.tabs);
-  const closeTab = useTerminalStore((state) => state.closeTab);
-  const updateTabTitle = useTerminalStore((state) => state.updateTabTitle);
-  const tab = tabs.find((t) => t.sessionId === session.id || t.id === session.id);
-  const isSpawning = tab?.isLoading === true;
-  const isWorking = !!tab && (isSpawning || isAgentWorking(tab.activity));
-  const needsAttention =
-    tab?.activity.state === "waiting_approval" || tab?.activity.state === "error";
-  const activityLabel = tab ? agentActivityLabel(tab.activity) : "";
+  const { closeTab, updateTabTitle, toggleTabPin } = useTerminalStore();
 
+  const isSpawning = tab.isLoading;
+  const isWorking = isSpawning || isAgentWorking(tab.activity);
+  const needsAttention =
+    tab.activity.state === "waiting_approval" || tab.activity.state === "error";
+  const activityLabel = agentActivityLabel(tab.activity);
   const showActivity = isWorking || needsAttention;
+
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const isPinned = pinnedIds.includes(tab?.id ?? session.id);
 
-  const isPending = !session.path;
+  const isPinned = pinnedIds.includes(tab.id);
+  const isPending = !tab.path;
+
   const openMenu = async (event: ReactMouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -61,14 +66,17 @@ export default function SessionRow({
       { text: "Rename", action: () => setRenameOpen(true) },
       {
         text: isPinned ? "Unpin" : "Pin to top",
-        action: () => togglePin(tab?.id ?? session.id),
+        action: () => {
+          togglePin(tab.id);
+          toggleTabPin(tab.id);
+        },
       },
       ...(isPending
         ? []
         : [
             {
               text: "Copy session ID",
-              action: () => void navigator.clipboard.writeText(session.id),
+              action: () => void navigator.clipboard.writeText(tab.sessionId),
             },
           ]),
       { text: "Delete session", action: () => setDeleteOpen(true) },
@@ -77,12 +85,11 @@ export default function SessionRow({
     await menu.popup();
   };
 
-  const deleteSession = async () => {
+  const deleteHandler = async () => {
     setDeleteOpen(false);
     try {
-      if (tab) await closeTab(tab.id);
-      // Only remove from disk if the session has a path (not pending).
-      if (session.path) await removeSession(session.path);
+      await closeTab(tab.id);
+      if (tab.path) await removeSession(tab.path);
     } catch (reason) {
       await message(reason instanceof Error ? reason.message : String(reason), {
         title: "Could not delete session",
@@ -112,6 +119,7 @@ export default function SessionRow({
         <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 items-center gap-2">
           <ItemIcon
             kind="session"
+            agent={tab.agent ?? "omp"}
             size={13}
             className="shrink-0 text-[var(--color-ink-7)]"
           />
@@ -121,29 +129,29 @@ export default function SessionRow({
                 "block truncate font-mono text-[10px] font-semibold leading-[12px]",
                 isActive && "text-[var(--color-accent)]"
               )}
-              title={session.title}
+              title={tab.title}
             >
-              {session.title}
+              {tab.title}
             </span>
             <span
               className={cn(
                 "mt-1 block truncate font-mono text-[8px] leading-[9px]",
                 showActivity
-                  ? tab?.activity.state === "error"
+                  ? tab.activity.state === "error"
                     ? "text-[var(--color-danger)]"
-                    : tab?.activity.state === "waiting_approval"
+                    : tab.activity.state === "waiting_approval"
                       ? "text-[var(--color-warn)]"
                       : "text-[var(--color-accent)]"
                   : "text-[var(--color-ink-7)]"
               )}
-              title={showActivity ? activityLabel : session.cwd}
+              title={showActivity ? activityLabel : tab.cwd}
             >
-              {showActivity ? activityLabel : cwdShort(session.cwd)}
+              {showActivity ? activityLabel : cwdShort(tab.cwd)}
             </span>
           </div>
         </div>
 
-        {tab?.note?.trim() && (
+        {tab.note?.trim() && (
           <StickyNote
             size={9}
             strokeWidth={2}
@@ -152,7 +160,6 @@ export default function SessionRow({
           />
         )}
 
-        {/* Timestamp and overflow share one fixed slot. */}
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
           {isWorking ? (
             <Loader2
@@ -165,7 +172,7 @@ export default function SessionRow({
             <CircleAlert
               size={13}
               className={
-                tab?.activity.state === "error"
+                tab.activity.state === "error"
                   ? "text-[var(--color-danger)]"
                   : "text-[var(--color-warn)]"
               }
@@ -173,7 +180,7 @@ export default function SessionRow({
             />
           ) : (
             <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
-              {timeAgo(session.modified)}
+              {timeAgo(tab.modifiedAt)}
             </span>
           )}
         </div>
@@ -182,22 +189,22 @@ export default function SessionRow({
       {deleteOpen && (
         <ConfirmDeleteDialog
           title="Delete session"
-          message={`Delete "${session.title}" from PiArc? This cannot be undone.`}
-          onConfirm={() => void deleteSession()}
+          message={`Delete "${tab.title}" from PiArc? This cannot be undone.`}
+          onConfirm={() => void deleteHandler()}
           onClose={() => setDeleteOpen(false)}
         />
       )}
 
       {renameOpen && (
         <RenameDialog
-          title={session.title}
+          title={tab.title}
           subtitle={
-            isPending ? "Pending session" : session.path.split("/").slice(-2).join("/")
+            isPending ? "Pending session" : tab.path.split("/").slice(-2).join("/")
           }
           onRename={(title) =>
             isPending
-              ? updateTabTitle(session.id, title)
-              : renameSession(session.path, title)
+              ? updateTabTitle(tab.id, title)
+              : void renameSession(tab.path, title)
           }
           onClose={() => setRenameOpen(false)}
         />
