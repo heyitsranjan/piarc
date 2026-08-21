@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Settings2,
   ShieldCheck,
+  SlidersHorizontal,
   StickyNote,
 } from "lucide-react";
 
@@ -65,6 +66,8 @@ export default function TitleBar() {
   const closeNewDialog = useUiStore((state) => state.closeNewDialog);
   const notePanelOpen = useUiStore((state) => state.notePanelOpen);
   const toggleNotePanel = useUiStore((state) => state.toggleNotePanel);
+  const envPanelOpen = useUiStore((state) => state.envPanelOpen);
+  const toggleEnvPanel = useUiStore((state) => state.toggleEnvPanel);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
   const { refreshSession } = useTerminal();
@@ -256,6 +259,17 @@ export default function TitleBar() {
             className={cn("titlebar-action", notePanelOpen && "titlebar-action-active")}
           >
             <StickyNote size={14} strokeWidth={1.8} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={toggleEnvPanel}
+            disabled={!activeTab || activeTab?.kind === "note"}
+            title="Session environment variables"
+            aria-label="Toggle session environment"
+            aria-pressed={envPanelOpen}
+            className={cn("titlebar-action", envPanelOpen && "titlebar-action-active")}
+          >
+            <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"

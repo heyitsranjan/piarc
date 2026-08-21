@@ -21,6 +21,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { EnvVar } from "@/store/env";
+
 import type { AgentActivity } from "@/lib/agent-activity";
 import { killPty } from "@/lib/ipc";
 import { shortId } from "@/lib/utils";
@@ -172,6 +174,8 @@ export interface Tab {
   content: string;
   /** User-written sticky note attached to any tab. Renders the StickyNote badge. */
   note: string;
+  /** Per-session environment variables. Merged with global env; same key overrides global. */
+  envVars: EnvVar[];
 }
 
 // ─── Narrowed types & guards ─────────────────────────────────────────────────
@@ -323,6 +327,8 @@ interface TerminalState {
   updateTabContent: (tabId: string, content: string) => void;
   /** Update the user-written note attached to any tab. */
   updateTabNote: (tabId: string, note: string) => void;
+  /** Set per-session environment variables for a tab. */
+  setTabEnvVars: (tabId: string, vars: EnvVar[]) => void;
   /** Clear unread completion indicator for a tab. */
   markTabRead: (tabId: string) => void;
   /** Set unread completion indicator for a tab. */
@@ -363,6 +369,7 @@ function migratePersistedTab(raw: Tab): Tab {
     firstMessage: raw.firstMessage ?? "",
     content: raw.content ?? "",
     note: raw.note ?? "",
+    envVars: raw.envVars ?? [],
     modifiedAt: raw.modifiedAt ?? raw.createdAt,
     isIdle: true,
     hasUnreadCompletion: false,
@@ -402,6 +409,7 @@ export const useTerminalStore = create<TerminalState>()(
           path: params.path,
           firstMessage: params.firstMessage,
           note: "",
+          envVars: [],
           title: params.title,
           cwd: params.cwd,
           content: "",
@@ -549,6 +557,11 @@ export const useTerminalStore = create<TerminalState>()(
           tabs: s.tabs.map((t) =>
             t.id === tabId ? { ...t, note, modifiedAt: Date.now() / 1000 } : t
           ),
+        })),
+
+      setTabEnvVars: (tabId, vars) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, envVars: vars } : t)),
         })),
 
       setTabIdle: (tabId, isIdle) =>

@@ -101,12 +101,17 @@ export function useTerminal(): UseTerminalReturn {
   const spawnPty = useCallback(
     async (
       tabId: string,
-      tab: Pick<Tab, "agent" | "sessionId" | "cwd">,
+      tab: Pick<Tab, "agent" | "sessionId" | "cwd" | "envVars">,
       cols: number,
       rows: number
     ) => {
       try {
-        const env = useEnvStore.getState().toRecord();
+        const globalEnv = useEnvStore.getState().toRecord();
+        const tabEnv: Record<string, string> = {};
+        for (const { key, value } of tab.envVars ?? []) {
+          if (key.trim()) tabEnv[key.trim()] = value;
+        }
+        const env = { ...globalEnv, ...tabEnv }; // tab overrides global
         const params = { tabId, cwd: tab.cwd, cols, rows, env };
         await (tab.agent === null
           ? shellPty(params)
@@ -161,7 +166,7 @@ export function useTerminal(): UseTerminalReturn {
 
       await spawnPty(
         tabId,
-        { agent, sessionId: session.id, cwd: session.cwd },
+        { agent, sessionId: session.id, cwd: session.cwd, envVars: [] },
         cols,
         rows
       );
@@ -210,7 +215,12 @@ export function useTerminal(): UseTerminalReturn {
 
         await spawnPty(
           newTabId,
-          { agent, sessionId: session.id, cwd: session.cwd },
+          {
+            agent,
+            sessionId: session.id,
+            cwd: session.cwd,
+            envVars: existing?.envVars ?? [],
+          },
           cols,
           rows
         );

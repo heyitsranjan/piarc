@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
+import EnvPanel from "@/components/EnvPanel";
 import WorkspacePanel from "@/components/GitReview";
 import NotePanel from "@/components/NotePanel";
 import Sidebar from "@/components/Sidebar";
@@ -219,6 +220,7 @@ export default function Layout() {
           />
         )}
         <NotePanel />
+        <EnvPanel />
       </div>
 
       <footer className="arc-statusbar">

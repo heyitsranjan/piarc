@@ -42,6 +42,7 @@ interface UiState {
   sidebarOrder: string[];
   /** True while the per-session note panel drawer is open. */
   notePanelOpen: boolean;
+  envPanelOpen: boolean;
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
@@ -66,6 +67,7 @@ interface UiState {
   /** Prepend an item to the sidebar order (new/resumed items attach at top). */
   prependSidebarOrder: (id: string) => void;
   toggleNotePanel: () => void;
+  toggleEnvPanel: () => void;
   /** Close every workspace drawer (notes + all workspace panels). Called on tab switch. */
   closeAllPanels: () => void;
 }
@@ -83,6 +85,7 @@ export const useUiStore = create<UiState>()(
       recentOpens: {},
       sidebarOrder: [],
       notePanelOpen: false,
+      envPanelOpen: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
@@ -161,11 +164,23 @@ export const useUiStore = create<UiState>()(
               { ...ws, mode: null as WorkspaceMode | null },
             ])
           );
-          return { notePanelOpen: true, workspaceBySession: closed };
+          return { notePanelOpen: true, envPanelOpen: false, workspaceBySession: closed };
+        }),
+      toggleEnvPanel: () =>
+        set((s) => {
+          if (s.envPanelOpen) return { envPanelOpen: false };
+          const closed = Object.fromEntries(
+            Object.entries(s.workspaceBySession).map(([id, ws]) => [
+              id,
+              { ...ws, mode: null as WorkspaceMode | null },
+            ])
+          );
+          return { envPanelOpen: true, notePanelOpen: false, workspaceBySession: closed };
         }),
       closeAllPanels: () =>
         set((s) => ({
           notePanelOpen: false,
+          envPanelOpen: false,
           workspaceBySession: Object.fromEntries(
             Object.entries(s.workspaceBySession).map(([id, ws]) => [
               id,
