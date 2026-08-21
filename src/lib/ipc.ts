@@ -225,7 +225,8 @@ export interface CreatePtyParams {
   cols: number;
   /** Initial terminal row count (from xterm.js `Terminal.rows`). */
   rows: number;
-  /** Index signature required by Tauri's `InvokeArgs` constraint. */
+  /** Global environment variables injected into the PTY process. */
+  env: Record<string, string>;
   [key: string]: unknown;
 }
 
@@ -270,7 +271,8 @@ export interface NewSessionPtyParams {
   cols: number;
   /** Initial terminal row count. */
   rows: number;
-  /** Index signature required by Tauri's InvokeArgs constraint. */
+  /** Global environment variables injected into the PTY process. */
+  env: Record<string, string>;
   [key: string]: unknown;
 }
 

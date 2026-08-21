@@ -226,6 +226,7 @@ impl PtyManager {
         cwd: &str,
         size: (u16, u16),
         shell: &str,
+        extra_env: &HashMap<String, String>,
         on_output: F,
     ) -> Result<()>
     where
@@ -258,8 +259,13 @@ impl PtyManager {
         cmd.env("COLORTERM", "truecolor");
         // Clear NO_COLOR inherited from the parent (Finder-launched apps or
         // terminals with NO_COLOR set). Many CLI tools (codex, etc.) disable
-        // all color output when NO_COLOR is present, even if TERM supports it.
         cmd.env_remove("NO_COLOR");
+
+        // User-defined global environment variables (from PiArc settings).
+        // Applied after built-ins so they can override TERM/COLORTERM if needed.
+        for (k, v) in extra_env {
+            cmd.env(k, v);
+        }
 
         // Shell integration: set ZDOTDIR (zsh) / BASH_ENV (bash) so the
         // login shell sources our wrapper which sources the user's real

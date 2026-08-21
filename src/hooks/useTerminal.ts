@@ -12,6 +12,7 @@
  */
 import { useCallback } from "react";
 
+import { useEnvStore } from "@/store/env";
 import {
   AGENT_START_CMD,
   type AgentType,
@@ -105,7 +106,8 @@ export function useTerminal(): UseTerminalReturn {
       rows: number
     ) => {
       try {
-        const params = { tabId, cwd: tab.cwd, cols, rows };
+        const env = useEnvStore.getState().toRecord();
+        const params = { tabId, cwd: tab.cwd, cols, rows, env };
         await (tab.agent === null
           ? shellPty(params)
           : createPty({

@@ -75,6 +75,7 @@ pub async fn create_pty(
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -100,6 +101,7 @@ pub async fn create_pty(
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {
@@ -158,6 +160,7 @@ pub async fn new_session_pty(
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -177,6 +180,7 @@ pub async fn new_session_pty(
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {
@@ -201,6 +205,7 @@ pub async fn shell_pty(
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -215,6 +220,7 @@ pub async fn shell_pty(
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {

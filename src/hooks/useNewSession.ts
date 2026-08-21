@@ -20,6 +20,7 @@ import {
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
 
+import { useEnvStore } from "@/store/env";
 import { useOmpStore } from "@/store/omp";
 import { AGENT_START_CMD, type AgentType, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
@@ -108,6 +109,7 @@ export function useNewSession(): UseNewSessionReturn {
           cwd,
           cols: TERMINAL_DEFAULT_COLS,
           rows: TERMINAL_DEFAULT_ROWS,
+          env: useEnvStore.getState().toRecord(),
         };
         await (isPlainShell ? shellPty(params) : newSessionPty(params));
         setTabReady(tabId);
