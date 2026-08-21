@@ -125,7 +125,7 @@ export default function TerminalRow({
 
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
           <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
-            {timeAgo(tab.createdAt)}
+            {timeAgo(tab.modifiedAt)}
           </span>
         </div>
       </div>
@@ -146,7 +146,7 @@ export default function TerminalRow({
       {renameOpen && (
         <RenameDialog
           title={tab.title}
-          subtitle={tab.kind === "note" ? timeAgo(tab.createdAt) : cwdShort(tab.cwd)}
+          subtitle={tab.kind === "note" ? timeAgo(tab.modifiedAt) : cwdShort(tab.cwd)}
           onRename={onRename}
           onClose={() => setRenameOpen(false)}
         />

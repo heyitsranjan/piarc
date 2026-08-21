@@ -30,8 +30,10 @@ export interface Tab {
   title: string;
   /** Working directory; passed to `createPty`. Notes leave this empty. */
   cwd: string;
-  /** Creation timestamp used by the sidebar's relative time label. */
+  /** Creation timestamp (epoch seconds). */
   createdAt: number;
+  /** Last meaningful activity: agent event, note edit, or terminal I/O (epoch seconds). */
+  modifiedAt: number;
   /** Whether this tab floats to the top of its section. */
   isPinned: boolean;
   /**
@@ -135,6 +137,7 @@ export const useTerminalStore = create<TerminalState>()(
           error: null,
           activity: { state: session.kind === "note" ? "waiting_input" : "starting" },
           createdAt: Date.now() / 1000,
+          modifiedAt: Date.now() / 1000,
           isPinned: false,
           userRenamed: false,
           kind: session.kind,
@@ -230,6 +233,7 @@ export const useTerminalStore = create<TerminalState>()(
               ? {
                   ...tab,
                   sessionId,
+                  modifiedAt: Date.now() / 1000,
                   // Only update title if the user hasn't renamed this tab
                   ...(title && !tab.userRenamed ? { title } : {}),
                 }
@@ -239,20 +243,28 @@ export const useTerminalStore = create<TerminalState>()(
 
       setTabActivity: (tabId, activity) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, activity } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, activity, modifiedAt: Date.now() / 1000 } : t
+          ),
         })),
       updateTabContent: (tabId, content) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, content } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, content, modifiedAt: Date.now() / 1000 } : t
+          ),
         })),
       updateTabNote: (tabId, note) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, note } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, note, modifiedAt: Date.now() / 1000 } : t
+          ),
         })),
       setTabIdle: (tabId, isIdle) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId && t.kind !== "note" ? { ...t, isIdle } : t
+            t.id === tabId && t.kind !== "note"
+              ? { ...t, isIdle, modifiedAt: Date.now() / 1000 }
+              : t
           ),
         })),
     }),
@@ -275,6 +287,7 @@ export const useTerminalStore = create<TerminalState>()(
           tabs: (saved.tabs ?? []).map((tab) => ({
             ...tab,
             note: tab.note ?? "",
+            modifiedAt: tab.modifiedAt ?? tab.createdAt,
             isIdle: true,
             activity: { state: "disconnected" },
           })),

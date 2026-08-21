@@ -110,7 +110,7 @@ export default function Sidebar() {
       path: "",
       title: tab.title || "New session",
       cwd: tab.cwd,
-      modified: Math.floor(tab.createdAt / 1000),
+      modified: Math.floor(tab.modifiedAt),
       firstMessage: "",
     }));
   const q = searchQuery.toLowerCase().trim();
