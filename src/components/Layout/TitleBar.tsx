@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import {
+  Cog,
   FolderTree,
   GitBranch,
   PanelLeft,
   RotateCcw,
   ShieldCheck,
-  SlidersVertical,
   StickyNote,
   Variable,
 } from "lucide-react";
@@ -282,7 +282,7 @@ export default function TitleBar() {
             aria-label="Open settings"
             className="titlebar-action"
           >
-            <SlidersVertical size={14} strokeWidth={1.8} aria-hidden />
+            <Cog size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
