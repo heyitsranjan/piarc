@@ -8,10 +8,10 @@ import {
   GitBranch,
   PanelLeft,
   RotateCcw,
-  Settings2,
   ShieldCheck,
-  SlidersHorizontal,
+  SlidersVertical,
   StickyNote,
+  Variable,
 } from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
@@ -273,7 +273,7 @@ export default function TitleBar() {
             aria-pressed={envPanelOpen}
             className={cn("titlebar-action", envPanelOpen && "titlebar-action-active")}
           >
-            <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden />
+            <Variable size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
@@ -282,7 +282,7 @@ export default function TitleBar() {
             aria-label="Open settings"
             className="titlebar-action"
           >
-            <Settings2 size={14} strokeWidth={1.8} aria-hidden />
+            <SlidersVertical size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
