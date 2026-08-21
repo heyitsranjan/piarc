@@ -70,10 +70,14 @@ export default function TitleBar() {
   const toggleEnvPanel = useUiStore((state) => state.toggleEnvPanel);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
-  const { refreshSession } = useTerminal();
+  const { refreshSession, restartTab } = useTerminal();
   const refreshActiveSession = () => {
-    if (!activeSession) return;
-    void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    if (!activeTab || activeTab.kind === "note" || activeTab.isLoading) return;
+    if (activeSession) {
+      void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    } else {
+      void restartTab(activeTab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    }
   };
 
   const create = (action: () => Promise<void>) => {
@@ -210,10 +214,10 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={refreshActiveSession}
-            disabled={!activeSession || activeTab?.isLoading}
+            disabled={!activeTab || activeTab.kind === "note" || activeTab.isLoading}
             title={
-              activeSession
-                ? `Restart terminal for ${activeSession.title} (⌘R)`
+              activeTab && activeTab.kind !== "note"
+                ? "Restart terminal (⌘R)"
                 : "Select a session to refresh"
             }
             aria-label="Refresh active session terminal"

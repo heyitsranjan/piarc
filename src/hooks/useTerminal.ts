@@ -21,7 +21,7 @@ import {
   useTerminalStore,
 } from "@/store/terminal";
 
-import { createPty, shellPty } from "@/lib/ipc";
+import { createPty, killPty, shellPty } from "@/lib/ipc";
 import type { OmpSession } from "@/lib/session";
 import { shortId } from "@/lib/utils";
 
@@ -72,6 +72,13 @@ export interface UseTerminalReturn {
     rows: number,
     agent?: AgentType
   ) => Promise<void>;
+
+  /**
+   * Kill the live PTY for `tabId` and immediately respawn it.
+   * Works for any tab kind — agent or plain terminal.
+   * Preserves tab ID, sidebar order, and envVars.
+   */
+  restartTab: (tabId: string, cols: number, rows: number) => Promise<void>;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -231,5 +238,23 @@ export function useTerminal(): UseTerminalReturn {
     [closeTab, openTab, spawnPty]
   );
 
-  return { openSession, closeTab, switchTab: setActiveTab, retryTab, refreshSession };
+  const restartTab = useCallback(
+    async (tabId: string, cols: number, rows: number) => {
+      const tab = useTerminalStore.getState().tabs.find((t) => t.id === tabId);
+      if (!tab || tab.kind === "note") return;
+      await killPty(tabId);
+      markRetry(tabId);
+      await spawnPty(tabId, tab, cols, rows);
+    },
+    [markRetry, spawnPty]
+  );
+
+  return {
+    openSession,
+    closeTab,
+    switchTab: setActiveTab,
+    retryTab,
+    refreshSession,
+    restartTab,
+  };
 }
