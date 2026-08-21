@@ -226,6 +226,11 @@ impl PtyManager {
         cmd.args(["-l", "-c", &cmd_str]);
         cmd.cwd(cwd);
         cmd.env("TERM", PTY_TERM);
+        cmd.env("COLORTERM", "truecolor");
+        // Clear NO_COLOR inherited from the parent (Finder-launched apps or
+        // terminals with NO_COLOR set). Many CLI tools (codex, etc.) disable
+        // all color output when NO_COLOR is present, even if TERM supports it.
+        cmd.env_remove("NO_COLOR");
 
         // Shell integration: set ZDOTDIR (zsh) / BASH_ENV (bash) so the
         // login shell sources our wrapper which sources the user's real

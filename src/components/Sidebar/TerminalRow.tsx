@@ -3,13 +3,12 @@ import { useState } from "react";
 
 import { Menu } from "@tauri-apps/api/menu";
 
-import { CircleAlert, FileText, Loader2 } from "lucide-react";
+import { FileText, StickyNote } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
 import type { Tab } from "@/store/terminal";
 
-import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -65,18 +64,6 @@ export default function TerminalRow({
     onDelete();
   };
 
-  const isRunning = tab.kind !== "note" && !tab.isLoading && !tab.isIdle;
-  const isStarting = tab.kind !== "note" && tab.isLoading;
-  const isWorking =
-    tab.kind !== "note" && (isStarting || isAgentWorking(tab.activity) || isRunning);
-  const needsAttention =
-    tab.kind !== "note" &&
-    (tab.activity.state === "waiting_approval" || tab.activity.state === "error");
-  const activityLabel = agentActivityLabel(tab.activity);
-
-  const statusLabel = isStarting ? "Starting…" : isRunning ? "Running…" : activityLabel;
-
-  const showActivity = isWorking || needsAttention;
   return (
     <>
       <div
@@ -119,56 +106,27 @@ export default function TerminalRow({
               {tab.title}
             </span>
             <span
-              className={cn(
-                "mt-1 block truncate font-mono text-[8px] leading-[9px]",
-                showActivity
-                  ? tab.activity.state === "error"
-                    ? "text-[var(--color-danger)]"
-                    : tab.activity.state === "waiting_approval"
-                      ? "text-[var(--color-warn)]"
-                      : "text-[var(--color-accent)]"
-                  : "text-[var(--color-ink-7)]"
-              )}
-              title={
-                showActivity
-                  ? statusLabel
-                  : tab.kind === "note"
-                    ? notePreview(tab)
-                    : tab.cwd
-              }
+              className="mt-1 block truncate font-mono text-[8px] leading-[9px] text-[var(--color-ink-7)]"
+              title={tab.kind === "note" ? notePreview(tab) : tab.cwd}
             >
-              {showActivity
-                ? statusLabel
-                : tab.kind === "note"
-                  ? notePreview(tab)
-                  : cwdShort(tab.cwd)}
+              {tab.kind === "note" ? notePreview(tab) : cwdShort(tab.cwd)}
             </span>
           </div>
         </div>
 
+        {tab.note?.trim() && (
+          <StickyNote
+            size={9}
+            strokeWidth={2}
+            className="absolute right-[26px] top-1/2 shrink-0 -translate-y-1/2 text-[var(--color-accent)]"
+            aria-label="Has note"
+          />
+        )}
+
         <div className="absolute right-[7px] top-1/2 flex h-7 w-[18px] -translate-y-1/2 items-center justify-end">
-          {isWorking ? (
-            <Loader2
-              size={14}
-              strokeWidth={2}
-              className="animate-spin text-[var(--color-accent)]"
-              aria-label={tab.isLoading ? "Starting terminal" : activityLabel}
-            />
-          ) : needsAttention ? (
-            <CircleAlert
-              size={13}
-              className={
-                tab.activity.state === "error"
-                  ? "text-[var(--color-danger)]"
-                  : "text-[var(--color-warn)]"
-              }
-              aria-label={activityLabel}
-            />
-          ) : (
-            <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
-              {timeAgo(tab.createdAt)}
-            </span>
-          )}
+          <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
+            {timeAgo(tab.modifiedAt)}
+          </span>
         </div>
       </div>
 
@@ -188,7 +146,7 @@ export default function TerminalRow({
       {renameOpen && (
         <RenameDialog
           title={tab.title}
-          subtitle={tab.kind === "note" ? timeAgo(tab.createdAt) : cwdShort(tab.cwd)}
+          subtitle={tab.kind === "note" ? timeAgo(tab.modifiedAt) : cwdShort(tab.cwd)}
           onRename={onRename}
           onClose={() => setRenameOpen(false)}
         />

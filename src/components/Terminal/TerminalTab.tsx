@@ -206,12 +206,16 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
       if (activity.sessionId) {
-        // Resolve the session title so the tab label stays in sync.
-        // Safe cross-store read — no circular import.
+        // Only bind when the sessionId belongs to a known on-disk session.
+        // Subagent sessions (depth-3 JSONL) are excluded by list_sessions,
+        // so binding their ID would orphan the tab as a "pending session"
+        // in the sidebar. Keep the tab bound to its main session.
         const sess = useSessionStore
           .getState()
           .sessions.find((s) => s.id === activity.sessionId);
-        bindTabSession(tab.id, activity.sessionId, sess?.title);
+        if (sess) {
+          bindTabSession(tab.id, activity.sessionId, sess.title);
+        }
       }
       setTabActivity(tab.id, nextActivity);
       if (isAgentCompletion(previousActivity, nextActivity)) {
@@ -376,12 +380,17 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables
   // xterm only while an OMP command owns an interactive terminal menu.
+  // NOTE: We intentionally do NOT swap `term.options.theme` here. Reassigning
+  // the theme object mid-stream (especially during alt-buffer transitions in
+  // full-screen TUIs like codex) forces xterm.js to re-evaluate every
+  // rendered cell, producing a blank/wrong-color flash. The only visual
+  // difference between XTERM_THEME and PASSIVE_XTERM_THEME is the cursor
+  // color, which we handle via cursorBlink/cursorInactiveStyle instead.
   useEffect(() => {
     const term = termRef.current;
     if (!term) return;
     term.options.disableStdin = !terminalInputEnabled;
     term.options.cursorBlink = terminalInputEnabled;
-    term.options.theme = terminalInputEnabled ? XTERM_THEME : PASSIVE_XTERM_THEME;
     if (terminalInputEnabled) {
       window.requestAnimationFrame(() => term.focus());
     } else {

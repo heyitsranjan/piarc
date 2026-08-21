@@ -108,6 +108,34 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // ── Dev: open web inspector + re-navigate after wry reload race ─
+            #[cfg(debug_assertions)]
+            {
+                if let Some(w) = app.get_webview_window("main") {
+                    w.open_devtools();
+                }
+                // wry calls reload() on webContentProcessDidTerminate which can
+                // race with the initial navigation to the devUrl and land on
+                // about:blank.  Re-navigating explicitly after a short delay
+                // ensures the window ends up on http://localhost:1420.
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Brief delay so wry's reload() completes before we re-check.
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    if let Some(w) = handle.get_webview_window("main") {
+                        if let Ok(url) = w.url() {
+                            let s = url.as_str();
+                            if s == "about:blank" || s == "about:blank#blocked" {
+                                log::info!(
+                                    "dev: re-navigating from blank to http://localhost:1420/"
+                                );
+                                let _ = w.navigate("http://localhost:1420/".parse().unwrap());
+                            }
+                        }
+                    }
+                });
+            }
+
             Ok(())
         })
         // ── Commands ───────────────────────────────────────────────────────

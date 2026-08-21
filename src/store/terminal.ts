@@ -30,8 +30,10 @@ export interface Tab {
   title: string;
   /** Working directory; passed to `createPty`. Notes leave this empty. */
   cwd: string;
-  /** Creation timestamp used by the sidebar's relative time label. */
+  /** Creation timestamp (epoch seconds). */
   createdAt: number;
+  /** Last meaningful activity: agent event, note edit, or terminal I/O (epoch seconds). */
+  modifiedAt: number;
   /** Whether this tab floats to the top of its section. */
   isPinned: boolean;
   /**
@@ -52,6 +54,8 @@ export interface Tab {
    * Notes are always idle.
    */
   isIdle: boolean;
+  /** User-written note attached to any tab. */
+  note: string;
 }
 
 interface TerminalState {
@@ -112,6 +116,8 @@ interface TerminalState {
   setTabActivity: (tabId: string, activity: AgentActivity) => void;
   /** Update persisted plain-text content for a note tab. */
   updateTabContent: (tabId: string, content: string) => void;
+  /** Update the user-written note attached to a tab. */
+  updateTabNote: (tabId: string, note: string) => void;
   /** Mark a terminal tab as idle (prompt visible) or busy. */
   setTabIdle: (tabId: string, isIdle: boolean) => void;
 }
@@ -131,10 +137,12 @@ export const useTerminalStore = create<TerminalState>()(
           error: null,
           activity: { state: session.kind === "note" ? "waiting_input" : "starting" },
           createdAt: Date.now() / 1000,
+          modifiedAt: Date.now() / 1000,
           isPinned: false,
           userRenamed: false,
           kind: session.kind,
           sessionId: session.sessionId,
+          note: "",
           title: session.title,
           cwd: session.cwd,
           content: "",
@@ -225,6 +233,7 @@ export const useTerminalStore = create<TerminalState>()(
               ? {
                   ...tab,
                   sessionId,
+                  modifiedAt: Date.now() / 1000,
                   // Only update title if the user hasn't renamed this tab
                   ...(title && !tab.userRenamed ? { title } : {}),
                 }
@@ -234,16 +243,28 @@ export const useTerminalStore = create<TerminalState>()(
 
       setTabActivity: (tabId, activity) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, activity } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, activity, modifiedAt: Date.now() / 1000 } : t
+          ),
         })),
       updateTabContent: (tabId, content) =>
         set((s) => ({
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, content } : t)),
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, content, modifiedAt: Date.now() / 1000 } : t
+          ),
+        })),
+      updateTabNote: (tabId, note) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId ? { ...t, note, modifiedAt: Date.now() / 1000 } : t
+          ),
         })),
       setTabIdle: (tabId, isIdle) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId && t.kind !== "note" ? { ...t, isIdle } : t
+            t.id === tabId && t.kind !== "note"
+              ? { ...t, isIdle, modifiedAt: Date.now() / 1000 }
+              : t
           ),
         })),
     }),
@@ -265,6 +286,8 @@ export const useTerminalStore = create<TerminalState>()(
           ...saved,
           tabs: (saved.tabs ?? []).map((tab) => ({
             ...tab,
+            note: tab.note ?? "",
+            modifiedAt: tab.modifiedAt ?? tab.createdAt,
             isIdle: true,
             activity: { state: "disconnected" },
           })),

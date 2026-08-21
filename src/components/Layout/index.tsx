@@ -8,11 +8,13 @@ import { LoaderCircle } from "lucide-react";
 
 import CommandPalette from "@/components/CommandPalette";
 import WorkspacePanel from "@/components/GitReview";
+import NotePanel from "@/components/NotePanel";
 import Sidebar from "@/components/Sidebar";
 import TerminalArea from "@/components/Terminal";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
+import { useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import type { GitChangesSnapshot } from "@/lib/git";
@@ -73,6 +75,7 @@ export default function Layout() {
   const checkForUpdate = useOmpStore((state) => state.checkForUpdate);
   const installUpdate = useOmpStore((state) => state.installUpdate);
   const closeWorkspace = useUiStore((state) => state.closeWorkspace);
+  const closeAllPanels = useUiStore((state) => state.closeAllPanels);
   const setWorkspaceSelection = useUiStore((state) => state.setWorkspaceSelection);
   const [gitStatus, setGitStatus] = useState<GitChangesSnapshot | null>(null);
   const [width, setWidth] = useState(getSavedWidth);
@@ -81,6 +84,7 @@ export default function Layout() {
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
   const prevSessionId = useRef<string | null>(null);
+  const prevTabId = useRef<string | null>(null);
 
   // Close the workspace panel of the previous session when switching sessions.
   // Selection (selectedFile / selectedGitKey) is preserved for reopen.
@@ -92,6 +96,15 @@ export default function Layout() {
     }
     prevSessionId.current = nextId;
   }, [activeSession?.id, closeWorkspace]);
+
+  // Close all panels when the user switches to a different sidebar item.
+  const activeTabId = useTerminalStore((state) => state.activeTabId);
+  useEffect(() => {
+    if (prevTabId.current !== null && prevTabId.current !== activeTabId) {
+      closeAllPanels();
+    }
+    prevTabId.current = activeTabId;
+  }, [activeTabId, closeAllPanels]);
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
       if (!dragging.current) return;
@@ -205,6 +218,7 @@ export default function Layout() {
             onClose={() => closeWorkspace(activeSession.id)}
           />
         )}
+        <NotePanel />
       </div>
 
       <footer className="arc-statusbar">

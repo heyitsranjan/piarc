@@ -40,6 +40,8 @@ interface UiState {
   recentOpens: Record<string, number>;
   /** User-defined sidebar ordering (session + tab IDs). Items not listed fall back to recency. */
   sidebarOrder: string[];
+  /** True while the per-session note panel drawer is open. */
+  notePanelOpen: boolean;
   toggleSidebar: () => void;
   setSidebarMode: (mode: SidebarMode) => void;
   openCommandPalette: () => void;
@@ -63,6 +65,9 @@ interface UiState {
   setSidebarOrder: (ids: string[]) => void;
   /** Prepend an item to the sidebar order (new/resumed items attach at top). */
   prependSidebarOrder: (id: string) => void;
+  toggleNotePanel: () => void;
+  /** Close every workspace drawer (notes + all workspace panels). Called on tab switch. */
+  closeAllPanels: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -77,6 +82,7 @@ export const useUiStore = create<UiState>()(
       richInputEnabled: false,
       recentOpens: {},
       sidebarOrder: [],
+      notePanelOpen: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       openCommandPalette: () => set({ commandPaletteOpen: true }),
@@ -95,8 +101,9 @@ export const useUiStore = create<UiState>()(
               },
             };
           }
-          // Toggle on / switch mode: keep existing selection, set new mode
+          // Toggle on / switch mode: close notes, keep existing selection, set new mode
           return {
+            notePanelOpen: false,
             workspaceBySession: {
               ...s.workspaceBySession,
               [sessionId]: {
@@ -144,6 +151,28 @@ export const useUiStore = create<UiState>()(
               }
             : { sidebarOrder: [id, ...s.sidebarOrder] }
         ),
+      toggleNotePanel: () =>
+        set((s) => {
+          if (s.notePanelOpen) return { notePanelOpen: false };
+          // Opening notes — close every workspace panel
+          const closed = Object.fromEntries(
+            Object.entries(s.workspaceBySession).map(([id, ws]) => [
+              id,
+              { ...ws, mode: null as WorkspaceMode | null },
+            ])
+          );
+          return { notePanelOpen: true, workspaceBySession: closed };
+        }),
+      closeAllPanels: () =>
+        set((s) => ({
+          notePanelOpen: false,
+          workspaceBySession: Object.fromEntries(
+            Object.entries(s.workspaceBySession).map(([id, ws]) => [
+              id,
+              { ...ws, mode: null as WorkspaceMode | null },
+            ])
+          ),
+        })),
     }),
     {
       name: "omp-ui-settings",

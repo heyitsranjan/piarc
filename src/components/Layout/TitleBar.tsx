@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Settings2,
   ShieldCheck,
+  StickyNote,
 } from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
@@ -64,6 +65,8 @@ export default function TitleBar() {
   const newDialogOpen = useUiStore((state) => state.newDialogOpen);
   const openNewDialog = useUiStore((state) => state.openNewDialog);
   const closeNewDialog = useUiStore((state) => state.closeNewDialog);
+  const notePanelOpen = useUiStore((state) => state.notePanelOpen);
+  const toggleNotePanel = useUiStore((state) => state.toggleNotePanel);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
   const { refreshSession } = useTerminal();
@@ -221,7 +224,7 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={() => activeSession && toggleWorkspace(activeSession.id, "explorer")}
-            disabled={!activeSession}
+            disabled={!activeSession || activeTab?.kind === "note"}
             title="Open project explorer (⌘E)"
             aria-label="Open project explorer"
             aria-pressed={workspaceMode === "explorer"}
@@ -235,7 +238,7 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={() => activeSession && toggleWorkspace(activeSession.id, "git")}
-            disabled={!activeSession}
+            disabled={!activeSession || activeTab?.kind === "note"}
             title="Review Git changes (⌘G)"
             aria-label="Review Git changes"
             aria-pressed={workspaceMode === "git"}
@@ -245,6 +248,17 @@ export default function TitleBar() {
             )}
           >
             <GitBranch size={14} strokeWidth={1.8} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={toggleNotePanel}
+            disabled={!activeTab || activeTab?.kind === "note"}
+            title="Session notes"
+            aria-label="Toggle session notes"
+            aria-pressed={notePanelOpen}
+            className={cn("titlebar-action", notePanelOpen && "titlebar-action-active")}
+          >
+            <StickyNote size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
