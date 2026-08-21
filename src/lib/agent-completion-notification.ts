@@ -24,9 +24,8 @@ export async function notifyAgentCompletion(
 ): Promise<void> {
   const focused = await getCurrentWindow().isFocused();
 
-  // Always chime — the sound is subtle and the user may be watching
-  // a different tab or looking away.
-  if (!isActiveTab) playCompletionSound();
+  // Chime when the user isn't watching: different tab, or app unfocused.
+  if (!isActiveTab || !focused) playCompletionSound();
 
   // Native notification only when the window is unfocused.
   if (focused) return;
