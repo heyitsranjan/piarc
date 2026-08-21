@@ -206,12 +206,16 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
       if (activity.sessionId) {
-        // Resolve the session title so the tab label stays in sync.
-        // Safe cross-store read — no circular import.
+        // Only bind when the sessionId belongs to a known on-disk session.
+        // Subagent sessions (depth-3 JSONL) are excluded by list_sessions,
+        // so binding their ID would orphan the tab as a "pending session"
+        // in the sidebar. Keep the tab bound to its main session.
         const sess = useSessionStore
           .getState()
           .sessions.find((s) => s.id === activity.sessionId);
-        bindTabSession(tab.id, activity.sessionId, sess?.title);
+        if (sess) {
+          bindTabSession(tab.id, activity.sessionId, sess.title);
+        }
       }
       setTabActivity(tab.id, nextActivity);
       if (isAgentCompletion(previousActivity, nextActivity)) {
