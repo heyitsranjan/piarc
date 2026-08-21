@@ -136,6 +136,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const setTabIdle = useTerminalStore((s) => s.setTabIdle);
+  const markTabUnread = useTerminalStore((s) => s.markTabUnread);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -221,10 +222,9 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
         }
       }
       if (isAgentCompletion(previousActivity, nextActivity)) {
-        notifyAgentCompletion(
-          tabTitleRef.current,
-          activeTabIdRef.current === tab.id
-        ).catch(() => {});
+        const isActiveTab = activeTabIdRef.current === tab.id;
+        notifyAgentCompletion(tabTitleRef.current, isActiveTab).catch(() => {});
+        if (!isActiveTab) markTabUnread(tab.id);
       }
       return true;
     });

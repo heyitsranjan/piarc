@@ -68,6 +68,7 @@ export default function Sidebar() {
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
+  const markTabRead = useTerminalStore((s) => s.markTabRead);
   const closeTab = useTerminalStore((s) => s.closeTab);
   const updateTabTitle = useTerminalStore((s) => s.updateTabTitle);
   const toggleTabPin = useTerminalStore((s) => s.toggleTabPin);
@@ -140,6 +141,7 @@ export default function Sidebar() {
           isActive={activeTabId === tab.id}
           onSelect={async () => {
             touchRecentOpen(tab.id);
+            markTabRead(tab.id);
             if (window.innerWidth < 800) toggleSidebar();
             // If the tab has a real session ID (not a pending __new__/__terminal__
             // placeholder), open/resume it. `path` may not be synced yet from

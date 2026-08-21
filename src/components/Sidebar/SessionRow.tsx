@@ -116,6 +116,12 @@ export default function SessionRow({
             : "text-[var(--color-ink-1)] hover:text-[var(--color-ink-0)]"
         )}
       >
+        {tab.hasUnreadCompletion && !isActive && (
+          <span
+            className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[var(--color-accent)]"
+            aria-label="Unread completion"
+          />
+        )}
         <div className="absolute inset-y-0 left-2 right-8 flex min-w-0 items-center gap-2">
           <ItemIcon
             kind="session"

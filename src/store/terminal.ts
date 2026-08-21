@@ -160,6 +160,12 @@ export interface Tab {
    * Prevents automatic title sync from session data reloads.
    */
   userRenamed: boolean;
+  /**
+   * `true` when an agent completed but the user hasn't viewed the result yet.
+   * Set on completion when the tab isn't active or the window isn't focused.
+   * Cleared when the user selects the tab. Not persisted across restarts.
+   */
+  hasUnreadCompletion: boolean;
 
   // ── Content ─────────────────────────────────────────────────────────────
   /** Plain-text body — `kind: "note"` only. */
@@ -317,6 +323,10 @@ interface TerminalState {
   updateTabContent: (tabId: string, content: string) => void;
   /** Update the user-written note attached to any tab. */
   updateTabNote: (tabId: string, note: string) => void;
+  /** Clear unread completion indicator for a tab. */
+  markTabRead: (tabId: string) => void;
+  /** Set unread completion indicator for a tab. */
+  markTabUnread: (tabId: string) => void;
   /** Mark a terminal tab as idle (prompt visible) or busy (command running). */
   setTabIdle: (tabId: string, isIdle: boolean) => void;
 }
@@ -355,6 +365,7 @@ function migratePersistedTab(raw: Tab): Tab {
     note: raw.note ?? "",
     modifiedAt: raw.modifiedAt ?? raw.createdAt,
     isIdle: true,
+    hasUnreadCompletion: false,
     activity: { state: "disconnected" },
   };
 }
@@ -395,6 +406,7 @@ export const useTerminalStore = create<TerminalState>()(
           cwd: params.cwd,
           content: "",
           isIdle: true,
+          hasUnreadCompletion: false,
         };
         // Idempotent for agent sessions — concurrent loadSessions() calls must not
         // create duplicate tabs for the same sessionId.
@@ -547,6 +559,24 @@ export const useTerminalStore = create<TerminalState>()(
               : t
           ),
         })),
+
+      markTabRead: (tabId) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId && t.hasUnreadCompletion
+              ? { ...t, hasUnreadCompletion: false }
+              : t
+          ),
+        })),
+
+      markTabUnread: (tabId) =>
+        set((s) => ({
+          tabs: s.tabs.map((t) =>
+            t.id === tabId && !t.hasUnreadCompletion
+              ? { ...t, hasUnreadCompletion: true }
+              : t
+          ),
+        })),
     }),
     {
       name: "piarc-terminal-tabs",
@@ -555,6 +585,7 @@ export const useTerminalStore = create<TerminalState>()(
           ...tab,
           isLoading: false,
           isIdle: true,
+          hasUnreadCompletion: false,
           activity: { state: "disconnected" },
           error: "Disconnected — select to reconnect",
         })),
