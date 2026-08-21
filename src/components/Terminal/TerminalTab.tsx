@@ -129,6 +129,9 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
   const activityRef = useRef(tab.activity);
   const tabTitleRef = useRef(tab.title);
+  const activeTabId = useTerminalStore((s) => s.activeTabId);
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
   const { retryTab, closeTab } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
@@ -217,9 +220,11 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           bindTabSession(tab.id, activity.sessionId, sess.title);
         }
       }
-      setTabActivity(tab.id, nextActivity);
       if (isAgentCompletion(previousActivity, nextActivity)) {
-        notifyAgentCompletion(tabTitleRef.current).catch(() => {});
+        notifyAgentCompletion(
+          tabTitleRef.current,
+          activeTabIdRef.current === tab.id
+        ).catch(() => {});
       }
       return true;
     });

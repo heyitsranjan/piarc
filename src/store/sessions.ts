@@ -89,7 +89,7 @@ export const useSessionStore = create<SessionsState>()(
           // created when the user opens a session (openSession) or via the terminal store.
           const { tabs, syncTabFromSession } = useTerminalStore.getState();
           const tabsBySessionId = new Map(
-            tabs.filter((t) => t.agent === "omp").map((t) => [t.sessionId, t])
+            tabs.filter((t) => t.agent !== null).map((t) => [t.sessionId, t])
           );
           for (const s of sessions) {
             const existing = tabsBySessionId.get(s.id);

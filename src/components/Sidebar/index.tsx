@@ -141,8 +141,11 @@ export default function Sidebar() {
           onSelect={async () => {
             touchRecentOpen(tab.id);
             if (window.innerWidth < 800) toggleSidebar();
-            // If session has a path it's on disk — open/resume it.
-            if (tab.path) {
+            // If the tab has a real session ID (not a pending __new__/__terminal__
+            // placeholder), open/resume it. `path` may not be synced yet from
+            // loadSessions(), but the resume command only needs sessionId.
+            const isPending = !tab.sessionId || tab.sessionId.startsWith("__");
+            if (!isPending) {
               await openSession(
                 {
                   id: tab.sessionId,

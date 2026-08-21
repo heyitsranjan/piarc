@@ -505,17 +505,17 @@ export const useTerminalStore = create<TerminalState>()(
 
       bindTabSession: (tabId, sessionId, title) =>
         set((s) => ({
-          tabs: s.tabs.map((tab) =>
-            tab.id === tabId && tab.agent === "omp"
-              ? {
-                  ...tab,
-                  sessionId,
-                  resumeCmd: agentResumeCmd("omp", sessionId),
-                  modifiedAt: Date.now() / 1000,
-                  ...(title && !tab.userRenamed ? { title } : {}),
-                }
-              : tab
-          ),
+          tabs: s.tabs.map((tab) => {
+            if (tab.id !== tabId || tab.agent === null) return tab;
+            const agent = tab.agent;
+            return {
+              ...tab,
+              sessionId,
+              resumeCmd: agentResumeCmd(agent, sessionId),
+              modifiedAt: Date.now() / 1000,
+              ...(title && !tab.userRenamed ? { title } : {}),
+            };
+          }),
         })),
 
       setTabActivity: (tabId, activity) =>
