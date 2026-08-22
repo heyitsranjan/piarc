@@ -27,12 +27,12 @@ import { ArrowDownToLine } from "lucide-react";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import type { Tab } from "@/store/terminal";
-import { useTerminalStore } from "@/store/terminal";
+import { type AgentType, type Tab, isAgentTab, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import {
   AGENT_ACTIVITY_OSC,
+  type AgentActivity,
   isAgentCompletion,
   parseAgentActivity,
 } from "@/lib/agent-activity";
@@ -127,16 +127,22 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const isScrolledUpRef = useRef(false);
   const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
-  const activityRef = useRef(tab.activity);
+  const activityRef = useRef<AgentActivity>(
+    isAgentTab(tab) ? tab.activity : { state: "waiting_input" }
+  );
   const tabTitleRef = useRef(tab.title);
+  const tabAgentRef = useRef(tab.agent);
+  tabAgentRef.current = tab.agent; // updated every render, no effect re-run
+  const tabActivity = isAgentTab(tab) ? tab.activity : undefined;
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
-  const { retryTab, closeTab } = useTerminal();
+  const { retryTab, closeTab, refreshSession } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const setTabIdle = useTerminalStore((s) => s.setTabIdle);
   const markTabUnread = useTerminalStore((s) => s.markTabUnread);
+  const promoteToAgent = useTerminalStore((s) => s.promoteToAgent);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -147,9 +153,9 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     isVisible && (!richInputEnabled || interactiveCommandEnabled);
 
   useEffect(() => {
-    activityRef.current = tab.activity;
+    if (tabActivity !== undefined) activityRef.current = tabActivity;
     tabTitleRef.current = tab.title;
-  }, [tab.activity, tab.title]);
+  }, [tabActivity, tab.title]);
 
   useEffect(() => {
     richInputEnabledRef.current = richInputEnabled;
@@ -202,24 +208,103 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     termRef.current = term;
     fitRef.current = fit;
 
+    // Track detected agent locally — updated immediately on detection, not waiting
+    // for React to re-render (tabAgentRef.current update). This prevents frames
+    // arriving in the same PTY batch from being dropped due to stale ref.
+    let detectedAgent: AgentType | null = tabAgentRef.current;
+
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
-      if (tab.agent === null) return false;
+      const WARP_PREFIX = "notify;warp://cli-agent;";
+
+      // ── OMP Warp notification → promote plain terminal to agent tab ──────
+      if (detectedAgent === null && data.startsWith(WARP_PREFIX)) {
+        try {
+          const payload = JSON.parse(data.slice(WARP_PREFIX.length)) as Record<
+            string,
+            unknown
+          >;
+          if (payload.event === "session_start" && typeof payload.agent === "string") {
+            const agent = payload.agent as AgentType;
+            if (agent === "omp" || agent === "codex" || agent === "claude") {
+              detectedAgent = agent;
+              promoteToAgent(tab.id, agent);
+
+              if (typeof payload.session_id === "string") {
+                const sessionId = payload.session_id;
+                const sess = useSessionStore
+                  .getState()
+                  .sessions.find((s) => s.id === sessionId);
+                bindTabSession(tab.id, sessionId, sess?.title);
+
+                // Subscribe to sessions store — fires immediately when loadSessions
+                // finds the session after sessions_updated (FS watcher) fires.
+                // OMP writes its session file lazily; we can't predict when.
+                const unsubscribe = useSessionStore.subscribe((state) => {
+                  const s = state.sessions.find((x) => x.id === sessionId);
+                  if (!s) return;
+                  unsubscribe();
+                  console.debug(
+                    "[piarc] session found, respawning with --extension:",
+                    s.id.slice(0, 8)
+                  );
+                  void refreshSession(
+                    {
+                      id: s.id,
+                      path: s.path,
+                      title: s.title,
+                      cwd: s.cwd,
+                      modified: Math.floor(s.modified),
+                      firstMessage: s.firstMessage,
+                    },
+                    TERMINAL_DEFAULT_COLS,
+                    TERMINAL_DEFAULT_ROWS,
+                    agent
+                  );
+                });
+                // Also check immediately in case it's already loaded
+                const already = useSessionStore
+                  .getState()
+                  .sessions.find((x) => x.id === sessionId);
+                if (already) {
+                  unsubscribe();
+                  void refreshSession(
+                    {
+                      id: already.id,
+                      path: already.path,
+                      title: already.title,
+                      cwd: already.cwd,
+                      modified: Math.floor(already.modified),
+                      firstMessage: already.firstMessage,
+                    },
+                    TERMINAL_DEFAULT_COLS,
+                    TERMINAL_DEFAULT_ROWS,
+                    agent
+                  );
+                }
+              }
+              return true;
+            }
+          }
+        } catch {
+          // malformed JSON — ignore
+        }
+        return false;
+      }
+
+      // ── PiArc activity state update (agent tabs with --extension) ────────
+      // Use detectedAgent (local, updated immediately) not tabAgentRef.current (stale until re-render).
+      if (detectedAgent === null) return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
+      setTabActivity(tab.id, nextActivity);
       if (activity.sessionId) {
-        // Only bind when the sessionId belongs to a known on-disk session.
-        // Subagent sessions (depth-3 JSONL) are excluded by list_sessions,
-        // so binding their ID would orphan the tab as a "pending session"
-        // in the sidebar. Keep the tab bound to its main session.
         const sess = useSessionStore
           .getState()
           .sessions.find((s) => s.id === activity.sessionId);
-        if (sess) {
-          bindTabSession(tab.id, activity.sessionId, sess.title);
-        }
+        if (sess) bindTabSession(tab.id, activity.sessionId, sess.title);
       }
       if (isAgentCompletion(previousActivity, nextActivity)) {
         const isActiveTab = activeTabIdRef.current === tab.id;
@@ -373,14 +458,14 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   }, [
     bindTabSession,
     disableTerminalInteraction,
+    markTabUnread,
+    promoteToAgent,
+    refreshSession,
     setTabActivity,
     setTabIdle,
     tab.id,
     tab.isLoading,
     tab.error,
-    tab.agent,
-    tab.title,
-    tab.cwd,
   ]);
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables

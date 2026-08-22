@@ -8,10 +8,12 @@ import {
   FolderTree,
   GitBranch,
   KeyRound,
+  Loader2,
   PanelLeft,
   RotateCcw,
   ShieldCheck,
   StickyNote,
+  Zap,
 } from "lucide-react";
 
 import PermissionsDialog from "@/components/PermissionsDialog";
@@ -28,9 +30,10 @@ import { useTerminal } from "@/hooks/useTerminal";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
-import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
+import { isAgentTab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { type SidebarMode, useUiStore } from "@/store/ui";
 
+import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import { cn } from "@/lib/utils";
 
 import NewSessionDialog from "./NewSessionDialog";
@@ -211,6 +214,20 @@ export default function TitleBar() {
           className="ml-auto mr-[10px] flex items-center justify-end gap-[3px]"
           data-tauri-drag-region
         >
+          {/* Activity indicator — shows when active agent tab is working */}
+          {activeTab && isAgentTab(activeTab) && isAgentWorking(activeTab.activity) && (
+            <span
+              className="flex items-center gap-1 px-1.5 font-mono text-[8px] text-[var(--color-accent)]"
+              aria-live="polite"
+            >
+              {activeTab.activity.state === "tool" ? (
+                <Zap size={11} strokeWidth={2} className="animate-pulse" />
+              ) : (
+                <Loader2 size={11} strokeWidth={2} className="animate-spin" />
+              )}
+              {agentActivityLabel(activeTab.activity)}
+            </span>
+          )}
           <button
             type="button"
             onClick={refreshActiveSession}

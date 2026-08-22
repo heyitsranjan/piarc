@@ -14,7 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { isOmpTab, useTerminalStore } from "@/store/terminal";
 
 import { EVENT_SESSIONS_UPDATED } from "@/lib/constants";
 import { log } from "@/lib/logger";
@@ -49,7 +49,7 @@ export default function App() {
 
   // Sync activeSession from the active omp Tab — shape matches OmpSession.
   useEffect(() => {
-    if (activeTab?.agent === "omp") {
+    if (activeTab && isOmpTab(activeTab)) {
       setActiveSession({
         id: activeTab.sessionId,
         path: activeTab.path,

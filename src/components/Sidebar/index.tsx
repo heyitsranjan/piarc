@@ -3,12 +3,10 @@
  * Left-panel session/terminal/note navigator.
  *
  * Renders from Tab[] only — the single source of truth.
- * - Agent tabs (omp / codex / claude) → SessionRow
- * - Plain terminal tabs               → TerminalRow
- * - Note tabs                         → TerminalRow
+ * One TabRow handles all variants: agent sessions, plain terminals, notes.
  *
  * React key is always `tab.id` (fresh UUID), never a session UUID.
- * No CombinedItem, no itemId bridge, no pendingSessions logic.
+ * No remount on tab type transitions — same component, same DOM node.
  */
 import { Fragment, type ReactNode } from "react";
 
@@ -32,17 +30,22 @@ import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { type Tab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
+import {
+  type Tab,
+  isAgentTab,
+  isNoteTab,
+  isOmpTab,
+  isPlainTerminal,
+  useTerminalStore,
+} from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
 
 import SearchBar from "./SearchBar";
-import SessionRow from "./SessionRow";
 import { SortableItem, SortableList } from "./SortableList";
-import TerminalRow from "./TerminalRow";
+import TabRow from "./TabRow";
 
-/** Sort tabs: pinned first, then by sidebarOrder, then by recency. */
 function sortTabs(tabs: Tab[], order: string[]): Tab[] {
   const orderIdx = new Map(order.map((id, i) => [id, i]));
   return [...tabs].sort((a, b) => {
@@ -77,13 +80,13 @@ export default function Sidebar() {
   const q = searchQuery.toLowerCase().trim();
 
   // ── Partition tabs by kind ──────────────────────────────────────────────
-  const agentTabs = tabs.filter((t) => t.agent !== null && t.kind === "terminal");
+  const agentTabs = tabs.filter(isAgentTab);
   const terminalTabs = tabs.filter(isPlainTerminal);
-  const noteTabs = tabs.filter((t) => t.kind === "note");
+  const noteTabs = tabs.filter(isNoteTab);
 
   // ── Filter by search query ──────────────────────────────────────────────
   const filteredAgents = agentTabs.filter(
-    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd, t.firstMessage)
+    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd, isOmpTab(t) ? t.firstMessage : "")
   );
   const filteredTerminals = terminalTabs.filter(
     (t) => !q || fuzzyMatchAny(q, t.title, t.cwd)
@@ -134,71 +137,63 @@ export default function Sidebar() {
 
   // ── Row renderer ────────────────────────────────────────────────────────
   const renderTab = (tab: Tab) => {
-    if (tab.agent !== null) {
-      return (
-        <SessionRow
-          tab={tab}
-          isActive={activeTabId === tab.id}
-          onSelect={async () => {
-            touchRecentOpen(tab.id);
-            markTabRead(tab.id);
-            if (window.innerWidth < 800) toggleSidebar();
-            // If the tab has a real session ID (not a pending __new__/__terminal__
-            // placeholder), open/resume it. `path` may not be synced yet from
-            // loadSessions(), but the resume command only needs sessionId.
-            const isPending = !tab.sessionId || tab.sessionId.startsWith("__");
+    const isAgentSession = tab.agent !== null;
+    const isPending =
+      isAgentSession && (!tab.sessionId || tab.sessionId.startsWith("__"));
+
+    return (
+      <TabRow
+        tab={tab}
+        isActive={activeTabId === tab.id}
+        onSelect={async () => {
+          touchRecentOpen(tab.id);
+          markTabRead(tab.id);
+          if (window.innerWidth < 800) toggleSidebar();
+          if (isAgentSession) {
             if (!isPending) {
               await openSession(
                 {
                   id: tab.sessionId,
-                  path: tab.path,
+                  path: isOmpTab(tab) ? tab.path : "",
                   title: tab.title,
                   cwd: tab.cwd,
                   modified: Math.floor(tab.modifiedAt),
-                  firstMessage: tab.firstMessage,
+                  firstMessage: isOmpTab(tab) ? tab.firstMessage : "",
                 },
                 TERMINAL_DEFAULT_COLS,
                 TERMINAL_DEFAULT_ROWS,
                 tab.agent ?? undefined
               );
             } else {
-              // Pending — tab exists but session file not written yet.
               setActiveTab(tab.id);
             }
-          }}
-          onRefresh={() =>
-            void refreshSession(
-              {
-                id: tab.sessionId,
-                path: tab.path,
-                title: tab.title,
-                cwd: tab.cwd,
-                modified: Math.floor(tab.modifiedAt),
-                firstMessage: tab.firstMessage,
-              },
-              TERMINAL_DEFAULT_COLS,
-              TERMINAL_DEFAULT_ROWS,
-              tab.agent ?? undefined
-            )
-          }
-        />
-      );
-    }
-    return (
-      <TerminalRow
-        tab={tab}
-        isActive={activeTabId === tab.id}
-        onSelect={() => {
-          touchRecentOpen(tab.id);
-          setActiveTab(tab.id);
-          if (tab.kind !== "note" && tab.error) {
-            void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+          } else {
+            setActiveTab(tab.id);
+            if (tab.kind !== "note" && tab.error) {
+              void retryTab(tab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+            }
           }
         }}
+        onRefresh={
+          isAgentSession
+            ? () =>
+                void refreshSession(
+                  {
+                    id: tab.sessionId,
+                    path: isOmpTab(tab) ? tab.path : "",
+                    title: tab.title,
+                    cwd: tab.cwd,
+                    modified: Math.floor(tab.modifiedAt),
+                    firstMessage: isOmpTab(tab) ? tab.firstMessage : "",
+                  },
+                  TERMINAL_DEFAULT_COLS,
+                  TERMINAL_DEFAULT_ROWS,
+                  tab.agent ?? undefined
+                )
+            : undefined
+        }
         onRename={(title) => updateTabTitle(tab.id, title)}
-        onTogglePin={() => {
-          toggleTabPin(tab.id);
-        }}
+        onTogglePin={() => toggleTabPin(tab.id)}
         onDelete={() => void closeTab(tab.id)}
       />
     );

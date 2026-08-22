@@ -1,4 +1,6 @@
 export const AGENT_ACTIVITY_OSC = 777;
+/** OSC number for agent-detect frames — reuses OSC 777, prefix distinguishes from activity frames. */
+export const AGENT_DETECT_OSC = 777;
 
 const PREFIX = "piarc://agent-status;";
 

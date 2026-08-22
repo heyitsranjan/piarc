@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 
 import Note from "@/components/Note";
 
-import { useTerminalStore } from "@/store/terminal";
+import { isAgentTab, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { isAgentWorking } from "@/lib/agent-activity";
@@ -46,6 +46,7 @@ export default function TerminalArea() {
 
       const now = window.performance.now();
       if (
+        isAgentTab(activeTab) &&
         isAgentWorking(activeTab.activity) &&
         now - lastEscapeAt.current <= DOUBLE_ESCAPE_MS
       ) {

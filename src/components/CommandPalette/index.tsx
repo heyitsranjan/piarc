@@ -19,6 +19,7 @@ import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
 import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
+import type { NoteTab } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
@@ -56,7 +57,8 @@ export default function CommandPalette() {
 
     const matchedNotes = tabs
       .filter(
-        (tab) => tab.kind === "note" && (!q || fuzzyMatchAny(q, tab.title, tab.content))
+        (tab): tab is NoteTab =>
+          tab.kind === "note" && (!q || fuzzyMatchAny(q, tab.title, tab.content))
       )
       .map((tab) => ({ kind: "note" as const, tab }));
 
@@ -209,9 +211,10 @@ export default function CommandPalette() {
                     agent={!isSession && !isNote ? result.tab.agent : undefined}
                   />
                 );
-                const subtitle = isNote
-                  ? `${timeAgo(result.tab.createdAt)} · ${result.tab.content.slice(0, 40)}`
-                  : cwdShort(cwd);
+                const subtitle =
+                  result.kind === "note"
+                    ? `${timeAgo(result.tab.createdAt)} · ${result.tab.content.slice(0, 40)}`
+                    : cwdShort(cwd);
                 return (
                   <ResultRow
                     key={id}
