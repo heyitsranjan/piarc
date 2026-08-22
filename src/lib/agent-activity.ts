@@ -1,4 +1,6 @@
 export const AGENT_ACTIVITY_OSC = 777;
+/** OSC number for agent-detect frames emitted by the shell preexec hook. */
+export const AGENT_DETECT_OSC = 7779;
 
 const PREFIX = "piarc://agent-status;";
 

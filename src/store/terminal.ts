@@ -241,6 +241,12 @@ interface TerminalState {
   markTabRead: (tabId: string) => void;
   markTabUnread: (tabId: string) => void;
   setTabIdle: (tabId: string, isIdle: boolean) => void;
+  /**
+   * Convert a plain terminal tab to an agent tab in-place.
+   * Same `tab.id` → same React key → zero sidebar remount.
+   * Only acts on `TerminalTab` (agent: null) — no-op for other variants.
+   */
+  promoteToAgent: (tabId: string, agent: AgentType) => void;
 }
 
 // ─── Migration helper ─────────────────────────────────────────────────────────
@@ -571,6 +577,26 @@ export const useTerminalStore = create<TerminalState>()(
           tabs: s.tabs.map((t) => {
             if (t.id !== tabId || !isAgentTab(t)) return t;
             return !t.hasUnreadCompletion ? { ...t, hasUnreadCompletion: true } : t;
+          }),
+        })),
+
+      promoteToAgent: (tabId, agent) =>
+        set((s) => ({
+          tabs: s.tabs.map((t): Tab => {
+            if (t.id !== tabId || !isPlainTerminal(t)) return t;
+            const agentBase = {
+              ...t,
+              agent,
+              startCmd: AGENT_REGISTRY[agent].startCmd(),
+              resumeCmd: null,
+              activity: { state: "starting" as const },
+              hasUnreadCompletion: false,
+            };
+            if (agent === "omp") {
+              return { ...agentBase, agent: "omp" as const, path: "", firstMessage: "" };
+            }
+            if (agent === "codex") return { ...agentBase, agent: "codex" as const };
+            return { ...agentBase, agent: "claude" as const };
           }),
         })),
     }),

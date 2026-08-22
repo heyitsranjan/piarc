@@ -27,11 +27,18 @@ import { ArrowDownToLine } from "lucide-react";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { type Tab, isAgentTab, useTerminalStore } from "@/store/terminal";
+import {
+  type AgentType,
+  type Tab,
+  isAgentTab,
+  isPlainTerminal,
+  useTerminalStore,
+} from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import {
   AGENT_ACTIVITY_OSC,
+  AGENT_DETECT_OSC,
   type AgentActivity,
   isAgentCompletion,
   parseAgentActivity,
@@ -140,6 +147,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const setTabIdle = useTerminalStore((s) => s.setTabIdle);
   const markTabUnread = useTerminalStore((s) => s.markTabUnread);
+  const promoteToAgent = useTerminalStore((s) => s.promoteToAgent);
   const disableTerminalInteraction = useTerminalStore(
     (s) => s.disableTerminalInteraction
   );
@@ -242,6 +250,20 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
         notifyAgentCompletion(tabTitleRef.current, isActiveTab).catch(() => {});
         if (!isActiveTab) markTabUnread(tab.id);
       }
+      return true;
+    });
+
+    // OSC 7779 — agent-detect frame emitted by the shell preexec hook when
+    // the user runs omp / codex / claude in a plain terminal.
+    // Promotes the tab in-place: TerminalTab → OmpTab/CodexTab/ClaudeTab.
+    const detectDispose = term.parser.registerOscHandler(AGENT_DETECT_OSC, (data) => {
+      if (!isPlainTerminal(tab)) return false; // already an agent tab
+      const PREFIX_DETECT = "piarc://agent-detect;";
+      if (!data.startsWith(PREFIX_DETECT)) return false;
+      const agent = data.slice(PREFIX_DETECT.length).trim() as AgentType;
+      if (agent !== "omp" && agent !== "codex" && agent !== "claude") return false;
+      console.debug("[piarc] detected agent in plain terminal:", agent);
+      promoteToAgent(tab.id, agent);
       return true;
     });
 
@@ -376,6 +398,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       onDataDispose.dispose();
       shellIntegDispose.dispose();
       statusDispose.dispose();
+      detectDispose.dispose();
       cancelScrollAnimationRef.current?.();
       cancelScrollAnimationRef.current = null;
       scrollDispose.dispose();
@@ -389,6 +412,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   }, [
     bindTabSession,
     disableTerminalInteraction,
+    markTabUnread,
+    promoteToAgent,
     setTabActivity,
     setTabIdle,
     tab.id,

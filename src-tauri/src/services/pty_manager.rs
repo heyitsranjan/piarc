@@ -96,7 +96,15 @@ fn valid_session_id(session_id: &str) -> bool {
 fn shell_integration_script() -> &'static str {
     r#"
 __piarc_osc133() { printf '\e]133;%s\e\\' "$1"; }
-__piarc_preexec() { __piarc_osc133 C; }
+__piarc_detect() { printf '\e]7779;piarc://agent-detect;%s\a' "$1"; }
+__piarc_preexec() {
+    __piarc_osc133 C
+    case "$1" in
+        omp|omp\ *|omp$'\t'*)    __piarc_detect omp ;;
+        codex|codex\ *|codex$'\t'*) __piarc_detect codex ;;
+        claude|claude\ *|claude$'\t'*) __piarc_detect claude ;;
+    esac
+}
 __piarc_precmd() { __piarc_osc133 D; __piarc_osc133 A; }
 if [ -n "$ZSH_VERSION" ]; then
     precmd_functions+=(__piarc_precmd)
@@ -104,7 +112,7 @@ if [ -n "$ZSH_VERSION" ]; then
     __piarc_osc133 A
 elif [ -n "$BASH_VERSION" ]; then
     PROMPT_COMMAND="__piarc_precmd;${PROMPT_COMMAND}"
-    trap '__piarc_preexec' DEBUG
+    trap '__piarc_preexec "$BASH_COMMAND"' DEBUG
     __piarc_osc133 A
 fi
 "#
