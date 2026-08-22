@@ -137,7 +137,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
-  const { retryTab, closeTab } = useTerminal();
+  const { retryTab, closeTab, refreshSession } = useTerminal();
   const setTabActivity = useTerminalStore((s) => s.setTabActivity);
   const bindTabSession = useTerminalStore((s) => s.bindTabSession);
   const setTabIdle = useTerminalStore((s) => s.setTabIdle);
@@ -226,14 +226,31 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           if (payload.event === "session_start" && typeof payload.agent === "string") {
             const agent = payload.agent as AgentType;
             if (agent === "omp" || agent === "codex" || agent === "claude") {
-              detectedAgent = agent; // update immediately — no re-render needed
+              detectedAgent = agent;
               promoteToAgent(tab.id, agent);
+
               if (typeof payload.session_id === "string") {
                 const sessionId = payload.session_id;
                 const sess = useSessionStore
                   .getState()
                   .sessions.find((s) => s.id === sessionId);
                 bindTabSession(tab.id, sessionId, sess?.title);
+
+                // Auto-respawn with --extension so activity tracking works.
+                // omp --resume preserves the session; only the PTY is replaced.
+                void refreshSession(
+                  {
+                    id: sessionId,
+                    path: sess?.path ?? "",
+                    title: sess?.title ?? tab.title,
+                    cwd: sess?.cwd ?? tab.cwd,
+                    modified: Math.floor(Date.now() / 1000),
+                    firstMessage: sess?.firstMessage ?? "",
+                  },
+                  TERMINAL_DEFAULT_COLS,
+                  TERMINAL_DEFAULT_ROWS,
+                  agent
+                );
               }
               return true;
             }
@@ -413,6 +430,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     disableTerminalInteraction,
     markTabUnread,
     promoteToAgent,
+    refreshSession,
     setTabActivity,
     setTabIdle,
     tab.id,

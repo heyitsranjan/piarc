@@ -94,7 +94,8 @@ fn valid_session_id(session_id: &str) -> bool {
 /// - `C` = command output start — a command is now running
 /// - `D` = command finished — back to idle
 fn shell_integration_script(extension_path: &str) -> String {
-    format!(r#"
+    format!(
+        r#"
 __piarc_osc133() {{ printf '\e]133;%s\e\\' "$1"; }}
 __piarc_precmd() {{ __piarc_osc133 D; __piarc_osc133 A; }}
 __piarc_preexec() {{ __piarc_osc133 C; }}
@@ -115,7 +116,9 @@ omp() {{
         *) command omp --extension {ext} "$@" ;;
     esac
 }}
-"#, ext = shell_quote(extension_path))
+"#,
+        ext = shell_quote(extension_path)
+    )
 }
 
 /// Write the OSC 133 shell-integration wrapper and return the path to a
@@ -129,7 +132,10 @@ omp() {{
 ///
 /// For **bash**: `BASH_ENV` is sourced at startup, so we just return the
 /// integration script path directly.
-fn write_integration_wrapper(_shell: &str, extension_path: &str) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+fn write_integration_wrapper(
+    _shell: &str,
+    extension_path: &str,
+) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
     let dir = std::env::temp_dir().join("piarc-shell-integration");
     std::fs::create_dir_all(&dir).context("create shell-integration temp dir")?;
     let integ_path = dir.join("piarc_integration.sh");
@@ -280,9 +286,12 @@ impl PtyManager {
         // login shell sources our wrapper which sources the user's real
         // config then the OSC 133 integration hooks.
         if matches!(program, PtyProgram::Shell) {
-            let ext_path = extra_env.get("PIARC_EXTENSION").map(|s| s.as_str()).unwrap_or("");
-            let (zdotdir, bash_env) =
-                write_integration_wrapper(&shell, ext_path).context("write shell-integration wrapper")?;
+            let ext_path = extra_env
+                .get("PIARC_EXTENSION")
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            let (zdotdir, bash_env) = write_integration_wrapper(&shell, ext_path)
+                .context("write shell-integration wrapper")?;
             cmd.env("ZDOTDIR", zdotdir.parent().unwrap_or(&zdotdir));
             cmd.env("BASH_ENV", &bash_env);
             cmd.env("ENV", &bash_env);
