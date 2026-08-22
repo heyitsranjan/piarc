@@ -16,7 +16,13 @@ import { CircleAlert, Loader2, StickyNote } from "lucide-react";
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
 import { useSessionStore } from "@/store/sessions";
-import { type Tab, useTerminalStore } from "@/store/terminal";
+import {
+  type ClaudeTab,
+  type CodexTab,
+  type OmpTab,
+  isOmpTab,
+  useTerminalStore,
+} from "@/store/terminal";
 
 import { agentActivityLabel, isAgentWorking } from "@/lib/agent-activity";
 import { cwdShort, timeAgo } from "@/lib/session";
@@ -28,7 +34,7 @@ import RenameDialog from "./RenameDialog";
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface SessionRowProps {
-  tab: Tab;
+  tab: OmpTab | CodexTab | ClaudeTab;
   isActive: boolean;
   onSelect: () => void;
   onRefresh: () => void;
@@ -56,7 +62,7 @@ export default function SessionRow({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const isPinned = pinnedIds.includes(tab.id);
-  const isPending = !tab.path;
+  const isPending = !isOmpTab(tab) || !tab.path;
 
   const openMenu = async (event: ReactMouseEvent) => {
     event.preventDefault();
@@ -89,7 +95,7 @@ export default function SessionRow({
     setDeleteOpen(false);
     try {
       await closeTab(tab.id);
-      if (tab.path) await removeSession(tab.path);
+      if (isOmpTab(tab) && tab.path) await removeSession(tab.path);
     } catch (reason) {
       await message(reason instanceof Error ? reason.message : String(reason), {
         title: "Could not delete session",

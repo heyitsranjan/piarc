@@ -32,7 +32,7 @@ import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { type Tab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
+import { type Tab, isOmpTab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
@@ -83,7 +83,7 @@ export default function Sidebar() {
 
   // ── Filter by search query ──────────────────────────────────────────────
   const filteredAgents = agentTabs.filter(
-    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd, t.firstMessage)
+    (t) => !q || fuzzyMatchAny(q, t.title, t.cwd, isOmpTab(t) ? t.firstMessage : "")
   );
   const filteredTerminals = terminalTabs.filter(
     (t) => !q || fuzzyMatchAny(q, t.title, t.cwd)
@@ -151,11 +151,11 @@ export default function Sidebar() {
               await openSession(
                 {
                   id: tab.sessionId,
-                  path: tab.path,
+                  path: isOmpTab(tab) ? tab.path : "",
                   title: tab.title,
                   cwd: tab.cwd,
                   modified: Math.floor(tab.modifiedAt),
-                  firstMessage: tab.firstMessage,
+                  firstMessage: isOmpTab(tab) ? tab.firstMessage : "",
                 },
                 TERMINAL_DEFAULT_COLS,
                 TERMINAL_DEFAULT_ROWS,
@@ -170,11 +170,11 @@ export default function Sidebar() {
             void refreshSession(
               {
                 id: tab.sessionId,
-                path: tab.path,
+                path: isOmpTab(tab) ? tab.path : "",
                 title: tab.title,
                 cwd: tab.cwd,
                 modified: Math.floor(tab.modifiedAt),
-                firstMessage: tab.firstMessage,
+                firstMessage: isOmpTab(tab) ? tab.firstMessage : "",
               },
               TERMINAL_DEFAULT_COLS,
               TERMINAL_DEFAULT_ROWS,

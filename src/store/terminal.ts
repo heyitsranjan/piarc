@@ -21,6 +21,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import {
+  AGENT_REGISTRY,
+  AGENT_START_CMD,
+  agentDeleteCmd,
+  agentRenameCmd,
+  agentResumeCmd,
+} from "@/store/agent";
 import type { EnvVar } from "@/store/env";
 
 import type { AgentActivity } from "@/lib/agent-activity";
@@ -39,217 +46,163 @@ export type TabKind = "terminal" | "note";
  */
 export type AgentType = "omp" | "codex" | "claude";
 
-// ─── Agent commands ─────────────────────────────────────────────────────────
+// Re-export agent command helpers for backward compat.
+export { AGENT_START_CMD, agentResumeCmd, agentRenameCmd, agentDeleteCmd };
+
+// ─── Tab type hierarchy ──────────────────────────────────────────────────────
 
 /**
- * Canonical CLI launch command for each agent.
- * Single source of truth — never scatter `"omp"` / `"codex"` / `"claude"` strings.
- *
- * @example
- * const cmd = AGENT_START_CMD["omp"]; // "omp"
+ * Fields shared by every tab variant.
+ * Never use `BaseTab` directly — use the specific variant or `Tab` union.
  */
-export const AGENT_START_CMD: Record<AgentType, string> = {
-  omp: "omp",
-  codex: "codex",
-  claude: "claude",
-} as const;
-
-/**
- * Builds the shell command to resume a persisted agent session.
- *
- * @example
- * agentResumeCmd("omp", "abc-123"); // "omp --resume abc-123"
- */
-export function agentResumeCmd(agent: AgentType, sessionId: string): string {
-  return `${AGENT_START_CMD[agent]} --resume ${sessionId}`;
-}
-
-/**
- * Builds the shell command to rename an agent session.
- *
- * @example
- * agentRenameCmd("omp", "abc-123", "My session"); // "omp rename abc-123 'My session'"
- */
-export function agentRenameCmd(
-  agent: AgentType,
-  sessionId: string,
-  title: string
-): string {
-  const escaped = `'${title.replace(/'/g, "'\\''")}'`;
-  return `${AGENT_START_CMD[agent]} rename ${sessionId} ${escaped}`;
-}
-
-/**
- * Builds the shell command to delete an agent session.
- *
- * @example
- * agentDeleteCmd("omp", "abc-123"); // "omp delete abc-123"
- */
-export function agentDeleteCmd(agent: AgentType, sessionId: string): string {
-  return `${AGENT_START_CMD[agent]} delete ${sessionId}`;
-}
-
-// ─── Tab interface ───────────────────────────────────────────────────────────
-
-export interface Tab {
-  // ── Identity ────────────────────────────────────────────────────────────
+interface BaseTab {
   /** Unique tab ID — also the PTY cache key in Rust `AppState`. */
   id: string;
-  /** Agent session UUID (omp/codex/claude), or synthetic ID for plain terminals and notes. */
+  /** Agent session UUID, or synthetic `__terminal__xxx` / `__new__xxx` placeholder. */
   sessionId: string;
-  /** terminal → PTY-backed tab; note → scratchpad with no PTY. */
-  kind: TabKind;
-  /**
-   * Which agent runs in this terminal.
-   * `null` → plain login shell. Always `null` for `kind: "note"`.
-   */
-  agent: AgentType | null;
   /** Human-readable label shown in the sidebar row. */
   title: string;
   /** Working directory; passed to `createPty`. Notes leave this empty. */
   cwd: string;
-
-  // ── Agent commands (agent !== null only) ────────────────────────────────
-  /**
-   * Shell command to start a fresh agent session.
-   * Derived from {@link AGENT_START_CMD}. `null` for plain terminals and notes.
-   */
-  startCmd: string | null;
-  /**
-   * Shell command to resume the persisted session ({@link Tab.sessionId}).
-   * Built by {@link agentResumeCmd}. `null` for plain terminals and notes.
-   * `null` also for brand-new sessions that have no persisted ID yet.
-   */
-  resumeCmd: string | null;
-
-  // ── Session metadata (agent !== null only) ───────────────────────────────
-  /**
-   * Absolute path to the agent's session file on disk.
-   * Used for rename / delete operations. Empty for plain terminals and notes.
-   * Populated when the session is upserted from `loadSessions()`.
-   */
-  path: string;
-  /**
-   * First user message — shown as subtitle in the sidebar row.
-   * Empty until synced from disk via `loadSessions()`.
-   */
-  firstMessage: string;
-
-  // ── Lifecycle ────────────────────────────────────────────────────────────
-  /** Creation timestamp (epoch seconds). */
-  createdAt: number;
-  /** Last meaningful activity: agent event, note edit, or terminal I/O (epoch seconds). */
-  modifiedAt: number;
+  /** Floats this tab to the Pinned section in the sidebar. */
+  isPinned: boolean;
+  /** `true` when the user manually renamed this tab. */
+  userRenamed: boolean;
+  /** User-written sticky note attached to any tab. */
+  note: string;
+  /** Per-session environment variables. Merged with global env; tab wins on same key. */
+  envVars: EnvVar[];
   /** `true` while the PTY is still spawning. */
   isLoading: boolean;
   /** Non-null when the PTY failed to spawn — message shown to the user. */
   error: string | null;
-  /**
-   * `true` when the shell is at a prompt (no command running).
-   * Notes are always idle.
-   */
+  /** `true` when the shell is at a prompt (no command running). Notes are always idle. */
   isIdle: boolean;
+  /** Creation timestamp (epoch seconds). */
+  createdAt: number;
+  /** Last meaningful activity: agent event, note edit, or terminal I/O (epoch seconds). */
+  modifiedAt: number;
+}
 
-  // ── Agent state (agent !== null only) ───────────────────────────────────
+/** Plain-text scratchpad — no PTY, no agent. */
+export interface NoteTab extends BaseTab {
+  kind: "note";
+  agent: null;
+  /** Plain-text body. */
+  content: string;
+}
+
+/** Plain login-shell terminal — no agent. */
+export interface TerminalTab extends BaseTab {
+  kind: "terminal";
+  agent: null;
+}
+
+/**
+ * AI-agent-backed terminal tab (omp / codex / claude).
+ * Extend with a specific variant (OmpTab, CodexTab, ClaudeTab) for
+ * agent-specific fields.
+ */
+export interface AgentTab extends BaseTab {
+  kind: "terminal";
+  agent: AgentType;
+  /** Shell command to start a fresh agent session. */
+  startCmd: string;
+  /** Shell command to resume the persisted session. `null` for brand-new sessions. */
+  resumeCmd: string | null;
   /** Semantic lifecycle state emitted by the agent's status OSC extension. */
   activity: AgentActivity;
-
-  // ── Display / sort ───────────────────────────────────────────────────────
-  /** Floats this tab to the Pinned section in the sidebar. */
-  isPinned: boolean;
-  /**
-   * `true` when the user manually renamed this tab.
-   * Prevents automatic title sync from session data reloads.
-   */
-  userRenamed: boolean;
   /**
    * `true` when an agent completed but the user hasn't viewed the result yet.
-   * Set on completion when the tab isn't active or the window isn't focused.
    * Cleared when the user selects the tab. Not persisted across restarts.
    */
   hasUnreadCompletion: boolean;
-
-  // ── Content ─────────────────────────────────────────────────────────────
-  /** Plain-text body — `kind: "note"` only. */
-  content: string;
-  /** User-written sticky note attached to any tab. Renders the StickyNote badge. */
-  note: string;
-  /** Per-session environment variables. Merged with global env; same key overrides global. */
-  envVars: EnvVar[];
-}
-
-// ─── Narrowed types & guards ─────────────────────────────────────────────────
-
-/**
- * Narrowed variant of {@link Tab} for agent-backed terminals.
- * `agent`, `startCmd`, and `resumeCmd` are guaranteed non-null.
- * Obtain via {@link isAgentTab}.
- */
-export type AgentTab = Tab & {
-  agent: AgentType;
-  startCmd: string;
-  resumeCmd: string;
-};
-
-/**
- * Type guard: narrows {@link Tab} → {@link AgentTab}.
- *
- * `true` for `omp`, `codex`, and `claude` terminal tabs.
- * Use wherever `startCmd` or `resumeCmd` must be accessed without null-checks.
- *
- * @example
- * if (isAgentTab(tab)) {
- *   console.log(tab.startCmd); // string, not null
- * }
- */
-export function isAgentTab(tab: Tab): tab is AgentTab {
-  return tab.agent !== null;
 }
 
 /**
- * `true` for plain login-shell terminals (`kind: "terminal"`, `agent: null`).
- *
- * Use instead of `tab.kind === "terminal"` when plain-shell-specific logic is
- * intended — OMP / codex / claude tabs share `kind: "terminal"` but are not plain.
- *
- * @example
- * const plainShells = tabs.filter(isPlainTerminal);
+ * OMP-specific agent tab.
+ * Has `path` (JSONL session file on disk) and `firstMessage` — absent on
+ * Codex and Claude tabs because those agents don't write session files.
  */
-export function isPlainTerminal(tab: Tab): boolean {
+export interface OmpTab extends AgentTab {
+  agent: "omp";
+  /**
+   * Absolute path to the OMP JSONL session file.
+   * Used for rename / delete operations via Rust IPC.
+   * Empty string until synced by `loadSessions()`.
+   */
+  path: string;
+  /**
+   * First user message text — shown as subtitle in the sidebar.
+   * Empty until synced from disk via `loadSessions()`.
+   */
+  firstMessage: string;
+}
+
+/** Codex agent tab — no disk-backed session file. */
+export interface CodexTab extends AgentTab {
+  agent: "codex";
+}
+
+/** Claude agent tab — no disk-backed session file. */
+export interface ClaudeTab extends AgentTab {
+  agent: "claude";
+}
+
+/** Discriminated union of all tab variants. The `kind` + `agent` pair is the discriminant. */
+export type Tab = NoteTab | TerminalTab | OmpTab | CodexTab | ClaudeTab;
+
+// ─── Type guards ─────────────────────────────────────────────────────────────
+
+/** Narrows Tab → NoteTab. */
+export function isNoteTab(tab: Tab): tab is NoteTab {
+  return tab.kind === "note";
+}
+
+/** Narrows Tab → TerminalTab (plain login shell, no agent). */
+export function isPlainTerminal(tab: Tab): tab is TerminalTab {
   return tab.kind === "terminal" && tab.agent === null;
 }
 
-// ─── Store params ────────────────────────────────────────────────────────────
+/**
+ * Narrows Tab → AgentTab variant (omp | codex | claude).
+ * Use when `startCmd`, `resumeCmd`, or `activity` must be accessed without null-checks.
+ */
+export function isAgentTab(tab: Tab): tab is OmpTab | CodexTab | ClaudeTab {
+  return tab.kind === "terminal" && tab.agent !== null;
+}
+
+/** Narrows Tab → OmpTab (has `path` and `firstMessage`). */
+export function isOmpTab(tab: Tab): tab is OmpTab {
+  return tab.kind === "terminal" && tab.agent === "omp";
+}
+
+// ─── Store params ─────────────────────────────────────────────────────────────
 
 /**
  * Input shape for {@link TerminalState.openTab}.
  * Callers supply identity + agent metadata; the store fills in lifecycle defaults.
  */
-export type OpenTabParams = Pick<
-  Tab,
-  | "sessionId"
-  | "title"
-  | "cwd"
-  | "kind"
-  | "agent"
-  | "startCmd"
-  | "resumeCmd"
-  | "path"
-  | "firstMessage"
-> & {
-  /** Override the auto-generated tab ID. Use when the caller controls the stable key. */
+export interface OpenTabParams {
   id?: string;
-  /**
-   * Open the tab pre-disconnected — no PTY is expected to spawn immediately.
-   * Use for tabs restored from disk (sync) that the user hasn't clicked yet.
-   * Default: `false` (tab starts in `isLoading / starting` state).
-   */
+  kind: TabKind;
+  agent: AgentType | null;
+  sessionId: string;
+  title: string;
+  cwd: string;
+  /** OMP only — JSONL session file path. */
+  path?: string;
+  /** OMP only — first user message text. */
+  firstMessage?: string;
+  startCmd?: string | null;
+  resumeCmd?: string | null;
   inactive?: boolean;
-};
+  content?: string;
+}
 
 /**
  * Patch shape for {@link TerminalState.syncTabFromSession}.
- * Only the fields that change when a session is refreshed from disk.
+ * Only OmpTab fields that change when a session is refreshed from disk.
  */
 export interface SessionPatch {
   title: string;
@@ -259,7 +212,7 @@ export interface SessionPatch {
   modifiedAt: number;
 }
 
-// ─── State interface ─────────────────────────────────────────────────────────
+// ─── State interface ──────────────────────────────────────────────────────────
 
 interface TerminalState {
   tabs: Tab[];
@@ -267,117 +220,100 @@ interface TerminalState {
   /** Tab temporarily accepting direct keyboard input for an OMP terminal UI. */
   interactiveTabId: string | null;
 
-  /**
-   * Open a new terminal tab. Always succeeds — the Rust PTY cache (LRU cap 12)
-   * evicts the LRU process when full; the evicted tab's reader thread emits
-   * `pty_exit` so the frontend marks it disconnected for reconnect on click.
-   */
   openTab: (params: OpenTabParams) => string;
-
-  /**
-   * Kill the PTY and remove the tab.
-   * Falls back gracefully if the PTY is already dead.
-   */
   closeTab: (tabId: string) => Promise<void>;
-
-  /** Switch the visible terminal to `tabId`. */
   setActiveTab: (tabId: string) => void;
-  /** Enable direct xterm input while an agent command owns an interactive terminal UI. */
   enableTerminalInteraction: (tabId: string) => void;
-  /** Return xterm to passive output-only mode. */
   disableTerminalInteraction: (tabId: string) => void;
 
-  /**
-   * Replace a temporary new-session identifier with the ID reported by the agent.
-   * If `title` is provided and the tab hasn't been user-renamed, also syncs the title.
-   */
   bindTabSession: (tabId: string, sessionId: string, title?: string) => void;
-
-  /**
-   * Upsert session metadata onto an existing agent tab from `loadSessions()`.
-   * Skips title if the user has manually renamed the tab (`userRenamed: true`).
-   * Called by the session store — not by UI components directly.
-   */
   syncTabFromSession: (tabId: string, patch: SessionPatch) => void;
-
-  /** Mark a tab's PTY as ready (`isLoading = false`, `error = null`). */
   setTabReady: (tabId: string) => void;
-  /**
-   * Record a PTY spawn failure.
-   * Sets `isLoading = false` and `error = message`.
-   */
   setTabError: (tabId: string, message: string) => void;
-
-  /** Update the tab's display title and mark it as user-renamed. */
   updateTabTitle: (tabId: string, title: string) => void;
-  /**
-   * Sync a tab title from session data — skipped when the user renamed it.
-   * Called from the sessions store after `loadSessions` resolves.
-   */
   syncTabTitle: (tabId: string, title: string) => void;
-
-  /** Toggle whether a tab floats to the Pinned section in the sidebar. */
   toggleTabPin: (tabId: string) => void;
-
-  /** Reset a failed tab to `isLoading = true` so the caller can re-spawn its PTY. */
   retryTab: (tabId: string) => void;
-  /** Apply a structured lifecycle update emitted by the agent's status OSC extension. */
   setTabActivity: (tabId: string, activity: AgentActivity) => void;
-  /** Persist plain-text content for a note tab. */
   updateTabContent: (tabId: string, content: string) => void;
-  /** Update the user-written note attached to any tab. */
   updateTabNote: (tabId: string, note: string) => void;
-  /** Set per-session environment variables for a tab. */
   setTabEnvVars: (tabId: string, vars: EnvVar[]) => void;
-  /** Clear unread completion indicator for a tab. */
   markTabRead: (tabId: string) => void;
-  /** Set unread completion indicator for a tab. */
   markTabUnread: (tabId: string) => void;
-  /** Mark a terminal tab as idle (prompt visible) or busy (command running). */
   setTabIdle: (tabId: string, isIdle: boolean) => void;
 }
 
-// ─── Migration helper ────────────────────────────────────────────────────────
+// ─── Migration helper ─────────────────────────────────────────────────────────
 
 /**
  * Upgrades a single persisted tab to the current schema.
- * Handles the `kind: "omp"` → `kind: "terminal", agent: "omp"` migration and
- * backfills all fields added after initial release.
+ * Handles legacy `kind: "omp"` → `kind: "terminal", agent: "omp"` and
+ * builds the correct discriminated-union variant.
  */
-function migratePersistedTab(raw: Tab): Tab {
-  const rawKind = (raw as unknown as Record<string, unknown>).kind as string;
+function migratePersistedTab(raw: Record<string, unknown>): Tab {
+  const rawKind = raw.kind as string;
   const isLegacyOmp = rawKind === "omp";
 
   const kind: TabKind = isLegacyOmp ? "terminal" : (rawKind as TabKind);
-  const agent: AgentType | null = isLegacyOmp
-    ? "omp"
-    : (((raw as unknown as Record<string, unknown>).agent as AgentType | null) ?? null);
+  const agent = (isLegacyOmp ? "omp" : (raw.agent as AgentType | null)) ?? null;
 
-  // Stale persisted data from before the refactor stored session UUID as tab.id.
-  // Regenerate a fresh UUID so tab.id ≠ sessionId (prevents React duplicate keys).
-  const id = raw.id === raw.sessionId ? crypto.randomUUID() : raw.id;
+  // Stale data stored session UUID as tab.id — regenerate to prevent React key collisions.
+  const id = raw.id === raw.sessionId ? crypto.randomUUID() : (raw.id as string);
 
-  return {
-    ...raw,
+  const base: BaseTab = {
     id,
-    kind,
-    agent,
-    startCmd: raw.startCmd ?? (agent !== null ? AGENT_START_CMD[agent] : null),
-    resumeCmd:
-      raw.resumeCmd ?? (agent !== null ? agentResumeCmd(agent, raw.sessionId) : null),
-    path: raw.path ?? "",
-    firstMessage: raw.firstMessage ?? "",
-    content: raw.content ?? "",
-    note: raw.note ?? "",
-    envVars: raw.envVars ?? [],
-    modifiedAt: raw.modifiedAt ?? raw.createdAt,
+    sessionId: (raw.sessionId as string) ?? "",
+    title: (raw.title as string) ?? "Untitled",
+    cwd: (raw.cwd as string) ?? "",
+    isPinned: (raw.isPinned as boolean) ?? false,
+    userRenamed: (raw.userRenamed as boolean) ?? false,
+    note: (raw.note as string) ?? "",
+    envVars: (raw.envVars as EnvVar[]) ?? [],
+    isLoading: false,
+    error: "Disconnected — select to reconnect",
     isIdle: true,
-    hasUnreadCompletion: false,
-    activity: { state: "disconnected" },
+    createdAt: (raw.createdAt as number) ?? Date.now() / 1000,
+    modifiedAt:
+      (raw.modifiedAt as number) ?? (raw.createdAt as number) ?? Date.now() / 1000,
   };
+
+  if (kind === "note") {
+    return { ...base, kind: "note", agent: null, content: (raw.content as string) ?? "" };
+  }
+
+  if (agent === null) {
+    return { ...base, kind: "terminal", agent: null };
+  }
+
+  // Agent tab — build the right variant
+  const agentBase: AgentTab = {
+    ...base,
+    kind: "terminal",
+    agent,
+    startCmd: (raw.startCmd as string) ?? AGENT_REGISTRY[agent].startCmd(),
+    resumeCmd:
+      (raw.resumeCmd as string | null) ??
+      (base.sessionId && !base.sessionId.startsWith("__")
+        ? AGENT_REGISTRY[agent].resumeCmd(base.sessionId)
+        : null),
+    activity: { state: "disconnected" },
+    hasUnreadCompletion: false,
+  };
+
+  if (agent === "omp") {
+    return {
+      ...agentBase,
+      agent: "omp",
+      path: (raw.path as string) ?? "",
+      firstMessage: (raw.firstMessage as string) ?? "",
+    };
+  }
+  if (agent === "codex") return { ...agentBase, agent: "codex" };
+  // claude (default)
+  return { ...agentBase, agent: "claude" };
 }
 
-// ─── Store ───────────────────────────────────────────────────────────────────
+// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useTerminalStore = create<TerminalState>()(
   persist(
@@ -390,32 +326,57 @@ export const useTerminalStore = create<TerminalState>()(
         const id = params.id ?? `tab-${shortId()}`;
         const isNote = params.kind === "note";
         const isInactive = params.inactive ?? false;
-        const tab: Tab = {
+
+        const base: BaseTab = {
           id,
-          isLoading: isNote || isInactive ? false : true,
-          error: isInactive ? "Disconnected — select to reconnect" : null,
-          activity: {
-            state: isNote ? "waiting_input" : isInactive ? "disconnected" : "starting",
-          },
-          createdAt: Date.now() / 1000,
-          modifiedAt: Date.now() / 1000,
-          isPinned: false,
-          userRenamed: false,
-          kind: params.kind,
-          agent: params.agent,
-          startCmd: params.startCmd,
-          resumeCmd: params.resumeCmd,
           sessionId: params.sessionId,
-          path: params.path,
-          firstMessage: params.firstMessage,
-          note: "",
-          envVars: [],
           title: params.title,
           cwd: params.cwd,
-          content: "",
+          isPinned: false,
+          userRenamed: false,
+          note: "",
+          envVars: [],
+          isLoading: isNote || isInactive ? false : true,
+          error: isInactive ? "Disconnected — select to reconnect" : null,
           isIdle: true,
-          hasUnreadCompletion: false,
+          createdAt: Date.now() / 1000,
+          modifiedAt: Date.now() / 1000,
         };
+
+        let tab: Tab;
+
+        if (isNote) {
+          tab = { ...base, kind: "note", agent: null, content: params.content ?? "" };
+        } else if (params.agent === null) {
+          tab = { ...base, kind: "terminal", agent: null };
+        } else {
+          const agent = params.agent;
+          const agentBase: AgentTab = {
+            ...base,
+            kind: "terminal",
+            agent,
+            startCmd: params.startCmd ?? AGENT_REGISTRY[agent].startCmd(),
+            resumeCmd: params.resumeCmd ?? null,
+            activity: {
+              state: isInactive ? "disconnected" : "starting",
+            },
+            hasUnreadCompletion: false,
+          };
+
+          if (agent === "omp") {
+            tab = {
+              ...agentBase,
+              agent: "omp",
+              path: params.path ?? "",
+              firstMessage: params.firstMessage ?? "",
+            };
+          } else if (agent === "codex") {
+            tab = { ...agentBase, agent: "codex" };
+          } else {
+            tab = { ...agentBase, agent: "claude" };
+          }
+        }
+
         // Idempotent for agent sessions — concurrent loadSessions() calls must not
         // create duplicate tabs for the same sessionId.
         set((s) => {
@@ -425,10 +386,11 @@ export const useTerminalStore = create<TerminalState>()(
               (t) => t.sessionId === params.sessionId && t.agent === params.agent
             )
           ) {
-            return s; // already exists — no-op
+            return s;
           }
           return { tabs: [...s.tabs, tab], activeTabId: id };
         });
+
         return id;
       },
 
@@ -458,25 +420,34 @@ export const useTerminalStore = create<TerminalState>()(
 
       setTabReady: (tabId) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId
-              ? {
-                  ...t,
-                  isLoading: false,
-                  error: null,
-                  activity: { state: "waiting_input" },
-                }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId) return t;
+            if (isAgentTab(t)) {
+              return {
+                ...t,
+                isLoading: false,
+                error: null,
+                activity: { state: "waiting_input" as const },
+              };
+            }
+            return { ...t, isLoading: false, error: null };
+          }),
         })),
 
       setTabError: (tabId, message) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId
-              ? { ...t, isLoading: false, error: message, activity: { state: "error" } }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId) return t;
+            if (isAgentTab(t)) {
+              return {
+                ...t,
+                isLoading: false,
+                error: message,
+                activity: { state: "error" as const },
+              };
+            }
+            return { ...t, isLoading: false, error: message };
+          }),
         })),
 
       updateTabTitle: (tabId, title) =>
@@ -495,18 +466,17 @@ export const useTerminalStore = create<TerminalState>()(
 
       syncTabFromSession: (tabId, patch) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId
-              ? {
-                  ...t,
-                  title: t.userRenamed ? t.title : patch.title,
-                  cwd: patch.cwd,
-                  path: patch.path,
-                  firstMessage: patch.firstMessage,
-                  modifiedAt: patch.modifiedAt,
-                }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId || !isOmpTab(t)) return t;
+            return {
+              ...t,
+              title: t.userRenamed ? t.title : patch.title,
+              cwd: patch.cwd,
+              path: patch.path,
+              firstMessage: patch.firstMessage,
+              modifiedAt: patch.modifiedAt,
+            };
+          }),
         })),
 
       toggleTabPin: (tabId) =>
@@ -516,39 +486,49 @@ export const useTerminalStore = create<TerminalState>()(
 
       retryTab: (tabId) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId
-              ? { ...t, isLoading: true, error: null, activity: { state: "starting" } }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId) return t;
+            if (isAgentTab(t)) {
+              return {
+                ...t,
+                isLoading: true,
+                error: null,
+                activity: { state: "starting" as const },
+              };
+            }
+            return { ...t, isLoading: true, error: null };
+          }),
         })),
 
       bindTabSession: (tabId, sessionId, title) =>
         set((s) => ({
-          tabs: s.tabs.map((tab) => {
-            if (tab.id !== tabId || tab.agent === null) return tab;
-            const agent = tab.agent;
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId || !isAgentTab(t)) return t;
+            const agent = t.agent;
             return {
-              ...tab,
+              ...t,
               sessionId,
-              resumeCmd: agentResumeCmd(agent, sessionId),
+              resumeCmd: AGENT_REGISTRY[agent].resumeCmd(sessionId),
               modifiedAt: Date.now() / 1000,
-              ...(title && !tab.userRenamed ? { title } : {}),
+              ...(title && !t.userRenamed ? { title } : {}),
             };
           }),
         })),
 
       setTabActivity: (tabId, activity) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId ? { ...t, activity, modifiedAt: Date.now() / 1000 } : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId || !isAgentTab(t)) return t;
+            return { ...t, activity, modifiedAt: Date.now() / 1000 };
+          }),
         })),
 
       updateTabContent: (tabId, content) =>
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.id === tabId ? { ...t, content, modifiedAt: Date.now() / 1000 } : t
+            t.id === tabId && isNoteTab(t)
+              ? { ...t, content, modifiedAt: Date.now() / 1000 }
+              : t
           ),
         })),
 
@@ -575,39 +555,45 @@ export const useTerminalStore = create<TerminalState>()(
 
       markTabRead: (tabId) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId && t.hasUnreadCompletion
-              ? { ...t, hasUnreadCompletion: false }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId || !isAgentTab(t)) return t;
+            return t.hasUnreadCompletion ? { ...t, hasUnreadCompletion: false } : t;
+          }),
         })),
 
       markTabUnread: (tabId) =>
         set((s) => ({
-          tabs: s.tabs.map((t) =>
-            t.id === tabId && !t.hasUnreadCompletion
-              ? { ...t, hasUnreadCompletion: true }
-              : t
-          ),
+          tabs: s.tabs.map((t) => {
+            if (t.id !== tabId || !isAgentTab(t)) return t;
+            return !t.hasUnreadCompletion ? { ...t, hasUnreadCompletion: true } : t;
+          }),
         })),
     }),
     {
       name: "piarc-terminal-tabs",
       partialize: (state) => ({
-        tabs: state.tabs.map((tab) => ({
-          ...tab,
-          isLoading: false,
-          isIdle: true,
-          hasUnreadCompletion: false,
-          activity: { state: "disconnected" },
-          error: "Disconnected — select to reconnect",
-        })),
+        tabs: state.tabs.map((tab) => {
+          const base = {
+            ...tab,
+            isLoading: false,
+            isIdle: true,
+            error: "Disconnected — select to reconnect",
+          };
+          if (isAgentTab(tab)) {
+            return {
+              ...base,
+              activity: { state: "disconnected" as const },
+              hasUnreadCompletion: false,
+            };
+          }
+          return base;
+        }),
       }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<TerminalState>;
-        // Migrate then deduplicate by id — guards against stale persisted data
-        // where multiple tabs shared the same session UUID as their id.
-        const migrated = (saved.tabs ?? []).map(migratePersistedTab);
+        const migrated = ((saved.tabs ?? []) as unknown[]).map((raw) =>
+          migratePersistedTab(raw as Record<string, unknown>)
+        );
         const seen = new Set<string>();
         const tabs = migrated.filter((t) => {
           if (seen.has(t.id)) return false;

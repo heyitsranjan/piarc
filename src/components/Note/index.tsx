@@ -4,10 +4,10 @@
  */
 import { useEffect, useRef } from "react";
 
-import { type Tab, useTerminalStore } from "@/store/terminal";
+import { type NoteTab, useTerminalStore } from "@/store/terminal";
 
 interface NoteProps {
-  tab: Tab;
+  tab: NoteTab;
 }
 
 export default function Note({ tab }: NoteProps) {

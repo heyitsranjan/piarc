@@ -7,7 +7,7 @@ import { FileText, StickyNote } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
-import type { Tab } from "@/store/terminal";
+import type { NoteTab, TerminalTab } from "@/store/terminal";
 
 import { cwdShort, timeAgo } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -15,13 +15,13 @@ import { cn } from "@/lib/utils";
 import ConfirmDeleteDialog from "./ConfirmDeleteDialog";
 import RenameDialog from "./RenameDialog";
 
-function notePreview(tab: Tab): string {
+function notePreview(tab: NoteTab): string {
   const snippet = tab.content.replace(/\s+/g, " ").trim().slice(0, 42);
   return snippet || "Empty note";
 }
 
 interface TerminalRowProps {
-  tab: Tab;
+  tab: NoteTab | TerminalTab;
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;

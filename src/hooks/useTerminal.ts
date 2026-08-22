@@ -18,6 +18,7 @@ import {
   type AgentType,
   type Tab,
   agentResumeCmd,
+  isAgentTab,
   useTerminalStore,
 } from "@/store/terminal";
 
@@ -151,7 +152,8 @@ export function useTerminal(): UseTerminalReturn {
         // (disconnected with no error happens when synced via useSyncSessions
         // before inactive:true, or when activity was reset without setting error).
         const needsReconnect =
-          !!existing.error || existing.activity.state === "disconnected";
+          !!existing.error ||
+          (isAgentTab(existing) && existing.activity.state === "disconnected");
         if (needsReconnect) {
           markRetry(existing.id);
           await spawnPty(existing.id, existing, cols, rows);

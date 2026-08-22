@@ -27,12 +27,12 @@ import { ArrowDownToLine } from "lucide-react";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import type { Tab } from "@/store/terminal";
-import { useTerminalStore } from "@/store/terminal";
+import { type Tab, isAgentTab, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import {
   AGENT_ACTIVITY_OSC,
+  type AgentActivity,
   isAgentCompletion,
   parseAgentActivity,
 } from "@/lib/agent-activity";
@@ -127,8 +127,11 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const isScrolledUpRef = useRef(false);
   const cancelScrollAnimationRef = useRef<(() => void) | null>(null);
-  const activityRef = useRef(tab.activity);
+  const activityRef = useRef<AgentActivity>(
+    isAgentTab(tab) ? tab.activity : { state: "waiting_input" }
+  );
   const tabTitleRef = useRef(tab.title);
+  const tabActivity = isAgentTab(tab) ? tab.activity : undefined;
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const activeTabIdRef = useRef(activeTabId);
   activeTabIdRef.current = activeTabId;
@@ -147,9 +150,9 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     isVisible && (!richInputEnabled || interactiveCommandEnabled);
 
   useEffect(() => {
-    activityRef.current = tab.activity;
+    if (tabActivity !== undefined) activityRef.current = tabActivity;
     tabTitleRef.current = tab.title;
-  }, [tab.activity, tab.title]);
+  }, [tabActivity, tab.title]);
 
   useEffect(() => {
     richInputEnabledRef.current = richInputEnabled;
