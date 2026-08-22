@@ -308,7 +308,6 @@ export default function TabRow({
               agent={isAgent ? tab.agent : null}
               size={13}
               className="shrink-0 text-[var(--color-ink-7)]"
-              activityState={isOmpTab(tab) && isWorking ? activityState : undefined}
             />
           )}
 

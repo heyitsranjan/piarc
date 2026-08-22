@@ -251,6 +251,7 @@ impl PtyManager {
         let pair = pty_system.openpty(size).context("openpty")?;
 
         let cmd_str = shell_command(program, &shell)?;
+        info!("PTY command: {cmd_str}");
 
         let mut cmd = CommandBuilder::new(shell.as_ref());
         cmd.args(["-l", "-c", &cmd_str]);

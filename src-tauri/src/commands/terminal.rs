@@ -89,6 +89,7 @@ pub async fn create_pty(
     let agent_kind = parse_agent(&agent);
     let shell = login_shell();
     let extension = status_extension(&app)?;
+    info!("extension path: {}", extension.display());
     let pm = state.pty_manager.clone();
 
     pm.spawn(

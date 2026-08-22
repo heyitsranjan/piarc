@@ -205,18 +205,31 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     termRef.current = term;
     fitRef.current = fit;
 
+    console.debug(
+      "[piarc] registering OSC 777 handler for tab",
+      tab.id,
+      "agent:",
+      tab.agent
+    );
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
       if (tab.agent === null) return false;
       const activity = parseAgentActivity(data);
-      if (!activity) return false;
+      if (!activity) {
+        console.debug(
+          "[piarc] OSC 777 received but failed to parse:",
+          data.slice(0, 120)
+        );
+        return false;
+      }
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
+      console.debug("[piarc] activity →", activity.state, activity.detail ?? "");
+
+      // Push to store so sidebar/TitleBar re-render.
+      setTabActivity(tab.id, nextActivity);
+
       if (activity.sessionId) {
-        // Only bind when the sessionId belongs to a known on-disk session.
-        // Subagent sessions (depth-3 JSONL) are excluded by list_sessions,
-        // so binding their ID would orphan the tab as a "pending session"
-        // in the sidebar. Keep the tab bound to its main session.
         const sess = useSessionStore
           .getState()
           .sessions.find((s) => s.id === activity.sessionId);
