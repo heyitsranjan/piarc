@@ -47,7 +47,7 @@ log                = "0.4"          # log facade used by tauri-plugin-log
 # ── Utilities ─────────────────────────────────────────────────────────────
 dirs        = "5"
 anyhow      = "1"
-base64      = "0.22"
+base64      = "0.23"
 parking_lot = "0.12"
 uuid        = { version = "1", features = ["v4"] }
 chrono      = { version = "0.4", features = ["serde"] }
