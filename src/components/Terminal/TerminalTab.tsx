@@ -423,8 +423,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     tab.id,
     tab.isLoading,
     tab.error,
-    tab.title,
-    tab.cwd,
   ]);
 
   // Direct mode gives the visible terminal normal stdin. Rich mode enables
