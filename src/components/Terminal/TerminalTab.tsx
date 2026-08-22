@@ -219,29 +219,44 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       tab.agent
     );
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
-      const PREFIX_DETECT = "piarc://agent-detect;";
+      const WARP_PREFIX = "notify;warp://cli-agent;";
 
-      // ── Agent detection in plain terminal ────────────────────────────────
-      if (isPlainTerminal(tab) && data.startsWith(PREFIX_DETECT)) {
-        const agent = data.slice(PREFIX_DETECT.length).trim() as AgentType;
-        if (agent === "omp" || agent === "codex" || agent === "claude") {
-          console.debug("[piarc] detected agent in plain terminal:", agent);
-          promoteToAgent(tab.id, agent);
-          return true;
+      // ── OMP Warp notification → promote plain terminal to agent tab ──────
+      // OMP sends `notify;warp://cli-agent;{event,v,agent,session_id}`
+      // automatically when it starts, even without --extension. Use this
+      // to detect OMP starting in a plain terminal and promote in-place.
+      if (isPlainTerminal(tab) && data.startsWith(WARP_PREFIX)) {
+        try {
+          const payload = JSON.parse(data.slice(WARP_PREFIX.length)) as Record<
+            string,
+            unknown
+          >;
+          if (payload.event === "session_start" && typeof payload.agent === "string") {
+            const agent = payload.agent as AgentType;
+            if (agent === "omp" || agent === "codex" || agent === "claude") {
+              console.debug("[piarc] OMP session_start detected, promoting tab", agent);
+              promoteToAgent(tab.id, agent);
+              // Bind session ID immediately if present
+              if (typeof payload.session_id === "string") {
+                const sessionId = payload.session_id;
+                const sess = useSessionStore
+                  .getState()
+                  .sessions.find((s) => s.id === sessionId);
+                bindTabSession(tab.id, sessionId, sess?.title);
+              }
+              return true;
+            }
+          }
+        } catch {
+          // malformed JSON — ignore
         }
         return false;
       }
 
-      // ── Activity state update (agent tabs only) ───────────────────────────
+      // ── PiArc activity state update (agent tabs with --extension) ────────
       if (tab.agent === null) return false;
       const activity = parseAgentActivity(data);
-      if (!activity) {
-        console.debug(
-          "[piarc] OSC 777 received but failed to parse:",
-          data.slice(0, 120)
-        );
-        return false;
-      }
+      if (!activity) return false;
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
