@@ -12,6 +12,8 @@
  */
 import type { AgentType } from "@/store/terminal";
 
+import type { AgentActivityState } from "@/lib/agent-activity";
+
 // ─── SVG path constants ──────────────────────────────────────────────────────
 
 /** Anthropic "A" mark path data (viewBox 0 0 24 24). */
@@ -27,6 +29,28 @@ const OMP_PATH = "M14 10h36v9H40v39h-9V19h-5v29h-9V19h-3z";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+// ─── Activity ring colours ────────────────────────────────────────────────────
+
+/** Maps an activity state to a Tailwind ring/animation class pair. */
+function activityRingClass(state: AgentActivityState): string {
+  switch (state) {
+    case "thinking":
+    case "responding":
+      return "ring-[var(--color-accent)] animate-pulse";
+    case "tool":
+    case "retrying":
+      return "ring-amber-400 animate-pulse";
+    case "compacting":
+      return "ring-[var(--color-ink-7)] animate-pulse";
+    case "starting":
+      return "ring-[var(--color-accent)] opacity-60 animate-pulse";
+    default:
+      return "";
+  }
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface AgentIconProps {
   /** Agent whose brand icon to render. */
   agent: AgentType;
@@ -34,46 +58,75 @@ interface AgentIconProps {
   size?: number;
   /** Additional CSS classes — typically a `text-*` color utility. */
   className?: string;
+  /**
+   * Current activity state — when set to a working state, renders a
+   * pulsing coloured ring around the icon to signal the agent is busy.
+   * Only OMP emits rich activity states; pass `undefined` for others.
+   */
+  activityState?: AgentActivityState;
 }
 
 /**
  * Renders the brand icon for a given AI agent.
  * Color is inherited via `currentColor` — set it with a `text-*` utility.
+ * Pass `activityState` to show a pulsing ring when the agent is working.
  *
  * @example
  * <AgentIcon agent="omp" size={13} className="text-[var(--color-ink-7)]" />
- * <AgentIcon agent="claude" size={16} className="text-[var(--color-accent)]" />
+ * <AgentIcon agent="omp" activityState="thinking" size={13} />
  */
-export function AgentIcon({ agent, size = 13, className }: AgentIconProps) {
-  const props = {
+export function AgentIcon({
+  agent,
+  size = 13,
+  className,
+  activityState,
+}: AgentIconProps) {
+  const svgProps = {
     width: size,
     height: size,
     fill: "currentColor",
     "aria-hidden": true as const,
     xmlns: "http://www.w3.org/2000/svg",
-    className,
   };
 
-  if (agent === "claude") {
-    return (
-      <svg {...props} viewBox="0 0 24 24">
+  const ringClass = activityState ? activityRingClass(activityState) : "";
+  const showRing = ringClass !== "";
+
+  const svg =
+    agent === "claude" ? (
+      <svg {...svgProps} viewBox="0 0 24 24">
         <path d={CLAUDE_PATH} />
       </svg>
-    );
-  }
-
-  if (agent === "codex") {
-    return (
-      <svg {...props} viewBox="0 0 24 24">
+    ) : agent === "codex" ? (
+      <svg {...svgProps} viewBox="0 0 24 24">
         <path d={CODEX_PATH} />
       </svg>
+    ) : (
+      <svg {...svgProps} viewBox="0 0 64 64">
+        <path d={OMP_PATH} />
+      </svg>
+    );
+
+  if (!showRing) {
+    // No ring — render icon directly with className applied
+    return (
+      <span
+        className={className}
+        style={{ display: "inline-flex", alignItems: "center" }}
+      >
+        {svg}
+      </span>
     );
   }
 
-  // agent === "omp"
+  // Ring overlay: a rounded wrapper with a 1px ring + animation
   return (
-    <svg {...props} viewBox="0 0 64 64">
-      <path d={OMP_PATH} />
-    </svg>
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center rounded-[3px] ring-1 ${ringClass} ${className ?? ""}`}
+      style={{ width: size, height: size }}
+      aria-label={activityState}
+    >
+      {svg}
+    </span>
   );
 }

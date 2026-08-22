@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Menu } from "@tauri-apps/api/menu";
 import { message } from "@tauri-apps/plugin-dialog";
 
-import { CircleAlert, FileText, Loader2, StickyNote } from "lucide-react";
+import { Archive, CircleAlert, FileText, Loader2, StickyNote, Zap } from "lucide-react";
 
 import { ItemIcon } from "@/components/shared/ItemIcon";
 
@@ -176,30 +176,71 @@ export default function TabRow({
           : "text-[var(--color-accent)]"
       : "text-[var(--color-ink-7)]";
 
-  // ── Right badge ───────────────────────────────────────────────────────
-  const rightBadge =
-    isAgent && isWorking ? (
-      <Loader2
-        size={14}
-        strokeWidth={2}
-        className="animate-spin text-[var(--color-accent)]"
-        aria-label={isSpawning ? "Starting terminal" : activityLabel}
-      />
-    ) : isAgent && needsAttention ? (
-      <CircleAlert
-        size={13}
-        className={
-          tab.activity.state === "error"
-            ? "text-[var(--color-danger)]"
-            : "text-[var(--color-warn)]"
-        }
-        aria-label={activityLabel}
-      />
-    ) : (
+  // ── Right badge — state-aware for agent tabs ───────────────────────────
+  const activityState = isAgent ? tab.activity.state : undefined;
+
+  const rightBadge = (() => {
+    if (isAgent && isWorking) {
+      switch (activityState) {
+        case "tool":
+        case "retrying":
+          return (
+            <Zap
+              size={13}
+              strokeWidth={2}
+              className="animate-pulse text-amber-400"
+              aria-label={activityLabel}
+            />
+          );
+        case "compacting":
+          return (
+            <Archive
+              size={13}
+              strokeWidth={2}
+              className="animate-pulse text-[var(--color-ink-5)]"
+              aria-label={activityLabel}
+            />
+          );
+        case "starting":
+          return (
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              className="animate-spin text-[var(--color-ink-7)]"
+              aria-label="Starting terminal"
+            />
+          );
+        default:
+          // thinking / responding
+          return (
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              className="animate-spin text-[var(--color-accent)]"
+              aria-label={activityLabel}
+            />
+          );
+      }
+    }
+    if (isAgent && needsAttention) {
+      return (
+        <CircleAlert
+          size={13}
+          className={
+            tab.activity.state === "error"
+              ? "text-[var(--color-danger)]"
+              : "text-[var(--color-warn)]"
+          }
+          aria-label={activityLabel}
+        />
+      );
+    }
+    return (
       <span className="block w-[18px] text-right font-mono text-[7px] tabular-nums leading-[8px] text-[var(--color-ink-7)]">
         {timeAgo(tab.modifiedAt)}
       </span>
     );
+  })();
 
   // ── Rename dialog props ───────────────────────────────────────────────
   const renameSubtitle = (() => {
@@ -266,6 +307,7 @@ export default function TabRow({
               agent={isAgent ? tab.agent : null}
               size={13}
               className="shrink-0 text-[var(--color-ink-7)]"
+              activityState={isOmpTab(tab) && isWorking ? activityState : undefined}
             />
           )}
 
