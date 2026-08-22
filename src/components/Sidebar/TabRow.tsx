@@ -74,13 +74,15 @@ export default function TabRow({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // ── Agent-specific display ─────────────────────────────────────────────
+  // Use isAgentTab(tab) inline for type narrowing — `isAgent` boolean doesn't narrow.
   const isAgent = isAgentTab(tab);
+  const activity = isAgentTab(tab) ? tab.activity : undefined;
   const isSpawning = tab.isLoading;
-  const isWorking = isAgent && (isSpawning || isAgentWorking(tab.activity));
+  const isWorking =
+    isAgent && (isSpawning || (activity ? isAgentWorking(activity) : false));
   const needsAttention =
-    isAgent &&
-    (tab.activity.state === "waiting_approval" || tab.activity.state === "error");
-  const activityLabel = isAgent ? agentActivityLabel(tab.activity) : "";
+    isAgent && (activity?.state === "waiting_approval" || activity?.state === "error");
+  const activityLabel = activity ? agentActivityLabel(activity) : "";
   const showActivity = isWorking || needsAttention;
 
   // For OMP: path used for rename/delete ops.
@@ -169,15 +171,15 @@ export default function TabRow({
 
   const subtitleClass =
     isAgent && showActivity
-      ? tab.activity.state === "error"
+      ? activity?.state === "error"
         ? "text-[var(--color-danger)]"
-        : tab.activity.state === "waiting_approval"
+        : activity?.state === "waiting_approval"
           ? "text-[var(--color-warn)]"
           : "text-[var(--color-accent)]"
       : "text-[var(--color-ink-7)]";
 
   // ── Right badge — state-aware for agent tabs ───────────────────────────
-  const activityState = isAgent ? tab.activity.state : undefined;
+  const activityState = activity?.state;
 
   const rightBadge = (() => {
     if (isAgent && isWorking) {
@@ -211,7 +213,6 @@ export default function TabRow({
             />
           );
         default:
-          // thinking / responding
           return (
             <Loader2
               size={14}
@@ -227,7 +228,7 @@ export default function TabRow({
         <CircleAlert
           size={13}
           className={
-            tab.activity.state === "error"
+            activity?.state === "error"
               ? "text-[var(--color-danger)]"
               : "text-[var(--color-warn)]"
           }
