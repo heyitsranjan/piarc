@@ -208,14 +208,16 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     termRef.current = term;
     fitRef.current = fit;
 
+    // Track detected agent locally — updated immediately on detection, not waiting
+    // for React to re-render (tabAgentRef.current update). This prevents frames
+    // arriving in the same PTY batch from being dropped due to stale ref.
+    let detectedAgent: AgentType | null = tabAgentRef.current;
+
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
       const WARP_PREFIX = "notify;warp://cli-agent;";
 
       // ── OMP Warp notification → promote plain terminal to agent tab ──────
-      // OMP sends `notify;warp://cli-agent;{event,v,agent,session_id}`
-      // automatically when it starts, even without --extension. Use this
-      // to detect OMP starting in a plain terminal and promote in-place.
-      if (tabAgentRef.current === null && data.startsWith(WARP_PREFIX)) {
+      if (detectedAgent === null && data.startsWith(WARP_PREFIX)) {
         try {
           const payload = JSON.parse(data.slice(WARP_PREFIX.length)) as Record<
             string,
@@ -224,8 +226,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           if (payload.event === "session_start" && typeof payload.agent === "string") {
             const agent = payload.agent as AgentType;
             if (agent === "omp" || agent === "codex" || agent === "claude") {
+              detectedAgent = agent; // update immediately — no re-render needed
               promoteToAgent(tab.id, agent);
-              // Bind session ID immediately if present
               if (typeof payload.session_id === "string") {
                 const sessionId = payload.session_id;
                 const sess = useSessionStore
@@ -243,12 +245,14 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       }
 
       // ── PiArc activity state update (agent tabs with --extension) ────────
-      if (tabAgentRef.current === null) return false;
+      // Use detectedAgent (local, updated immediately) not tabAgentRef.current (stale until re-render).
+      if (detectedAgent === null) return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
+      setTabActivity(tab.id, nextActivity);
       if (activity.sessionId) {
         const sess = useSessionStore
           .getState()
