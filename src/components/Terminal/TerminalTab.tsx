@@ -38,7 +38,6 @@ import { useUiStore } from "@/store/ui";
 
 import {
   AGENT_ACTIVITY_OSC,
-  AGENT_DETECT_OSC,
   type AgentActivity,
   isAgentCompletion,
   parseAgentActivity,
@@ -220,6 +219,20 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       tab.agent
     );
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
+      const PREFIX_DETECT = "piarc://agent-detect;";
+
+      // ── Agent detection in plain terminal ────────────────────────────────
+      if (isPlainTerminal(tab) && data.startsWith(PREFIX_DETECT)) {
+        const agent = data.slice(PREFIX_DETECT.length).trim() as AgentType;
+        if (agent === "omp" || agent === "codex" || agent === "claude") {
+          console.debug("[piarc] detected agent in plain terminal:", agent);
+          promoteToAgent(tab.id, agent);
+          return true;
+        }
+        return false;
+      }
+
+      // ── Activity state update (agent tabs only) ───────────────────────────
       if (tab.agent === null) return false;
       const activity = parseAgentActivity(data);
       if (!activity) {
@@ -233,37 +246,18 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
       console.debug("[piarc] activity →", activity.state, activity.detail ?? "");
-
-      // Push to store so sidebar/TitleBar re-render.
       setTabActivity(tab.id, nextActivity);
-
       if (activity.sessionId) {
         const sess = useSessionStore
           .getState()
           .sessions.find((s) => s.id === activity.sessionId);
-        if (sess) {
-          bindTabSession(tab.id, activity.sessionId, sess.title);
-        }
+        if (sess) bindTabSession(tab.id, activity.sessionId, sess.title);
       }
       if (isAgentCompletion(previousActivity, nextActivity)) {
         const isActiveTab = activeTabIdRef.current === tab.id;
         notifyAgentCompletion(tabTitleRef.current, isActiveTab).catch(() => {});
         if (!isActiveTab) markTabUnread(tab.id);
       }
-      return true;
-    });
-
-    // OSC 7779 — agent-detect frame emitted by the shell preexec hook when
-    // the user runs omp / codex / claude in a plain terminal.
-    // Promotes the tab in-place: TerminalTab → OmpTab/CodexTab/ClaudeTab.
-    const detectDispose = term.parser.registerOscHandler(AGENT_DETECT_OSC, (data) => {
-      if (!isPlainTerminal(tab)) return false; // already an agent tab
-      const PREFIX_DETECT = "piarc://agent-detect;";
-      if (!data.startsWith(PREFIX_DETECT)) return false;
-      const agent = data.slice(PREFIX_DETECT.length).trim() as AgentType;
-      if (agent !== "omp" && agent !== "codex" && agent !== "claude") return false;
-      console.debug("[piarc] detected agent in plain terminal:", agent);
-      promoteToAgent(tab.id, agent);
       return true;
     });
 
@@ -398,7 +392,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       onDataDispose.dispose();
       shellIntegDispose.dispose();
       statusDispose.dispose();
-      detectDispose.dispose();
       cancelScrollAnimationRef.current?.();
       cancelScrollAnimationRef.current = null;
       scrollDispose.dispose();
