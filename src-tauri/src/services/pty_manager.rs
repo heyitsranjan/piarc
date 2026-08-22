@@ -115,6 +115,17 @@ elif [ -n "$BASH_VERSION" ]; then
     trap '__piarc_preexec "$BASH_COMMAND"' DEBUG
     __piarc_osc133 A
 fi
+# Auto-inject --extension when user runs omp/codex/claude at the prompt.
+# Only applies inside PiArc terminals (PIARC_EXTENSION is set).
+# Skipped when --extension is already present in the arguments.
+if [ -n "$PIARC_EXTENSION" ]; then
+    omp() {
+        case "$*" in
+            *--extension*) command omp "$@" ;;
+            *) command omp --extension "$PIARC_EXTENSION" "$@" ;;
+        esac
+    }
+fi
 "#
 }
 

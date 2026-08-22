@@ -213,15 +213,24 @@ pub async fn shell_pty(
     info!("shell PTY requested");
 
     let shell = login_shell();
-    let pm = state.pty_manager.clone();
+    let extension = status_extension(&app)?;
 
+    // Inject PIARC_EXTENSION so the shell integration wrapper can auto-add
+    // --extension when the user runs `omp` at the prompt.
+    let mut shell_env = env;
+    shell_env.insert(
+        "PIARC_EXTENSION".to_string(),
+        extension.to_string_lossy().into_owned(),
+    );
+
+    let pm = state.pty_manager.clone();
     pm.spawn(
         tab_id.clone(),
         PtyProgram::Shell,
         &cwd,
         (cols, rows),
         &shell,
-        &env,
+        &shell_env,
         {
             let app = app.clone();
             move |tab, chunk| {
