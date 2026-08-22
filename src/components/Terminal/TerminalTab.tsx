@@ -208,12 +208,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     termRef.current = term;
     fitRef.current = fit;
 
-    console.debug(
-      "[piarc] registering OSC 777 handler for tab",
-      tab.id,
-      "agent:",
-      tab.agent
-    );
     const statusDispose = term.parser.registerOscHandler(AGENT_ACTIVITY_OSC, (data) => {
       const WARP_PREFIX = "notify;warp://cli-agent;";
 
@@ -230,7 +224,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
           if (payload.event === "session_start" && typeof payload.agent === "string") {
             const agent = payload.agent as AgentType;
             if (agent === "omp" || agent === "codex" || agent === "claude") {
-              console.debug("[piarc] OMP session_start detected, promoting tab", agent);
               promoteToAgent(tab.id, agent);
               // Bind session ID immediately if present
               if (typeof payload.session_id === "string") {
@@ -256,8 +249,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       const previousActivity = activityRef.current;
       const nextActivity = { state: activity.state, detail: activity.detail };
       activityRef.current = nextActivity;
-      console.debug("[piarc] activity →", activity.state, activity.detail ?? "");
-      setTabActivity(tab.id, nextActivity);
       if (activity.sessionId) {
         const sess = useSessionStore
           .getState()

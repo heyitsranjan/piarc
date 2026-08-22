@@ -93,7 +93,6 @@ export interface UseTerminalReturn {
  */
 export function useTerminal(): UseTerminalReturn {
   const {
-    tabs,
     openTab,
     closeTab,
     setActiveTab,
@@ -144,13 +143,12 @@ export function useTerminal(): UseTerminalReturn {
 
   const openSession = useCallback(
     async (session: OmpSession, cols: number, rows: number, agent: AgentType = "omp") => {
-      // Reuse existing tab — avoids duplicate PTYs for the same session.
-      const existing = tabs.find((t) => t.sessionId === session.id);
+      // Always read tabs from store directly — avoids stale closure when called
+      // right after promoteToAgent/bindTabSession (closure hasn't re-rendered yet).
+      const currentTabs = useTerminalStore.getState().tabs;
+      const existing = currentTabs.find((t) => t.sessionId === session.id);
       if (existing) {
         setActiveTab(existing.id);
-        // Reconnect when error is set OR tab is in disconnected state
-        // (disconnected with no error happens when synced via useSyncSessions
-        // before inactive:true, or when activity was reset without setting error).
         const needsReconnect =
           !!existing.error ||
           (isAgentTab(existing) && existing.activity.state === "disconnected");
@@ -180,7 +178,7 @@ export function useTerminal(): UseTerminalReturn {
         rows
       );
     },
-    [tabs, openTab, setActiveTab, markRetry, spawnPty]
+    [openTab, setActiveTab, markRetry, spawnPty]
   );
 
   const retryTab = useCallback(
