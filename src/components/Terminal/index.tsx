@@ -28,7 +28,7 @@ export default function TerminalArea() {
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const richInputPreference = useUiStore((state) => state.richInputEnabled);
   const richInputEnabled =
-    FEATURE_RICH_INPUT && richInputPreference && activeTab?.kind === "omp";
+    FEATURE_RICH_INPUT && richInputPreference && activeTab?.agent !== null;
   const lastEscapeAt = useRef(0);
 
   useEffect(() => {
@@ -65,6 +65,7 @@ export default function TerminalArea() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg)]">
       <div className="relative min-h-0 flex-1">
         {!activeTab && <TerminalEmpty />}
+
         {tabs.map((tab) => {
           const active = tab.id === activeTabId;
           return (

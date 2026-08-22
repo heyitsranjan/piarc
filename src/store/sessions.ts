@@ -78,21 +78,30 @@ export const useSessionStore = create<SessionsState>()(
         set({ isLoading: true, error: null });
         try {
           const fetched = await listSessions();
-          // Overlay user-defined title overrides so reloaded data doesn't
-          // clobber names the user set manually (belt-and-suspenders —
-          // Rust already writes source: "user" to the JSONL title slot, but
-          // OMP itself may overwrite that slot on some flows).
           const { renamedTitles } = get();
           const sessions = fetched.map((s) =>
             renamedTitles[s.id] ? { ...s, title: renamedTitles[s.id] } : s
           );
           set({ sessions, isLoading: false, hasLoadedOnce: true });
 
-          // Sync terminal tab titles for non-user-renamed tabs.
-          const { tabs, syncTabTitle } = useTerminalStore.getState();
+          // Sync metadata onto existing tabs. DB (localStorage) is the source of truth
+          // for tabs — new sessions on disk do NOT create tabs here. Tabs are only
+          // created when the user opens a session (openSession) or via the terminal store.
+          const { tabs, syncTabFromSession } = useTerminalStore.getState();
+          const tabsBySessionId = new Map(
+            tabs.filter((t) => t.agent !== null).map((t) => [t.sessionId, t])
+          );
           for (const s of sessions) {
-            const tab = tabs.find((t) => t.sessionId === s.id);
-            if (tab) syncTabTitle(tab.id, s.title);
+            const existing = tabsBySessionId.get(s.id);
+            if (existing) {
+              syncTabFromSession(existing.id, {
+                title: s.title,
+                cwd: s.cwd,
+                path: s.path,
+                firstMessage: s.firstMessage,
+                modifiedAt: s.modified,
+              });
+            }
           }
         } catch (err) {
           set({ error: String(err), isLoading: false, hasLoadedOnce: true });

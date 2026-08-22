@@ -215,15 +215,18 @@ export const getGitFileDiff = (
 export interface CreatePtyParams {
   /** Unique tab ID — used as the PTY cache key in Rust `AppState`. */
   tabId: string;
-  /** omp session UUID (`omp --resume <sessionId>`). */
+  /** Agent type — determines which CLI binary runs in the PTY. */
+  agent: string;
+  /** Agent session UUID (`<agent> --resume <sessionId>`). */
   sessionId: string;
-  /** Working directory; the shell `cd`s here before launching omp. */
+  /** Working directory; the shell `cd`s here before launching the agent. */
   cwd: string;
   /** Initial terminal column count (from xterm.js `Terminal.cols`). */
   cols: number;
   /** Initial terminal row count (from xterm.js `Terminal.rows`). */
   rows: number;
-  /** Index signature required by Tauri's `InvokeArgs` constraint. */
+  /** Global environment variables injected into the PTY process. */
+  env: Record<string, string>;
   [key: string]: unknown;
 }
 
@@ -260,13 +263,16 @@ export const killPty = (tabId: string): Promise<void> => invoke("kill_pty", { ta
 export interface NewSessionPtyParams {
   /** Unique tab ID — PTY cache key in Rust AppState. */
   tabId: string;
-  /** Working directory; omp creates the session file here. */
+  /** Agent type — determines which CLI binary runs in the PTY. */
+  agent?: string;
+  /** Working directory; the agent creates the session file here. */
   cwd: string;
   /** Initial terminal column count. */
   cols: number;
   /** Initial terminal row count. */
   rows: number;
-  /** Index signature required by Tauri's InvokeArgs constraint. */
+  /** Global environment variables injected into the PTY process. */
+  env: Record<string, string>;
   [key: string]: unknown;
 }
 

@@ -18,7 +18,7 @@ import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
@@ -50,7 +50,7 @@ export default function CommandPalette() {
 
     const matchedTerminals = tabs
       .filter(
-        (tab) => tab.kind === "terminal" && (!q || fuzzyMatchAny(q, tab.title, tab.cwd))
+        (tab) => isPlainTerminal(tab) && (!q || fuzzyMatchAny(q, tab.title, tab.cwd))
       )
       .map((tab) => ({ kind: "terminal" as const, tab }));
 
@@ -204,7 +204,10 @@ export default function CommandPalette() {
                   ? timeAgo(result.session.modified)
                   : timeAgo(result.tab.createdAt);
                 const icon = (
-                  <ItemIcon kind={isSession ? "session" : isNote ? "note" : "terminal"} />
+                  <ItemIcon
+                    kind={isSession ? "session" : isNote ? "note" : "terminal"}
+                    agent={!isSession && !isNote ? result.tab.agent : undefined}
+                  />
                 );
                 const subtitle = isNote
                   ? `${timeAgo(result.tab.createdAt)} · ${result.tab.content.slice(0, 40)}`

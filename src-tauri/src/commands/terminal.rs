@@ -11,7 +11,7 @@ use std::{env, path::PathBuf};
 use tauri::{path::BaseDirectory, Emitter, Manager, State};
 use tracing::{error, info};
 
-use crate::services::pty_manager::PtyProgram;
+use crate::services::pty_manager::{AgentKind, PtyProgram};
 use crate::state::AppState;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -49,6 +49,16 @@ fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
     }
 }
 
+/// Parse the agent type string from the frontend into `AgentKind`.
+/// Defaults to `Omp` for unknown values (backward compatibility).
+fn parse_agent(agent: &str) -> AgentKind {
+    match agent {
+        "codex" => AgentKind::Codex,
+        "claude" => AgentKind::Claude,
+        _ => AgentKind::Omp,
+    }
+}
+
 // ─── Commands ─────────────────────────────────────────────────────────────
 
 /// Spawn a new PTY for `tab_id`, loading the PiArc lifecycle extension and
@@ -61,19 +71,22 @@ fn emit_exit(app: &tauri::AppHandle, tab: &str, code: i32) {
 pub async fn create_pty(
     tab_id: String,
     session_id: String,
+    agent: String,
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    info!("resume PTY requested");
+    info!("resume PTY requested for agent: {agent}");
 
     if state.pty_manager.has(&tab_id) {
         info!("reused live PTY");
         return Ok(());
     }
 
+    let agent_kind = parse_agent(&agent);
     let shell = login_shell();
     let extension = status_extension(&app)?;
     let pm = state.pty_manager.clone();
@@ -81,12 +94,14 @@ pub async fn create_pty(
     pm.spawn(
         tab_id.clone(),
         PtyProgram::Resume {
+            agent: agent_kind,
             session_id: &session_id,
             extension: &extension,
         },
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {
@@ -141,24 +156,31 @@ pub fn kill_pty(tab_id: String, state: State<'_, AppState>) {
 #[tauri::command]
 pub async fn new_session_pty(
     tab_id: String,
+    agent: String,
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    info!("new OMP PTY requested");
+    info!("new agent PTY requested: {agent}");
 
+    let agent_kind = parse_agent(&agent);
     let shell = login_shell();
     let extension = status_extension(&app)?;
     let pm = state.pty_manager.clone();
 
     pm.spawn(
         tab_id.clone(),
-        PtyProgram::NewSession(&extension),
+        PtyProgram::NewSession {
+            agent: agent_kind,
+            extension: &extension,
+        },
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {
@@ -171,7 +193,7 @@ pub async fn new_session_pty(
         },
     )
     .map_err(|error| {
-        error!("new OMP PTY failed");
+        error!("new agent PTY failed");
         error.to_string()
     })
 }
@@ -183,6 +205,7 @@ pub async fn shell_pty(
     cwd: String,
     cols: u16,
     rows: u16,
+    env: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
@@ -197,6 +220,7 @@ pub async fn shell_pty(
         &cwd,
         (cols, rows),
         &shell,
+        &env,
         {
             let app = app.clone();
             move |tab, chunk| {

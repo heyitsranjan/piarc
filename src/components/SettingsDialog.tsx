@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { createPortal } from "react-dom";
 
@@ -22,6 +22,9 @@ import {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
+import { type EnvVar, useEnvStore } from "@/store/env";
+import { useTerminalStore } from "@/store/terminal";
+
 import {
   type ConnectionReport,
   type CustomModel,
@@ -33,6 +36,8 @@ import {
   testCustomModel,
   updateCustomModel,
 } from "@/lib/ipc";
+import { killPty } from "@/lib/ipc";
+import { cn } from "@/lib/utils";
 
 interface SettingsDialogProps {
   onClose: () => void;
@@ -58,6 +63,7 @@ const emptyDraft: CustomModelDraft = {
 };
 
 export default function SettingsDialog({ onClose }: SettingsDialogProps) {
+  const [activeTab, setActiveTab] = useState<"models" | "env">("models");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CustomModel | null>(null);
   const [models, setModels] = useState<CustomModel[]>([]);
@@ -206,12 +212,21 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
           </div>
           <button
             type="button"
-            className="arc-row-active arc-dialog-button relative flex h-[46px] w-full items-center gap-2 px-[9px] text-left"
+            onClick={() => setActiveTab("models")}
+            className={cn(
+              "arc-dialog-button relative flex h-[46px] w-full items-center gap-2 px-[9px] text-left",
+              activeTab === "models" && "arc-row-active"
+            )}
           >
             <Server
               size={14}
               strokeWidth={1.8}
-              className="shrink-0 text-[var(--color-accent)]"
+              className={cn(
+                "shrink-0",
+                activeTab === "models"
+                  ? "text-[var(--color-accent)]"
+                  : "text-[var(--color-ink-7)]"
+              )}
             />
             <span className="min-w-0">
               <span className="block font-mono text-[9px] text-[var(--color-ink-0)]">
@@ -222,16 +237,45 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
               </span>
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("env")}
+            className={cn(
+              "arc-dialog-button relative flex h-[46px] w-full items-center gap-2 px-[9px] text-left",
+              activeTab === "env" && "arc-row-active"
+            )}
+          >
+            <KeyRound
+              size={14}
+              strokeWidth={1.8}
+              className={cn(
+                "shrink-0",
+                activeTab === "env"
+                  ? "text-[var(--color-accent)]"
+                  : "text-[var(--color-ink-7)]"
+              )}
+            />
+            <span className="min-w-0">
+              <span className="block font-mono text-[9px] text-[var(--color-ink-0)]">
+                Environment
+              </span>
+              <span className="mt-1 block font-mono text-[7px] text-[var(--color-ink-7)]">
+                Global PTY variables
+              </span>
+            </span>
+          </button>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="arc-dialog-header flex items-center border-b border-[var(--color-border)]">
             <div className="min-w-0 flex-1">
               <h3 className="arc-dialog-title text-[var(--color-ink-0)]">
-                Custom Models
+                {activeTab === "models" ? "Custom Models" : "Environment Variables"}
               </h3>
               <p className="arc-dialog-subtitle">
-                Connect model providers. Credentials stay in macOS Keychain.
+                {activeTab === "models"
+                  ? "Connect model providers. Credentials stay in macOS Keychain."
+                  : "Injected into every PTY. Changes apply on next session open."}
               </p>
             </div>
             <kbd className="border border-[var(--color-border)] px-1.5 py-0.5 font-mono text-[8px] text-[var(--color-ink-9)]">
@@ -240,38 +284,42 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-[14px]">
-            {adding ? (
-              <ModelForm
-                draft={draft}
-                update={update}
-                report={report}
-                error={error}
-                editing={Boolean(editing)}
-                busy={busy}
-                valid={Boolean(valid)}
-                onCancel={() => {
-                  setEditing(null);
-                  setAdding(false);
-                  setDraft(emptyDraft);
-                  setReport(null);
-                  setError(null);
-                }}
-                onTest={() => void test()}
-                onSave={() => void save()}
-              />
+            {activeTab === "models" ? (
+              adding ? (
+                <ModelForm
+                  draft={draft}
+                  update={update}
+                  report={report}
+                  error={error}
+                  editing={Boolean(editing)}
+                  busy={busy}
+                  valid={Boolean(valid)}
+                  onCancel={() => {
+                    setEditing(null);
+                    setAdding(false);
+                    setDraft(emptyDraft);
+                    setReport(null);
+                    setError(null);
+                  }}
+                  onTest={() => void test()}
+                  onSave={() => void save()}
+                />
+              ) : (
+                <ModelList
+                  models={models}
+                  deleting={deleting}
+                  error={error}
+                  onEdit={editModel}
+                  onDelete={(model) => void removeModel(model)}
+                  onAdd={() => {
+                    setEditing(null);
+                    setDraft(emptyDraft);
+                    setAdding(true);
+                  }}
+                />
+              )
             ) : (
-              <ModelList
-                models={models}
-                deleting={deleting}
-                error={error}
-                onEdit={editModel}
-                onDelete={(model) => void removeModel(model)}
-                onAdd={() => {
-                  setEditing(null);
-                  setDraft(emptyDraft);
-                  setAdding(true);
-                }}
-              />
+              <EnvPanel />
             )}
           </div>
         </div>
@@ -676,5 +724,137 @@ function Check({
       />
       {label}
     </label>
+  );
+}
+
+// ─── Environment panel ───────────────────────────────────────────────────────
+
+function EnvPanel() {
+  const { envVars, setVars } = useEnvStore();
+  const activeTabId = useTerminalStore((s) => s.activeTabId);
+  const setTabError = useTerminalStore((s) => s.setTabError);
+  const setTabActivity = useTerminalStore((s) => s.setTabActivity);
+
+  // Local draft so edits don't affect running PTYs until Save is clicked.
+  const [draft, setDraft] = useState<EnvVar[]>(() => envVars.map((v) => ({ ...v })));
+  const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<number | null>(null);
+
+  const updateDraft = (id: string, field: "key" | "value", text: string) =>
+    setDraft((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: text } : v)));
+
+  const removeDraft = (id: string) => setDraft((prev) => prev.filter((v) => v.id !== id));
+
+  const addDraft = () =>
+    setDraft((prev) => [
+      ...prev,
+      { id: Math.random().toString(36).slice(2), key: "", value: "" },
+    ]);
+
+  const handleSave = () => {
+    // Persist to store (strips empty-key rows).
+    setVars(draft.filter((v) => v.key.trim()));
+
+    // Kill + disconnect every non-active PTY so they pick up the new env
+    // when the user next clicks them.
+    const tabs = useTerminalStore.getState().tabs;
+    for (const tab of tabs) {
+      if (tab.id === activeTabId) continue; // user handles active tab manually
+      if (tab.kind !== "terminal") continue;
+      void killPty(tab.id);
+      setTabError(tab.id, "Disconnected — select to reconnect");
+      setTabActivity(tab.id, { state: "disconnected" });
+    }
+
+    setSaved(true);
+    clearTimeout(savedTimerRef.current ?? undefined);
+    savedTimerRef.current = window.setTimeout(() => setSaved(false), 2000);
+  };
+
+  const hasChanges =
+    JSON.stringify(draft) !== JSON.stringify(envVars.map((v) => ({ ...v })));
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header row */}
+      <div className="grid grid-cols-[1fr_1fr_28px] gap-2 px-1">
+        <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-7)]">
+          Key
+        </span>
+        <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-7)]">
+          Value
+        </span>
+        <span />
+      </div>
+
+      {/* Rows */}
+      <div className="flex flex-col gap-1.5">
+        {draft.length === 0 && (
+          <p className="py-4 text-center font-mono text-[9px] text-[var(--color-ink-9)]">
+            No environment variables. Click + to add one.
+          </p>
+        )}
+        {draft.map((v) => (
+          <div key={v.id} className="grid grid-cols-[1fr_1fr_28px] gap-2">
+            <Input
+              value={v.key}
+              onChange={(e) => updateDraft(v.id, "key", e.target.value)}
+              placeholder="KEY"
+              className="font-mono text-[9px]"
+              spellCheck={false}
+            />
+            <Input
+              value={v.value}
+              onChange={(e) => updateDraft(v.id, "value", e.target.value)}
+              placeholder="value"
+              className="font-mono text-[9px]"
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={() => removeDraft(v.id)}
+              className="grid place-items-center rounded text-[var(--color-ink-7)] hover:text-[var(--color-danger)]"
+              aria-label="Remove"
+            >
+              <Trash2 size={12} strokeWidth={2} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 border-t border-[var(--color-border)] pt-3">
+        <button
+          type="button"
+          onClick={addDraft}
+          className="arc-dialog-button flex items-center gap-1.5 font-mono text-[9px] text-[var(--color-ink-3)]"
+        >
+          <CirclePlus size={11} strokeWidth={2} />
+          Add variable
+        </button>
+        <span className="flex-1" />
+        {saved && (
+          <span className="flex items-center gap-1 font-mono text-[9px] text-[var(--color-accent)]">
+            <CheckCircle2 size={11} strokeWidth={2} />
+            Saved
+          </span>
+        )}
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanges}
+          className="h-7 px-3 font-mono text-[9px]"
+        >
+          Save
+        </Button>
+      </div>
+
+      {/* Hint */}
+      <p className="font-mono text-[8px] leading-relaxed text-[var(--color-ink-9)]">
+        Inactive sessions are disconnected on save — they will pick up the new environment
+        on next open. For the active session, click{" "}
+        <kbd className="border border-[var(--color-border)] px-1 py-0.5">↺</kbd> in the
+        toolbar to apply.
+      </p>
+    </div>
   );
 }

@@ -1,11 +1,15 @@
 /**
  * @module hooks/useNewSession
- * Opens a terminal running `omp` (no --resume) to start a fresh session.
+ * Creates fresh terminal tabs — either an OMP agent session or a plain shell.
  *
- * Flow:
- * 1. Ask the user to choose the working directory.
- * 2. Open a new tab and spawn its PTY in that directory.
- * 3. omp creates a JSONL file; the FS watcher updates the sidebar.
+ * Flow for agent sessions:
+ * 1. Ask the user to choose a working directory.
+ * 2. Open a new tab and spawn its PTY running the agent binary.
+ * 3. The agent creates a session file; the FS watcher updates the sidebar.
+ *
+ * Flow for plain terminals:
+ * 1. Ask the user to choose a working directory.
+ * 2. Open a new tab and spawn a plain login shell.
  */
 import { useCallback, useState } from "react";
 
@@ -16,28 +20,32 @@ import {
   TERMINAL_DEFAULT_ROWS,
 } from "@/components/Terminal/constants";
 
+import { useEnvStore } from "@/store/env";
 import { useOmpStore } from "@/store/omp";
-import { useTerminalStore } from "@/store/terminal";
+import { AGENT_START_CMD, type AgentType, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { newSessionPty, shellPty } from "@/lib/ipc";
 import { log } from "@/lib/logger";
 
+// ─── Public interface ────────────────────────────────────────────────────────
+
 export interface UseNewSessionReturn {
-  /** Start a new omp session — opens a terminal running `omp`. */
+  /** Start a new OMP agent session — opens a terminal running `omp`. */
   startNewSession: () => Promise<void>;
-  /** Open a plain login shell without starting omp. */
+  /** Open a plain login shell without starting any agent. */
   startTerminal: () => Promise<void>;
-  /** True while the PTY is being spawned. */
+  /** `true` while the PTY is being spawned. */
   isStarting: boolean;
 }
 
+// ─── Hook ────────────────────────────────────────────────────────────────────
+
 /**
- * Provides a `startNewSession` action that opens a terminal running `omp`
- * without a session ID, creating a brand-new omp session.
+ * Provides actions to start a new OMP session or a plain terminal.
  *
  * @example
- * const { startNewSession, isStarting } = useNewSession();
+ * const { startNewSession, startTerminal, isStarting } = useNewSession();
  */
 export function useNewSession(): UseNewSessionReturn {
   const [isStarting, setIsStarting] = useState(false);
@@ -46,18 +54,24 @@ export function useNewSession(): UseNewSessionReturn {
   const setSidebarMode = useUiStore((state) => state.setSidebarMode);
   const prependSidebarOrder = useUiStore((state) => state.prependSidebarOrder);
 
+  /**
+   * @internal Core factory — opens a tab for the given agent (or plain shell).
+   * `agent: null` → plain shell; `agent: AgentType` → AI-backed terminal.
+   */
   const start = useCallback(
-    async (kind: "omp" | "terminal") => {
-      if (kind === "omp" && !ompAvailable) {
+    async (agent: AgentType | null) => {
+      if (agent === "omp" && !ompAvailable) {
         log.warn("Cannot start OMP session: OMP is unavailable");
         return;
       }
+
       setIsStarting(true);
-      const isTerminal = kind === "terminal";
+
+      const isPlainShell = agent === null;
       const cwd = await open({
         directory: true,
         multiple: false,
-        title: isTerminal
+        title: isPlainShell
           ? "Choose location for new terminal"
           : "Choose location for new PiArc session",
       }).catch((reason) => {
@@ -66,16 +80,22 @@ export function useNewSession(): UseNewSessionReturn {
         });
         return null;
       });
+
       if (typeof cwd !== "string") {
         setIsStarting(false);
         return;
       }
-      const title = isTerminal ? "Terminal" : "New session";
+
       const tabId = openTab({
         id: crypto.randomUUID(),
-        kind,
-        sessionId: isTerminal ? `__terminal__${Date.now()}` : `__new__${Date.now()}`,
-        title,
+        kind: "terminal",
+        agent,
+        startCmd: agent !== null ? AGENT_START_CMD[agent] : null,
+        resumeCmd: null,
+        path: "",
+        firstMessage: "",
+        sessionId: isPlainShell ? `__terminal__${Date.now()}` : `__new__${Date.now()}`,
+        title: isPlainShell ? "Terminal" : "New session",
         cwd,
       });
 
@@ -85,11 +105,13 @@ export function useNewSession(): UseNewSessionReturn {
       try {
         const params = {
           tabId,
+          agent: agent ?? "omp",
           cwd,
           cols: TERMINAL_DEFAULT_COLS,
           rows: TERMINAL_DEFAULT_ROWS,
+          env: useEnvStore.getState().toRecord(),
         };
-        await (isTerminal ? shellPty(params) : newSessionPty(params));
+        await (isPlainShell ? shellPty(params) : newSessionPty(params));
         setTabReady(tabId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -103,7 +125,7 @@ export function useNewSession(): UseNewSessionReturn {
   );
 
   const startNewSession = useCallback(() => start("omp"), [start]);
-  const startTerminal = useCallback(() => start("terminal"), [start]);
+  const startTerminal = useCallback(() => start(null), [start]);
 
   return { startNewSession, startTerminal, isStarting };
 }

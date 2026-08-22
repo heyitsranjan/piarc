@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { type SidebarMode, useUiStore } from "@/store/ui";
 
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export default function ModeDropdown() {
   const ref = useRef<HTMLDivElement>(null);
 
   const sessionCount = sessions.length;
-  const terminalCount = tabs.filter((t) => t.kind === "terminal").length;
+  const terminalCount = tabs.filter(isPlainTerminal).length;
   const noteCount = tabs.filter((t) => t.kind === "note").length;
   const counts: Record<SidebarMode, number> = {
     all: sessionCount + terminalCount + noteCount,

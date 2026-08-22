@@ -91,6 +91,7 @@ export default function TerminalRow({
           ) : (
             <ItemIcon
               kind="terminal"
+              agent={tab.agent}
               size={13}
               className="shrink-0 text-[var(--color-ink-7)]"
             />

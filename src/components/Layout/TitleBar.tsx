@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import {
+  Cog,
   FolderTree,
   GitBranch,
+  KeyRound,
   PanelLeft,
   RotateCcw,
-  Settings2,
   ShieldCheck,
   StickyNote,
 } from "lucide-react";
@@ -27,7 +28,7 @@ import { useTerminal } from "@/hooks/useTerminal";
 
 import { useOmpStore } from "@/store/omp";
 import { useSessionStore } from "@/store/sessions";
-import { useTerminalStore } from "@/store/terminal";
+import { isPlainTerminal, useTerminalStore } from "@/store/terminal";
 import { type SidebarMode, useUiStore } from "@/store/ui";
 
 import { cn } from "@/lib/utils";
@@ -48,9 +49,7 @@ export default function TitleBar() {
   const activeTab = useTerminalStore((state) =>
     state.tabs.find((tab) => tab.id === state.activeTabId)
   );
-  const hasTerminals = useTerminalStore((state) =>
-    state.tabs.some((tab) => tab.kind === "terminal")
-  );
+  const hasTerminals = useTerminalStore((state) => state.tabs.some(isPlainTerminal));
   const title = activeSession
     ? `${activeSession.title} — ${activeSession.cwd.split("/").pop()}`
     : activeTab?.title;
@@ -67,13 +66,18 @@ export default function TitleBar() {
   const closeNewDialog = useUiStore((state) => state.closeNewDialog);
   const notePanelOpen = useUiStore((state) => state.notePanelOpen);
   const toggleNotePanel = useUiStore((state) => state.toggleNotePanel);
+  const envPanelOpen = useUiStore((state) => state.envPanelOpen);
+  const toggleEnvPanel = useUiStore((state) => state.toggleEnvPanel);
   const { startNewSession, startTerminal, isStarting } = useNewSession();
   const { startNewNote } = useNewNote();
-  const { refreshSession } = useTerminal();
-
+  const { refreshSession, restartTab } = useTerminal();
   const refreshActiveSession = () => {
-    if (!activeSession) return;
-    void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    if (!activeTab || activeTab.kind === "note" || activeTab.isLoading) return;
+    if (activeSession) {
+      void refreshSession(activeSession, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    } else {
+      void restartTab(activeTab.id, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS);
+    }
   };
 
   const create = (action: () => Promise<void>) => {
@@ -210,10 +214,10 @@ export default function TitleBar() {
           <button
             type="button"
             onClick={refreshActiveSession}
-            disabled={!activeSession || activeTab?.isLoading}
+            disabled={!activeTab || activeTab.kind === "note" || activeTab.isLoading}
             title={
-              activeSession
-                ? `Restart terminal for ${activeSession.title} (⌘R)`
+              activeTab && activeTab.kind !== "note"
+                ? "Restart terminal (⌘R)"
                 : "Select a session to refresh"
             }
             aria-label="Refresh active session terminal"
@@ -262,12 +266,23 @@ export default function TitleBar() {
           </button>
           <button
             type="button"
+            onClick={toggleEnvPanel}
+            disabled={!activeTab || activeTab?.kind === "note"}
+            title="Session environment variables"
+            aria-label="Toggle session environment"
+            aria-pressed={envPanelOpen}
+            className={cn("titlebar-action", envPanelOpen && "titlebar-action-active")}
+          >
+            <KeyRound size={14} strokeWidth={1.8} aria-hidden />
+          </button>
+          <button
+            type="button"
             onClick={() => setSettingsOpen(true)}
             title="Settings"
             aria-label="Open settings"
             className="titlebar-action"
           >
-            <Settings2 size={14} strokeWidth={1.8} aria-hidden />
+            <Cog size={14} strokeWidth={1.8} aria-hidden />
           </button>
           <button
             type="button"
