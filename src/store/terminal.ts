@@ -258,7 +258,12 @@ function migratePersistedTab(raw: Record<string, unknown>): Tab {
   const agent = (isLegacyOmp ? "omp" : (raw.agent as AgentType | null)) ?? null;
 
   // Stale data stored session UUID as tab.id — regenerate to prevent React key collisions.
-  const id = raw.id === raw.sessionId ? crypto.randomUUID() : (raw.id as string);
+  const rawId = raw.id as string | undefined;
+  const rawSessionId = raw.sessionId as string | undefined;
+  const id =
+    rawId && rawSessionId && rawId === rawSessionId
+      ? crypto.randomUUID()
+      : (rawId ?? crypto.randomUUID());
 
   const base: BaseTab = {
     id,
@@ -591,9 +596,14 @@ export const useTerminalStore = create<TerminalState>()(
       }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<TerminalState>;
-        const migrated = ((saved.tabs ?? []) as unknown[]).map((raw) =>
-          migratePersistedTab(raw as Record<string, unknown>)
-        );
+        const migrated: Tab[] = [];
+        for (const raw of (saved.tabs ?? []) as unknown[]) {
+          try {
+            migrated.push(migratePersistedTab(raw as Record<string, unknown>));
+          } catch {
+            // Skip corrupted tab — don't crash the whole store
+          }
+        }
         const seen = new Set<string>();
         const tabs = migrated.filter((t) => {
           if (seen.has(t.id)) return false;
