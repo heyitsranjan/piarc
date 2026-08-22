@@ -93,40 +93,29 @@ fn valid_session_id(session_id: &str) -> bool {
 /// - `A` = prompt start — shell is idle, awaiting input
 /// - `C` = command output start — a command is now running
 /// - `D` = command finished — back to idle
-fn shell_integration_script() -> &'static str {
-    r#"
-__piarc_osc133() { printf '\e]133;%s\e\\' "$1"; }
-__piarc_detect() { printf '\e]777;piarc://agent-detect;%s\a' "$1"; }
-__piarc_preexec() {
-    __piarc_osc133 C
-    case "$1" in
-        omp|omp\ *|omp$'\t'*)       __piarc_detect omp ;;
-        codex|codex\ *|codex$'\t'*) __piarc_detect codex ;;
-        claude|claude\ *|claude$'\t'*) __piarc_detect claude ;;
-    esac
-}
-__piarc_precmd() { __piarc_osc133 D; __piarc_osc133 A; }
+fn shell_integration_script(extension_path: &str) -> String {
+    format!(r#"
+__piarc_osc133() {{ printf '\e]133;%s\e\\' "$1"; }}
+__piarc_precmd() {{ __piarc_osc133 D; __piarc_osc133 A; }}
+__piarc_preexec() {{ __piarc_osc133 C; }}
 if [ -n "$ZSH_VERSION" ]; then
     precmd_functions+=(__piarc_precmd)
     preexec_functions+=(__piarc_preexec)
     __piarc_osc133 A
 elif [ -n "$BASH_VERSION" ]; then
-    PROMPT_COMMAND="__piarc_precmd;${PROMPT_COMMAND}"
-    trap '__piarc_preexec "$BASH_COMMAND"' DEBUG
+    PROMPT_COMMAND="__piarc_precmd;${{PROMPT_COMMAND}}"
+    trap '__piarc_preexec' DEBUG
     __piarc_osc133 A
 fi
-# Auto-inject --extension when user runs omp/codex/claude at the prompt.
-# Only applies inside PiArc terminals (PIARC_EXTENSION is set).
-# Skipped when --extension is already present in the arguments.
-if [ -n "$PIARC_EXTENSION" ]; then
-    omp() {
-        case "$*" in
-            *--extension*) command omp "$@" ;;
-            *) command omp --extension "$PIARC_EXTENSION" "$@" ;;
-        esac
-    }
-fi
-"#
+# Auto-inject --extension so PiArc activity tracking works when user runs omp.
+# Extension path is baked in at PTY spawn time — no env var needed.
+omp() {{
+    case "$*" in
+        *--extension*) command omp "$@" ;;
+        *) command omp --extension {ext} "$@" ;;
+    esac
+}}
+"#, ext = shell_quote(extension_path))
 }
 
 /// Write the OSC 133 shell-integration wrapper and return the path to a
@@ -140,11 +129,11 @@ fi
 ///
 /// For **bash**: `BASH_ENV` is sourced at startup, so we just return the
 /// integration script path directly.
-fn write_integration_wrapper(_shell: &str) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+fn write_integration_wrapper(_shell: &str, extension_path: &str) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
     let dir = std::env::temp_dir().join("piarc-shell-integration");
     std::fs::create_dir_all(&dir).context("create shell-integration temp dir")?;
     let integ_path = dir.join("piarc_integration.sh");
-    std::fs::write(&integ_path, shell_integration_script())
+    std::fs::write(&integ_path, shell_integration_script(extension_path))
         .with_context(|| format!("write integration to {}", integ_path.display()))?;
 
     let home = std::env::var("HOME").unwrap_or_default();
@@ -291,8 +280,9 @@ impl PtyManager {
         // login shell sources our wrapper which sources the user's real
         // config then the OSC 133 integration hooks.
         if matches!(program, PtyProgram::Shell) {
+            let ext_path = extra_env.get("PIARC_EXTENSION").map(|s| s.as_str()).unwrap_or("");
             let (zdotdir, bash_env) =
-                write_integration_wrapper(&shell).context("write shell-integration wrapper")?;
+                write_integration_wrapper(&shell, ext_path).context("write shell-integration wrapper")?;
             cmd.env("ZDOTDIR", zdotdir.parent().unwrap_or(&zdotdir));
             cmd.env("BASH_ENV", &bash_env);
             cmd.env("ENV", &bash_env);
