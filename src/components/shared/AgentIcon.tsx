@@ -81,7 +81,7 @@ export function AgentIcon({
   className,
   activityState,
 }: AgentIconProps) {
-  const svgProps = {
+  const commonProps = {
     width: size,
     height: size,
     fill: "currentColor",
@@ -92,41 +92,33 @@ export function AgentIcon({
   const ringClass = activityState ? activityRingClass(activityState) : "";
   const showRing = ringClass !== "";
 
-  const svg =
-    agent === "claude" ? (
-      <svg {...svgProps} viewBox="0 0 24 24">
-        <path d={CLAUDE_PATH} />
-      </svg>
-    ) : agent === "codex" ? (
-      <svg {...svgProps} viewBox="0 0 24 24">
-        <path d={CODEX_PATH} />
-      </svg>
-    ) : (
-      <svg {...svgProps} viewBox="0 0 64 64">
-        <path d={OMP_PATH} />
-      </svg>
-    );
+  // Viewbox and path per agent
+  const [viewBox, pathD] =
+    agent === "claude"
+      ? ["0 0 24 24", CLAUDE_PATH]
+      : agent === "codex"
+        ? ["0 0 24 24", CODEX_PATH]
+        : ["0 0 64 64", OMP_PATH];
 
   if (!showRing) {
-    // No ring — render icon directly with className applied
+    // No ring — return SVG directly, same as before the activity feature.
     return (
-      <span
-        className={className}
-        style={{ display: "inline-flex", alignItems: "center" }}
-      >
-        {svg}
-      </span>
+      <svg {...commonProps} viewBox={viewBox} className={className}>
+        <path d={pathD} />
+      </svg>
     );
   }
 
-  // Ring overlay: a rounded wrapper with a 1px ring + animation
+  // Ring overlay: wrap SVG in a span with a 1px ring + animation.
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center rounded-[3px] ring-1 ${ringClass} ${className ?? ""}`}
       style={{ width: size, height: size }}
       aria-label={activityState}
     >
-      {svg}
+      <svg {...commonProps} viewBox={viewBox}>
+        <path d={pathD} />
+      </svg>
     </span>
   );
 }
