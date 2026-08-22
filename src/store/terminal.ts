@@ -589,7 +589,7 @@ export const useTerminalStore = create<TerminalState>()(
               agent,
               startCmd: AGENT_REGISTRY[agent].startCmd(),
               resumeCmd: null,
-              activity: { state: "starting" as const },
+              activity: { state: "waiting_input" as const },
               hasUnreadCompletion: false,
             };
             if (agent === "omp") {

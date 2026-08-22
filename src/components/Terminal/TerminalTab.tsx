@@ -27,13 +27,7 @@ import { ArrowDownToLine } from "lucide-react";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import {
-  type AgentType,
-  type Tab,
-  isAgentTab,
-  isPlainTerminal,
-  useTerminalStore,
-} from "@/store/terminal";
+import { type AgentType, type Tab, isAgentTab, useTerminalStore } from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import {
@@ -137,6 +131,8 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     isAgentTab(tab) ? tab.activity : { state: "waiting_input" }
   );
   const tabTitleRef = useRef(tab.title);
+  const tabAgentRef = useRef(tab.agent);
+  tabAgentRef.current = tab.agent; // updated every render, no effect re-run
   const tabActivity = isAgentTab(tab) ? tab.activity : undefined;
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const activeTabIdRef = useRef(activeTabId);
@@ -225,7 +221,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       // OMP sends `notify;warp://cli-agent;{event,v,agent,session_id}`
       // automatically when it starts, even without --extension. Use this
       // to detect OMP starting in a plain terminal and promote in-place.
-      if (isPlainTerminal(tab) && data.startsWith(WARP_PREFIX)) {
+      if (tabAgentRef.current === null && data.startsWith(WARP_PREFIX)) {
         try {
           const payload = JSON.parse(data.slice(WARP_PREFIX.length)) as Record<
             string,
@@ -254,7 +250,7 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
       }
 
       // ── PiArc activity state update (agent tabs with --extension) ────────
-      if (tab.agent === null) return false;
+      if (tabAgentRef.current === null) return false;
       const activity = parseAgentActivity(data);
       if (!activity) return false;
       const previousActivity = activityRef.current;
@@ -427,7 +423,6 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
     tab.id,
     tab.isLoading,
     tab.error,
-    tab.agent,
     tab.title,
     tab.cwd,
   ]);
