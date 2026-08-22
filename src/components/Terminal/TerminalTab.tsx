@@ -236,21 +236,31 @@ const TerminalTab = memo(function TerminalTab({ tab, isVisible }: TerminalTabPro
                   .sessions.find((s) => s.id === sessionId);
                 bindTabSession(tab.id, sessionId, sess?.title);
 
-                // Auto-respawn with --extension so activity tracking works.
-                // omp --resume preserves the session; only the PTY is replaced.
-                void refreshSession(
-                  {
-                    id: sessionId,
-                    path: sess?.path ?? "",
-                    title: sess?.title ?? tab.title,
-                    cwd: sess?.cwd ?? tab.cwd,
-                    modified: Math.floor(Date.now() / 1000),
-                    firstMessage: sess?.firstMessage ?? "",
-                  },
-                  TERMINAL_DEFAULT_COLS,
-                  TERMINAL_DEFAULT_ROWS,
-                  agent
-                );
+                // Poll until session file is written to disk (sessions_updated fires async),
+                // then respawn the PTY with --extension for full activity tracking.
+                const spawnWhenReady = (retries: number) => {
+                  const s = useSessionStore
+                    .getState()
+                    .sessions.find((x) => x.id === sessionId);
+                  if (s) {
+                    void refreshSession(
+                      {
+                        id: s.id,
+                        path: s.path,
+                        title: s.title,
+                        cwd: s.cwd,
+                        modified: Math.floor(s.modified),
+                        firstMessage: s.firstMessage,
+                      },
+                      TERMINAL_DEFAULT_COLS,
+                      TERMINAL_DEFAULT_ROWS,
+                      agent
+                    );
+                  } else if (retries > 0) {
+                    window.setTimeout(() => spawnWhenReady(retries - 1), 400);
+                  }
+                };
+                spawnWhenReady(10); // poll up to 4 seconds
               }
               return true;
             }
