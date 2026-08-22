@@ -287,7 +287,7 @@ export default function TabRow({
         )}
       >
         {/* Unread completion dot — agent tabs only */}
-        {isAgent && tab.hasUnreadCompletion && !isActive && (
+        {isAgentTab(tab) && tab.hasUnreadCompletion && !isActive && (
           <span
             className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[var(--color-accent)]"
             aria-label="Unread completion"

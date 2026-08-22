@@ -30,7 +30,14 @@ import { useSessions } from "@/hooks/useSessions";
 import { useTerminal } from "@/hooks/useTerminal";
 
 import { useSessionStore } from "@/store/sessions";
-import { type Tab, isOmpTab, isPlainTerminal, useTerminalStore } from "@/store/terminal";
+import {
+  type Tab,
+  isAgentTab,
+  isNoteTab,
+  isOmpTab,
+  isPlainTerminal,
+  useTerminalStore,
+} from "@/store/terminal";
 import { useUiStore } from "@/store/ui";
 
 import { fuzzyMatchAny } from "@/lib/fuzzy";
@@ -73,9 +80,9 @@ export default function Sidebar() {
   const q = searchQuery.toLowerCase().trim();
 
   // ── Partition tabs by kind ──────────────────────────────────────────────
-  const agentTabs = tabs.filter((t) => t.agent !== null && t.kind === "terminal");
+  const agentTabs = tabs.filter(isAgentTab);
   const terminalTabs = tabs.filter(isPlainTerminal);
-  const noteTabs = tabs.filter((t) => t.kind === "note");
+  const noteTabs = tabs.filter(isNoteTab);
 
   // ── Filter by search query ──────────────────────────────────────────────
   const filteredAgents = agentTabs.filter(
